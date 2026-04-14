@@ -1,0 +1,1260 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Movie Club API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication
+  - name: groups
+    description: Movie clubs
+  - name: movies
+    description: Movie management
+  - name: votes
+    description: Voting
+  - name: invites
+    description: Invite system
+  - name: nominations
+    description: Movie nomination pool
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /movies/search:
+    get:
+      operationId: searchMovies
+      tags: [movies]
+      summary: Search movies via OMDB
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MovieSearchResult"
+
+  /groups:
+    get:
+      operationId: listGroups
+      tags: [groups]
+      summary: List user's groups
+      responses:
+        "200":
+          description: List of groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GroupSummary"
+    post:
+      operationId: createGroup
+      tags: [groups]
+      summary: Create a new group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGroupBody"
+      responses:
+        "201":
+          description: Created group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+
+  /groups/{groupId}:
+    get:
+      operationId: getGroup
+      tags: [groups]
+      summary: Get group details
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: weekOf
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Group details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /groups/{groupId}/invite:
+    post:
+      operationId: createInvite
+      tags: [invites]
+      summary: Create invite link/code
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInviteBody"
+      responses:
+        "201":
+          description: Invite created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invite"
+
+  /groups/join:
+    post:
+      operationId: joinGroup
+      tags: [invites]
+      summary: Join group via invite code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinGroupBody"
+      responses:
+        "200":
+          description: Joined group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+        "400":
+          description: Invalid or expired invite
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /groups/{groupId}/kick:
+    post:
+      operationId: kickMember
+      tags: [groups]
+      summary: Remove a member from the group
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KickMemberBody"
+      responses:
+        "200":
+          description: Member removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /groups/{groupId}/role:
+    post:
+      operationId: updateMemberRole
+      tags: [groups]
+      summary: Update a member's role
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemberRoleBody"
+      responses:
+        "200":
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /groups/{groupId}/picker:
+    post:
+      operationId: assignPicker
+      tags: [groups]
+      summary: Assign the weekly movie picker
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignPickerBody"
+      responses:
+        "200":
+          description: Picker assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /groups/{groupId}/movie:
+    post:
+      operationId: setMovie
+      tags: [movies]
+      summary: Set the weekly movie
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetMovieBody"
+      responses:
+        "200":
+          description: Movie set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MovieData"
+
+  /groups/{groupId}/vote:
+    post:
+      operationId: submitVote
+      tags: [votes]
+      summary: Submit a rating for the current movie
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitVoteBody"
+      responses:
+        "200":
+          description: Vote submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid or already voted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /groups/{groupId}/watch-status:
+    post:
+      operationId: setWatchStatus
+      tags: [groups]
+      summary: Set watched/not-yet status for the current week
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetWatchStatusBody"
+      responses:
+        "200":
+          description: Watch status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /groups/{groupId}/status:
+    get:
+      operationId: getGroupStatus
+      tags: [groups]
+      summary: Get voting status and current movie for a group
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: weekOf
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Group status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupStatus"
+
+  /groups/{groupId}/results:
+    get:
+      operationId: getResults
+      tags: [votes]
+      summary: Get results for a movie week (only after deadline)
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: weekOf
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Results"
+        "403":
+          description: Results not available yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [groups]
+      summary: Get dashboard summary for the current user
+      responses:
+        "200":
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+
+  /invites/{code}:
+    get:
+      operationId: getInvite
+      tags: [invites]
+      summary: Get invite details by code
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invite details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /groups/{groupId}/turns/{turnIndex}/extension:
+    post:
+      operationId: setTurnExtension
+      tags: [groups]
+      summary: Set extension days for a specific turn (admin/owner only)
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: turnIndex
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetTurnExtensionBody"
+      responses:
+        "200":
+          description: Turn extension set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurnExtensionResult"
+
+  /groups/{groupId}/nominations:
+    get:
+      operationId: listNominations
+      tags: [nominations]
+      summary: List all nominations for a group
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Nominations list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Nomination"
+    post:
+      operationId: submitNomination
+      tags: [nominations]
+      summary: Submit a movie nomination for a group
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitNominationBody"
+      responses:
+        "201":
+          description: Nomination created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Nomination"
+        "409":
+          description: Already nominated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /groups/{groupId}/nominations/{nominationId}:
+    delete:
+      operationId: deleteNomination
+      tags: [nominations]
+      summary: Remove a nomination (admin/owner only)
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: nominationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Nomination removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    LoginBody:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 2
+          maxLength: 32
+        password:
+          type: string
+          minLength: 8
+          maxLength: 100
+      required:
+        - username
+        - password
+
+    RegisterBody:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 2
+          maxLength: 32
+        password:
+          type: string
+          minLength: 8
+          maxLength: 100
+      required:
+        - username
+        - password
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - username
+        - createdAt
+
+    MovieSearchResult:
+      type: object
+      properties:
+        imdbId:
+          type: string
+        title:
+          type: string
+        year:
+          type: string
+        poster:
+          type: ["string", "null"]
+      required:
+        - imdbId
+        - title
+        - year
+        - poster
+
+    MovieData:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        weekOf:
+          type: string
+        imdbId:
+          type: ["string", "null"]
+        poster:
+          type: ["string", "null"]
+        director:
+          type: ["string", "null"]
+        genre:
+          type: ["string", "null"]
+        runtime:
+          type: ["string", "null"]
+        year:
+          type: ["string", "null"]
+        nominatorUserId:
+          type: ["integer", "null"]
+        nominatorUsername:
+          type: ["string", "null"]
+        setByUserId:
+          type: ["integer", "null"]
+        setByUsername:
+          type: ["string", "null"]
+      required:
+        - id
+        - title
+        - weekOf
+
+    CreateGroupBody:
+      type: object
+      properties:
+        name:
+          type: string
+        startDate:
+          type: string
+          description: "ISO date (YYYY-MM-DD) when turns start. Defaults to today."
+        turnLengthDays:
+          type: integer
+          minimum: 1
+          maximum: 365
+          description: "Length of each turn in days. Defaults to 7."
+      required:
+        - name
+
+    Group:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        createdAt:
+          type: string
+        ownerId:
+          type: integer
+        startDate:
+          type: string
+        turnLengthDays:
+          type: integer
+      required:
+        - id
+        - name
+        - createdAt
+        - ownerId
+        - startDate
+        - turnLengthDays
+
+    GroupSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        role:
+          type: string
+        memberCount:
+          type: integer
+        currentMovie:
+          type: ["string", "null"]
+        moviePoster:
+          type: ["string", "null"]
+        votingOpen:
+          type: boolean
+        hasVoted:
+          type: boolean
+        resultsAvailable:
+          type: boolean
+        turnLengthDays:
+          type: integer
+        startDate:
+          type: string
+      required:
+        - id
+        - name
+        - role
+        - memberCount
+        - currentMovie
+        - moviePoster
+        - votingOpen
+        - hasVoted
+        - resultsAvailable
+        - turnLengthDays
+        - startDate
+
+    Member:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        role:
+          type: string
+        joinedAt:
+          type: string
+        watched:
+          type: boolean
+      required:
+        - id
+        - username
+        - role
+        - joinedAt
+        - watched
+
+    GroupDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        ownerId:
+          type: integer
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/Member"
+        weekOf:
+          type: string
+        movieData:
+          $ref: "#/components/schemas/MovieData"
+          nullable: true
+        pickerUserId:
+          type: ["integer", "null"]
+        pickerUsername:
+          type: ["string", "null"]
+        votingOpen:
+          type: boolean
+        resultsAvailable:
+          type: boolean
+        myRole:
+          type: string
+        myVote:
+          type: ["number", "null"]
+        myReview:
+          type: ["string", "null"]
+        myWatched:
+          type: boolean
+        turnLengthDays:
+          type: integer
+        startDate:
+          type: string
+        currentTurnWeekOf:
+          type: string
+        turnConfig:
+          type: object
+          properties:
+            startDate:
+              type: string
+            turnLengthDays:
+              type: integer
+            extensions:
+              type: array
+              items:
+                type: object
+                properties:
+                  turnIndex:
+                    type: integer
+                  extraDays:
+                    type: integer
+                required:
+                  - turnIndex
+                  - extraDays
+          required:
+            - startDate
+            - turnLengthDays
+            - extensions
+        movieUnlockedByAdmin:
+          type: boolean
+        pickerSchedule:
+          type: array
+          items:
+            type: object
+            properties:
+              weekOf:
+                type: string
+              endDate:
+                type: string
+              pickerUserId:
+                type: ["integer", "null"]
+              pickerUsername:
+                type: ["string", "null"]
+              isCurrent:
+                type: boolean
+            required:
+              - weekOf
+              - endDate
+              - pickerUserId
+              - pickerUsername
+              - isCurrent
+      required:
+        - id
+        - name
+        - ownerId
+        - members
+        - weekOf
+        - currentTurnWeekOf
+        - turnConfig
+        - pickerUserId
+        - pickerUsername
+        - votingOpen
+        - resultsAvailable
+        - myRole
+        - myVote
+        - myReview
+        - myWatched
+        - turnLengthDays
+        - startDate
+        - movieUnlockedByAdmin
+        - pickerSchedule
+
+    GroupStatus:
+      type: object
+      properties:
+        groupId:
+          type: integer
+        weekOf:
+          type: string
+        movieData:
+          $ref: "#/components/schemas/MovieData"
+          nullable: true
+        votingOpen:
+          type: boolean
+        resultsAvailable:
+          type: boolean
+        deadlineMs:
+          type: ["integer", "null"]
+        hasVoted:
+          type: boolean
+        myVote:
+          type: ["number", "null"]
+        myReview:
+          type: ["string", "null"]
+        myWatched:
+          type: boolean
+        pickerUserId:
+          type: ["integer", "null"]
+        pickerUsername:
+          type: ["string", "null"]
+        myRole:
+          type: string
+        turnLengthDays:
+          type: integer
+        startDate:
+          type: string
+      required:
+        - groupId
+        - weekOf
+        - votingOpen
+        - resultsAvailable
+        - deadlineMs
+        - hasVoted
+        - myVote
+        - myReview
+        - myWatched
+        - pickerUserId
+        - pickerUsername
+        - myRole
+        - turnLengthDays
+        - startDate
+
+    SetMovieBody:
+      type: object
+      properties:
+        title:
+          type: string
+        weekOf:
+          type: string
+        imdbId:
+          type: string
+      required:
+        - title
+
+    SubmitVoteBody:
+      type: object
+      properties:
+        rating:
+          type: number
+          minimum: 1
+          maximum: 10
+        review:
+          type: string
+        weekOf:
+          type: string
+      required:
+        - rating
+
+    SetWatchStatusBody:
+      type: object
+      properties:
+        watched:
+          type: boolean
+        weekOf:
+          type: string
+      required:
+        - watched
+
+    VoteDetail:
+      type: object
+      properties:
+        username:
+          type: string
+        rating:
+          type: number
+        review:
+          type: ["string", "null"]
+        updatedAt:
+          type: string
+      required:
+        - username
+        - rating
+        - updatedAt
+
+    Results:
+      type: object
+      properties:
+        weekOf:
+          type: string
+        movieData:
+          $ref: "#/components/schemas/MovieData"
+          nullable: true
+        averageRating:
+          type: number
+        totalVotes:
+          type: integer
+        distribution:
+          type: array
+          items:
+            $ref: "#/components/schemas/RatingBucket"
+        votes:
+          type: array
+          items:
+            $ref: "#/components/schemas/VoteDetail"
+      required:
+        - weekOf
+        - averageRating
+        - totalVotes
+        - distribution
+        - votes
+
+    RatingBucket:
+      type: object
+      properties:
+        rating:
+          type: integer
+        count:
+          type: integer
+      required:
+        - rating
+        - count
+
+    CreateInviteBody:
+      type: object
+      properties:
+        expiresInHours:
+          type: integer
+
+    Invite:
+      type: object
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        groupId:
+          type: integer
+        expiresAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - code
+        - groupId
+        - expiresAt
+        - createdAt
+
+    InviteDetail:
+      type: object
+      properties:
+        code:
+          type: string
+        groupId:
+          type: integer
+        groupName:
+          type: string
+        expiresAt:
+          type: ["string", "null"]
+        valid:
+          type: boolean
+      required:
+        - code
+        - groupId
+        - groupName
+        - expiresAt
+        - valid
+
+    JoinGroupBody:
+      type: object
+      properties:
+        code:
+          type: string
+      required:
+        - code
+
+    KickMemberBody:
+      type: object
+      properties:
+        userId:
+          type: integer
+      required:
+        - userId
+
+    UpdateMemberRoleBody:
+      type: object
+      properties:
+        userId:
+          type: integer
+        role:
+          type: string
+      required:
+        - userId
+        - role
+
+    AssignPickerBody:
+      type: object
+      properties:
+        userId:
+          type: integer
+      required:
+        - userId
+
+    Dashboard:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/GroupSummary"
+        totalGroups:
+          type: integer
+        pendingVotes:
+          type: integer
+        recentResults:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecentResult"
+      required:
+        - user
+        - groups
+        - totalGroups
+        - pendingVotes
+        - recentResults
+
+    RecentResult:
+      type: object
+      properties:
+        groupId:
+          type: integer
+        groupName:
+          type: string
+        movie:
+          type: string
+        averageRating:
+          type: number
+        totalVotes:
+          type: integer
+        weekOf:
+          type: string
+      required:
+        - groupId
+        - groupName
+        - movie
+        - averageRating
+        - totalVotes
+        - weekOf
+
+    Nomination:
+      type: object
+      properties:
+        id:
+          type: integer
+        imdbId:
+          type: string
+        title:
+          type: string
+        poster:
+          type: ["string", "null"]
+        year:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        nominatorUserId:
+          type: ["integer", "null"]
+        nominatorUsername:
+          type: ["string", "null"]
+      required:
+        - id
+        - imdbId
+        - title
+        - poster
+        - year
+        - createdAt
+
+    SubmitNominationBody:
+      type: object
+      properties:
+        imdbId:
+          type: string
+        title:
+          type: string
+        poster:
+          type: string
+        year:
+          type: string
+      required:
+        - imdbId
+        - title
+
+    SetTurnExtensionBody:
+      type: object
+      properties:
+        extraDays:
+          type: integer
+          minimum: 0
+          description: "Number of extra days to extend this turn's deadline."
+      required:
+        - extraDays
+
+    TurnExtensionResult:
+      type: object
+      properties:
+        message:
+          type: string
+        groupId:
+          type: integer
+        turnIndex:
+          type: integer
+        extraDays:
+          type: integer
+      required:
+        - message
+        - groupId
+        - turnIndex
+        - extraDays

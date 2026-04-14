@@ -1,0 +1,249 @@
+Core Concept
+Users can belong to multiple movie clubs (groups).
+
+Each group operates independently with:
+
+A weekly movie
+
+Blind rating system (1–10)
+
+A designated movie picker
+
+Ratings are hidden until Monday at 12:00 AM, when results are revealed.
+
+User & Authentication (Simple MVP)
+Users sign in with a username (or email if preferred).
+
+Maintain a persistent user identity.
+
+A user can belong to multiple groups.
+
+Groups (Movie Clubs)
+
+
+Each group has:
+
+Name
+
+Members
+
+Roles:
+
+Owner (full control)
+
+Admin (can manage members + picker)
+
+Member (can vote only)
+
+Roles & Permissions
+
+
+Owner
+Invite users
+
+Remove (kick) users
+
+Promote/demote admins
+
+Assign weekly movie picker
+
+Set/reset weekly movie
+
+
+
+Admin
+Invite users
+
+Remove users (except owner)
+
+Assign weekly movie picker
+
+
+
+Member
+Submit rating only
+
+Invite System
+Owner/Admin can generate an invite link or code
+
+Invited users can:
+
+Accept invite and join group
+
+Optional:
+
+Expiration on invite links
+
+Prevent duplicate membership
+
+Weekly Movie Flow
+Owner/Admin assigns a movie picker
+
+Movie picker sets:
+
+Movie title for the week
+
+Only one active movie per group
+
+Voting System
+Members submit a rating (1–10)
+
+Constraints:
+
+One vote per user per group per week
+
+No edits after submission (preferred)
+
+No submissions after deadline
+
+Blind Ranking Logic
+Before Monday 12:00 AM:
+
+No results visible
+
+After deadline:
+
+Results unlocked automatically
+
+Results Dashboard
+
+
+After deadline, show:
+
+Average rating
+
+Total votes
+
+Rating distribution (1–10)
+
+Optional: bar chart
+
+Time Logic
+Server enforces deadline:
+
+Monday 12:00 AM (configurable timezone)
+
+Voting locks automatically
+
+Multi-Group Experience
+Dashboard shows:
+
+All groups user belongs to
+
+Users can:
+
+Switch between groups
+
+View each group’s movie, vote status, and results
+
+API Endpoints
+
+
+Auth / User
+POST /login
+
+GET /me
+
+
+
+Groups
+POST /groups → create group
+
+GET /groups → list user’s groups
+
+GET /groups/:id → group details
+
+
+
+Membership / Roles
+POST /groups/:id/invite
+
+POST /groups/:id/join (via invite code)
+
+POST /groups/:id/kick
+
+POST /groups/:id/role (promote/demote)
+
+
+
+Movie Management
+POST /groups/:id/movie → set movie (picker only)
+
+POST /groups/:id/picker → assign picker
+
+
+
+Voting
+POST /groups/:id/vote
+
+GET /groups/:id/results
+
+GET /groups/:id/status
+
+Frontend Pages
+
+
+1. Dashboard
+List of user’s groups
+
+Quick status (voting open/closed)
+
+
+
+2. Group Page
+Movie of the week
+
+Voting form (if open)
+
+Role-based controls (if admin/owner)
+
+
+
+3. Results Page
+Visible only after deadline
+
+
+
+4. Invite Page
+Accept invite link/code
+
+Tech Stack (Simple)
+Frontend: React (preferred) or vanilla JS
+
+Backend: Node.js + Express
+
+Database: SQLite (with relational schema)
+
+Database Models (Suggested)
+Users
+
+Groups
+
+Memberships (user_id, group_id, role)
+
+Invites (code, group_id, expires_at)
+
+Movies (group_id, title, week)
+
+Votes (user_id, group_id, rating, week)
+
+PickerAssignments (group_id, user_id, week)
+
+Nice-to-Have Features
+Invite link sharing
+
+Countdown timer to deadline
+
+Activity log (who joined, who voted)
+
+Basic UI styling
+
+Deliverable
+Fully working MVP
+
+Clear instructions to run in Replit
+
+Seed data for testing multiple groups
+
+Clean, modular code
+

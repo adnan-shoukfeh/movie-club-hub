@@ -1,0 +1,12 @@
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS turn_overrides;
+DROP TABLE IF EXISTS turn_extensions;
+DROP TABLE IF EXISTS watch_status;
+DROP TABLE IF EXISTS invites;
+DROP TABLE IF EXISTS nominations;
+DROP TABLE IF EXISTS picker_assignments;
+DROP TABLE IF EXISTS votes;
+DROP TABLE IF EXISTS movies;
+DROP TABLE IF EXISTS memberships;
+DROP TABLE IF EXISTS groups;
+DROP TABLE IF EXISTS users;
