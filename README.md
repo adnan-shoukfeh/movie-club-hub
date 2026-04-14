@@ -19,6 +19,8 @@ A web app for managing a rotating movie club. Groups of people take turns pickin
 ├── go-api/                    # Go backend
 │   ├── cmd/server/            # Main HTTP server binary
 │   ├── cmd/migrate/           # Standalone migration runner
+│   ├── cmd/seed/              # Import data from JSON fixtures into the DB
+│   ├── cmd/prune-movies/      # Remove orphaned movies outside valid turn boundaries
 │   ├── internal/
 │   │   ├── db/                # sqlc-generated database layer
 │   │   ├── handler/           # HTTP handlers (auth, groups, movies, votes, ...)
@@ -149,8 +151,8 @@ Key groups:
 |---|---|
 | Local dev | `dev`, `fe-dev`, `fe-serve`, `install` |
 | Build | `build`, `frontend`, `copy-frontend`, `clean` |
-| Test & quality | `test`, `test-verbose`, `test-cover`, `lint`, `typecheck`, `fe-typecheck` |
-| Database | `docker-up`, `docker-down`, `docker-logs`, `migrate-up`, `migrate-down` |
+| Test & quality | `test`, `test-verbose`, `test-cover`, `lint`, `typecheck`, `fe-typecheck`, `sqlc` |
+| Database | `docker-up`, `docker-down`, `docker-logs`, `migrate-up`, `migrate-down`, `seed`, `db-proxy` |
 | Docker | `docker-build`, `docker-run` |
 | GCP | `gcp-auth`, `gcp-push`, `gcp-deploy`, `gcp-logs`, `gcp-status`, `gcp-url` |
 

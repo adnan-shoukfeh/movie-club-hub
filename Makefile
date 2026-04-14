@@ -4,9 +4,15 @@
         test test-verbose test-cover lint fe-typecheck typecheck sqlc \
         docker-up docker-down docker-logs \
         migrate-up migrate-down \
+        seed \
+        db-proxy \
         docker-build docker-run \
         gcp-auth gcp-push gcp-deploy gcp-logs gcp-status gcp-url \
         ci-test
+
+# ─── Load .env if present ─────────────────────────────────────────────────────
+-include .env
+export
 
 # ─── Variables ────────────────────────────────────────────────────────────────
 
@@ -100,6 +106,15 @@ migrate-up: ## Apply all pending database migrations
 migrate-down: ## Roll back the most recent database migration
 	cd go-api && go run -tags migrate cmd/migrate/main.go -dir migrations -db "$(DATABASE_URL)" down 1
 
+seed: ## Seed the database from embedded JSON fixtures (set DATABASE_URL first)
+	cd go-api && DATABASE_URL="$(DATABASE_URL)" go run ./cmd/seed
+
+db-proxy: ## Open Cloud SQL Auth Proxy on localhost:5454 (use for Postico / psql)
+	@test -n "$(GCP_PROJECT_ID)" || (echo "error: GCP_PROJECT_ID is not set" && exit 1)
+	cloud-sql-proxy \
+		--port 5454 \
+		"$(CLOUD_SQL_CONNECTION_NAME)"
+
 # ─── Docker (production image) ────────────────────────────────────────────────
 
 docker-build: ## Build the production Docker image
@@ -119,9 +134,10 @@ docker-run: ## Run the production Docker image locally against local postgres
 gcp-auth: ## Authenticate Docker with GCP Artifact Registry
 	gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
-gcp-push: ## Build and push the Docker image to Artifact Registry
+gcp-push: ## Build and push the Docker image to Artifact Registry (linux/amd64 for Cloud Run)
 	@test -n "$(GCP_PROJECT_ID)" || (echo "error: GCP_PROJECT_ID is not set" && exit 1)
 	docker build \
+		--platform linux/amd64 \
 		--tag "$(REGISTRY):$(TAG)" \
 		--tag "$(REGISTRY):latest" \
 		.

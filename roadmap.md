@@ -1,0 +1,8 @@
+- Allow profile images
+- Allow reactions to reviews (like sleeper)
+  - Eventually allow responding to reviews
+- There should only be one invite code at a time for all admins. Allow admins to see invite code where it currently shows "generate invite". Have the code persist as the only valid code until it is manually refreshed by an admin through the same interface that generates code now.
+- Only show ratings slider once a user marks movie as watched. Moving back to unwatched clears it (although when you go back to watched again whatever you had entered stays saved for you to continue)
+- Add logo
+- Clicking on movie title takes you to Imdb, OR takes you to our movie page populated by Omdb and nominations/picks and reviews and such.
+- 
