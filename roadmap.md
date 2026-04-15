@@ -5,4 +5,5 @@
 - Only show ratings slider once a user marks movie as watched. Moving back to unwatched clears it (although when you go back to watched again whatever you had entered stays saved for you to continue)
 - Add logo
 - Clicking on movie title takes you to Imdb, OR takes you to our movie page populated by Omdb and nominations/picks and reviews and such.
-- 
+- ADD DEV ENV!!!!!!
+- Refactor everything and break it into smaller components (can do this handler by handler)
