@@ -46,7 +46,7 @@ import {
   CalendarCheck,
   Trash2,
   BookOpen,
-  MoreVertical,
+  Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -646,11 +646,12 @@ export default function GroupDetail() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-muted-foreground/50 hover:text-muted-foreground"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-muted-foreground"
                 >
-                  <MoreVertical className="w-4 h-4" />
+                  <Menu className="w-4 h-4" />
+                  Menu
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
