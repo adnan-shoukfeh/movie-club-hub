@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -55,6 +56,27 @@ func (h *Handler) SearchMovies(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	type movieResult struct {
+		ImdbID string  `json:"imdbId"`
+		Title  string  `json:"title"`
+		Year   *string `json:"year"`
+		Poster *string `json:"poster"`
+	}
+
+	// If the query looks like an IMDB ID, do a direct detail lookup instead of a title search.
+	if isImdbID(q) {
+		detail, err := h.fetchOMDBDetail(q, apiKey)
+		if err != nil || detail.ImdbID == "" {
+			writeJSON(w, http.StatusOK, []any{})
+			return
+		}
+		item := movieResult{ImdbID: detail.ImdbID, Title: detail.Title}
+		item.Year = filterNA(detail.Year)
+		item.Poster = filterNA(detail.Poster)
+		writeJSON(w, http.StatusOK, []movieResult{item})
+		return
+	}
+
 	apiURL := fmt.Sprintf("https://www.omdbapi.com/?s=%s&type=movie&apikey=%s", url.QueryEscape(q), apiKey)
 
 	var body []byte
@@ -84,13 +106,6 @@ func (h *Handler) SearchMovies(w http.ResponseWriter, r *http.Request) {
 	if result.Response != "True" || len(result.Search) == 0 {
 		writeJSON(w, http.StatusOK, []any{})
 		return
-	}
-
-	type movieResult struct {
-		ImdbID string  `json:"imdbId"`
-		Title  string  `json:"title"`
-		Year   *string `json:"year"`
-		Poster *string `json:"poster"`
 	}
 
 	limit := 8
@@ -189,31 +204,13 @@ func (h *Handler) SetMovie(w http.ResponseWriter, r *http.Request) {
 	// Fetch OMDb details if imdbId provided
 	var poster, director, genre, runtime, year *string
 	if imdbID != nil {
-		apiKey := os.Getenv("OMDB_API_KEY")
-		if apiKey != "" {
-			cacheKey := "detail:" + *imdbID
-			var detailBody []byte
-			if cached, ok := h.omdbCache.get(cacheKey); ok {
-				detailBody = cached
-			} else {
-				apiURL := fmt.Sprintf("https://www.omdbapi.com/?i=%s&apikey=%s", *imdbID, apiKey)
-				if resp, err := http.Get(apiURL); err == nil {
-					defer resp.Body.Close()
-					if b, err := io.ReadAll(resp.Body); err == nil {
-						detailBody = b
-						h.omdbCache.set(cacheKey, b, 24*time.Hour)
-					}
-				}
-			}
-			if detailBody != nil {
-				var detail omdbDetail
-				if json.Unmarshal(detailBody, &detail) == nil {
-					poster = filterNA(detail.Poster)
-					director = filterNA(detail.Director)
-					genre = filterNA(detail.Genre)
-					runtime = filterNA(detail.Runtime)
-					year = filterNA(detail.Year)
-				}
+		if apiKey := os.Getenv("OMDB_API_KEY"); apiKey != "" {
+			if detail, err := h.fetchOMDBDetail(*imdbID, apiKey); err == nil {
+				poster = filterNA(detail.Poster)
+				director = filterNA(detail.Director)
+				genre = filterNA(detail.Genre)
+				runtime = filterNA(detail.Runtime)
+				year = filterNA(detail.Year)
 			}
 		}
 	}
@@ -255,4 +252,36 @@ func filterNA(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+var imdbIDRe = regexp.MustCompile(`(?i)^tt\d{7,8}$`)
+
+func isImdbID(s string) bool {
+	return imdbIDRe.MatchString(s)
+}
+
+func (h *Handler) fetchOMDBDetail(imdbID, apiKey string) (omdbDetail, error) {
+	cacheKey := "detail:" + imdbID
+	if cached, ok := h.omdbCache.get(cacheKey); ok {
+		var d omdbDetail
+		if err := json.Unmarshal(cached, &d); err == nil {
+			return d, nil
+		}
+	}
+	apiURL := fmt.Sprintf("https://www.omdbapi.com/?i=%s&apikey=%s", imdbID, apiKey)
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		return omdbDetail{}, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return omdbDetail{}, err
+	}
+	h.omdbCache.set(cacheKey, body, 24*time.Hour)
+	var d omdbDetail
+	if err := json.Unmarshal(body, &d); err != nil {
+		return omdbDetail{}, err
+	}
+	return d, nil
 }
