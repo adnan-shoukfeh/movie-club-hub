@@ -1,1 +1,20 @@
-[{"id":1,"user_id":1,"group_id":1,"rating":6.3,"week_of":"2026-04-01","created_at":"2026-04-13T02:52:55.110004+00:00","review":"If I wanted to watch a movie about running I'd see Forrest Gump!","updated_at":"2026-04-13T02:52:55.074+00:00"}, {"id":2,"user_id":9,"group_id":1,"rating":6.8,"week_of":"2026-04-01","created_at":"2026-04-13T19:10:50.248259+00:00","review":"* People in the tribe are smarter than they look out to be. Emotional intelligence is shown even in earliest of civilizations \n* Need to see more tribal titties \n* Being alpha is important\n* They all got fucked up hairlines\n* Big ass jungle and he couldn’t spread out/ hide from the mfs chasing him \n* In this house, Christopher Columbus is a hero, end of story","updated_at":"2026-04-13T19:10:50.216+00:00"}, {"id":4,"user_id":12,"group_id":1,"rating":7.6,"week_of":"2026-04-01","created_at":"2026-04-13T23:08:18.572699+00:00","review":null,"updated_at":"2026-04-13T23:08:18.538+00:00"}, {"id":5,"user_id":4,"group_id":1,"rating":7.1,"week_of":"2026-04-01","created_at":"2026-04-13T23:13:20.110346+00:00","review":"Enjoyed the movie except for the running and chasing scenes. But to be fair , I don’t like those types of scenes in any movie. Parts where they were running from the arrows and the human sacrifice when the bodies and heads were dropping down the stairs was nicely done. Who ever picked this movie must be handsome.","updated_at":"2026-04-13T23:13:20.07+00:00"}]
+[
+  {"id":1,"user_id":1,"group_id":1,"rating":8.5,"review":"A masterpiece. The horse scene got me.","week_of":"2026-04-02","created_at":"2026-04-08T20:00:00.000Z","updated_at":"2026-04-08T20:00:00.000Z"},
+  {"id":2,"user_id":2,"group_id":1,"rating":9.2,"review":"Peak cinema. Nothing else to say.","week_of":"2026-04-02","created_at":"2026-04-07T18:00:00.000Z","updated_at":"2026-04-07T18:00:00.000Z"},
+  {"id":3,"user_id":3,"group_id":1,"rating":7.8,"review":null,"week_of":"2026-04-02","created_at":"2026-04-08T15:00:00.000Z","updated_at":"2026-04-08T15:00:00.000Z"},
+  {"id":4,"user_id":4,"group_id":1,"rating":8.0,"review":"Great movie, but 3 hours is a long time.","week_of":"2026-04-02","created_at":"2026-04-08T21:00:00.000Z","updated_at":"2026-04-08T21:00:00.000Z"},
+
+  {"id":5,"user_id":1,"group_id":1,"rating":6.0,"review":"I have no idea what I just watched. 6/10.","week_of":"2026-04-09","created_at":"2026-04-15T22:00:00.000Z","updated_at":"2026-04-15T22:00:00.000Z"},
+  {"id":6,"user_id":2,"group_id":1,"rating":9.5,"review":null,"week_of":"2026-04-09","created_at":"2026-04-14T19:00:00.000Z","updated_at":"2026-04-14T19:00:00.000Z"},
+  {"id":7,"user_id":3,"group_id":1,"rating":9.8,"review":"Lynch at his most Lynch. Unforgettable.","week_of":"2026-04-09","created_at":"2026-04-13T20:00:00.000Z","updated_at":"2026-04-13T20:00:00.000Z"},
+  {"id":8,"user_id":4,"group_id":1,"rating":6.5,"review":"Didn't get it. Might rewatch.","week_of":"2026-04-09","created_at":"2026-04-15T21:00:00.000Z","updated_at":"2026-04-15T21:00:00.000Z"},
+
+  {"id":9,"user_id":2,"group_id":2,"rating":9.0,"review":"Kurtz understood the assignment.","week_of":"2026-04-01","created_at":"2026-04-14T18:00:00.000Z","updated_at":"2026-04-14T18:00:00.000Z"},
+  {"id":10,"user_id":1,"group_id":2,"rating":8.0,"review":"The horror... the horror.","week_of":"2026-04-01","created_at":"2026-04-14T20:00:00.000Z","updated_at":"2026-04-14T20:00:00.000Z"},
+  {"id":11,"user_id":5,"group_id":2,"rating":7.5,"review":null,"week_of":"2026-04-01","created_at":"2026-04-14T16:00:00.000Z","updated_at":"2026-04-14T16:00:00.000Z"},
+  {"id":12,"user_id":4,"group_id":2,"rating":8.5,"review":"Coppola doing it again.","week_of":"2026-04-01","created_at":"2026-04-14T19:00:00.000Z","updated_at":"2026-04-14T19:00:00.000Z"},
+
+  {"id":13,"user_id":3,"group_id":3,"rating":9.5,"review":"HAL did nothing wrong.","week_of":"2026-04-06","created_at":"2026-04-12T20:00:00.000Z","updated_at":"2026-04-12T20:00:00.000Z"},
+  {"id":14,"user_id":4,"group_id":3,"rating":8.0,"review":null,"week_of":"2026-04-06","created_at":"2026-04-12T18:00:00.000Z","updated_at":"2026-04-12T18:00:00.000Z"},
+  {"id":15,"user_id":5,"group_id":3,"rating":8.8,"review":"The monolith gave me chills.","week_of":"2026-04-06","created_at":"2026-04-12T21:00:00.000Z","updated_at":"2026-04-12T21:00:00.000Z"}
+]

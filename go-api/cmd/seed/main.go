@@ -2,12 +2,14 @@
 // Run against any DATABASE_URL — local dev, Cloud SQL, etc.
 //
 //	DATABASE_URL="postgres://..." go run ./cmd/seed
+//	DATABASE_URL="postgres://..." go run ./cmd/seed -reset   # truncate all tables first
 package main
 
 import (
 	"context"
 	"embed"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log/slog"
 	"os"
@@ -20,6 +22,9 @@ import (
 var dataFS embed.FS
 
 func main() {
+	reset := flag.Bool("reset", false, "truncate all tables before seeding")
+	flag.Parse()
+
 	ctx := context.Background()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -38,6 +43,14 @@ func main() {
 	if err := pool.Ping(ctx); err != nil {
 		slog.Error("failed to ping database", "error", err)
 		os.Exit(1)
+	}
+
+	if *reset {
+		if err := truncateAll(ctx, pool); err != nil {
+			slog.Error("failed to truncate tables", "error", err)
+			os.Exit(1)
+		}
+		slog.Info("all tables truncated")
 	}
 
 	steps := []struct {
@@ -398,6 +411,25 @@ func seedTurnOverrides(ctx context.Context, pool *pgxpool.Pool) (int, error) {
 		}
 	}
 	return len(rows), nil
+}
+
+func truncateAll(ctx context.Context, pool *pgxpool.Pool) error {
+	_, err := pool.Exec(ctx, `
+		TRUNCATE TABLE
+			turn_overrides,
+			turn_extensions,
+			watch_status,
+			votes,
+			picker_assignments,
+			invites,
+			nominations,
+			movies,
+			memberships,
+			groups,
+			users
+		RESTART IDENTITY CASCADE
+	`)
+	return err
 }
 
 func resetSequences(ctx context.Context, pool *pgxpool.Pool) error {

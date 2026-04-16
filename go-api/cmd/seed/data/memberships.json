@@ -1,1 +1,15 @@
-[{"id":1,"user_id":1,"group_id":1,"role":"owner","joined_at":"2026-04-09T05:44:43.765705+00:00"}, {"id":3,"user_id":3,"group_id":1,"role":"member","joined_at":"2026-04-09T06:41:43.028061+00:00"}, {"id":4,"user_id":4,"group_id":1,"role":"member","joined_at":"2026-04-09T06:49:46.587059+00:00"}, {"id":2,"user_id":2,"group_id":1,"role":"admin","joined_at":"2026-04-09T06:28:21.56217+00:00"}, {"id":5,"user_id":5,"group_id":1,"role":"member","joined_at":"2026-04-09T06:59:14.230479+00:00"}, {"id":6,"user_id":6,"group_id":1,"role":"member","joined_at":"2026-04-09T07:29:46.064303+00:00"}, {"id":7,"user_id":7,"group_id":1,"role":"member","joined_at":"2026-04-09T07:31:43.315776+00:00"}, {"id":8,"user_id":8,"group_id":1,"role":"member","joined_at":"2026-04-09T08:26:12.946948+00:00"}, {"id":9,"user_id":9,"group_id":1,"role":"admin","joined_at":"2026-04-09T10:46:02.675495+00:00"}, {"id":10,"user_id":10,"group_id":1,"role":"member","joined_at":"2026-04-11T00:36:22.098698+00:00"}, {"id":11,"user_id":11,"group_id":1,"role":"member","joined_at":"2026-04-11T01:34:28.865681+00:00"}, {"id":12,"user_id":12,"group_id":1,"role":"member","joined_at":"2026-04-13T23:07:39.261953+00:00"}]
+[
+  {"id":1,"user_id":1,"group_id":1,"role":"owner","joined_at":"2026-04-02T00:00:00.000Z"},
+  {"id":2,"user_id":2,"group_id":1,"role":"admin","joined_at":"2026-04-02T00:10:00.000Z"},
+  {"id":3,"user_id":3,"group_id":1,"role":"member","joined_at":"2026-04-02T00:20:00.000Z"},
+  {"id":4,"user_id":4,"group_id":1,"role":"member","joined_at":"2026-04-02T00:30:00.000Z"},
+
+  {"id":5,"user_id":2,"group_id":2,"role":"owner","joined_at":"2026-04-01T00:00:00.000Z"},
+  {"id":6,"user_id":1,"group_id":2,"role":"member","joined_at":"2026-04-01T01:00:00.000Z"},
+  {"id":7,"user_id":5,"group_id":2,"role":"member","joined_at":"2026-04-01T02:00:00.000Z"},
+  {"id":8,"user_id":4,"group_id":2,"role":"member","joined_at":"2026-04-01T03:00:00.000Z"},
+
+  {"id":9,"user_id":3,"group_id":3,"role":"owner","joined_at":"2026-04-06T00:00:00.000Z"},
+  {"id":10,"user_id":4,"group_id":3,"role":"member","joined_at":"2026-04-06T01:00:00.000Z"},
+  {"id":11,"user_id":5,"group_id":3,"role":"member","joined_at":"2026-04-06T02:00:00.000Z"}
+]

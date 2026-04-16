@@ -61,10 +61,12 @@ copy-frontend: ## Copy React build output into the Go embed directory
 	rm -rf go-api/cmd/server/static/*
 	cp -r artifacts/movie-club/dist/public/. go-api/cmd/server/static/
 
-clean: ## Remove all build artifacts
+clean: ## Remove all build artifacts and stray Go binaries
 	rm -rf go-api/bin/
 	rm -rf go-api/cmd/server/static/*
 	rm -rf artifacts/movie-club/dist/
+	rm -f go-api/coverage.out
+	rm -f go-api/server go-api/seed go-api/reset-password
 
 # ─── Testing & Quality ────────────────────────────────────────────────────────
 
@@ -108,6 +110,15 @@ migrate-down: ## Roll back the most recent database migration
 
 seed: ## Seed the database from embedded JSON fixtures (set DATABASE_URL first)
 	cd go-api && DATABASE_URL="$(DATABASE_URL)" go run ./cmd/seed
+
+seed-fresh: ## Wipe the database and re-seed from scratch
+	cd go-api && DATABASE_URL="$(DEV_DB_URL)" go run ./cmd/seed -reset
+
+reset-password: ## Reset a user's password: make reset-password ENV=dev USER=adnan PASS=newpassword
+	@test -n "$(ENV)"  || (echo "error: ENV is required (dev or prod)" && exit 1)
+	@test -n "$(USER)" || (echo "error: USER is required" && exit 1)
+	@test -n "$(PASS)" || (echo "error: PASS is required" && exit 1)
+	cd go-api && go run ./cmd/reset-password "$(ENV)" "$(USER)" "$(PASS)"
 
 db-proxy: ## Open Cloud SQL Auth Proxy on localhost:5454 (use for Postico / psql)
 	@test -n "$(GCP_PROJECT_ID)" || (echo "error: GCP_PROJECT_ID is not set" && exit 1)

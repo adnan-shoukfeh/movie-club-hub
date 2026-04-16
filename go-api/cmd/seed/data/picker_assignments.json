@@ -1,1 +1,8 @@
-[{"id":1,"group_id":1,"user_id":4,"week_of":"2026-04-01","created_at":"2026-04-13T02:46:44.858186+00:00"}, {"id":2,"group_id":1,"user_id":1,"week_of":"2026-04-11","created_at":"2026-04-13T02:48:36.95037+00:00"}, {"id":3,"group_id":1,"user_id":6,"week_of":"2026-04-21","created_at":"2026-04-13T02:48:50.305133+00:00"}]
+[
+  {"id":1,"group_id":1,"user_id":2,"week_of":"2026-04-02","created_at":"2026-04-02T00:00:00.000Z"},
+  {"id":2,"group_id":1,"user_id":3,"week_of":"2026-04-09","created_at":"2026-04-02T00:00:00.000Z"},
+  {"id":3,"group_id":1,"user_id":4,"week_of":"2026-04-16","created_at":"2026-04-02T00:00:00.000Z"},
+  {"id":4,"group_id":1,"user_id":1,"week_of":"2026-04-23","created_at":"2026-04-02T00:00:00.000Z"},
+  {"id":5,"group_id":2,"user_id":5,"week_of":"2026-04-01","created_at":"2026-04-01T00:00:00.000Z"},
+  {"id":6,"group_id":2,"user_id":1,"week_of":"2026-04-15","created_at":"2026-04-01T00:00:00.000Z"}
+]

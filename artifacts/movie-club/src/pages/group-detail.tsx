@@ -612,6 +612,12 @@ export default function GroupDetail() {
   const watchedCount = group.members.filter((m) => m.watched).length;
   const pickerSchedule = group.pickerSchedule;
 
+  // Mirror the backend's isTurnWithinCap: allow up to currentTurnIdx + memberCount turns ahead.
+  const _config = group.turnConfig as TurnConfig;
+  const _currentIdx = getTurnIndexForDate(currentTurnWeekOf, _config);
+  const _maxAllowedWeekOf = getTurnStartDate(_currentIdx + group.members.length, _config);
+  const isAtFutureCap = selectedWeek >= _maxAllowedWeekOf;
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/40 bg-card/30 backdrop-blur-sm sticky top-0 z-10">
@@ -695,7 +701,7 @@ export default function GroupDetail() {
               size="icon"
               className="h-8 w-8"
               onClick={() => setSelectedWeek(offsetWeekOf(selectedWeek, 1, group.turnConfig as TurnConfig))}
-              disabled={!isAdminOrOwner && isCurrentWeek}
+              disabled={(!isAdminOrOwner && isCurrentWeek) || isAtFutureCap}
             >
               <ChevronRight className="w-4 h-4" />
             </Button>

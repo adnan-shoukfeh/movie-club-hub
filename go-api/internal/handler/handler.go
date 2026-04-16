@@ -15,13 +15,14 @@ import (
 )
 
 type Handler struct {
-	q    *db.Queries
-	pool *pgxpool.Pool
-	sm   *session.Manager
+	q         *db.Queries
+	pool      *pgxpool.Pool
+	sm        *session.Manager
+	omdbCache *omdbCache
 }
 
 func New(q *db.Queries, pool *pgxpool.Pool, sm *session.Manager) *Handler {
-	return &Handler{q: q, pool: pool, sm: sm}
+	return &Handler{q: q, pool: pool, sm: sm, omdbCache: newOMDBCache()}
 }
 
 // JSON helpers

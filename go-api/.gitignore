@@ -1,0 +1,11 @@
+# Compiled binaries
+bin/
+*.exe
+
+# Binaries that land in the module root when built without -o
+reset-password
+seed
+server
+
+# Test artifacts
+coverage.out

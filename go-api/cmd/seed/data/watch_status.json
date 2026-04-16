@@ -1,1 +1,24 @@
-[{"id":1,"user_id":2,"group_id":1,"week_of":"2026-04-06","watched":false,"updated_at":"2026-04-09T07:13:33.780567+00:00"}, {"id":2,"user_id":11,"group_id":1,"week_of":"2026-04-06","watched":false,"updated_at":"2026-04-11T01:34:35.683+00:00"}, {"id":5,"user_id":3,"group_id":1,"week_of":"2026-04-06","watched":false,"updated_at":"2026-04-11T04:34:39.835+00:00"}, {"id":7,"user_id":1,"group_id":1,"week_of":"2026-04-01","watched":true,"updated_at":"2026-04-13T02:52:26.458244+00:00"}, {"id":8,"user_id":9,"group_id":1,"week_of":"2026-04-01","watched":true,"updated_at":"2026-04-13T19:10:50.808055+00:00"}, {"id":9,"user_id":7,"group_id":1,"week_of":"2026-04-01","watched":true,"updated_at":"2026-04-13T21:47:40.619+00:00"}, {"id":11,"user_id":7,"group_id":1,"week_of":"2026-04-11","watched":false,"updated_at":"2026-04-13T21:50:13.078+00:00"}, {"id":14,"user_id":12,"group_id":1,"week_of":"2026-04-01","watched":true,"updated_at":"2026-04-13T23:08:10.653297+00:00"}, {"id":15,"user_id":4,"group_id":1,"week_of":"2026-04-01","watched":true,"updated_at":"2026-04-13T23:11:12.622304+00:00"}]
+[
+  {"id":1,"user_id":1,"group_id":1,"week_of":"2026-04-02","watched":true,"updated_at":"2026-04-08T20:00:00.000Z"},
+  {"id":2,"user_id":2,"group_id":1,"week_of":"2026-04-02","watched":true,"updated_at":"2026-04-07T18:00:00.000Z"},
+  {"id":3,"user_id":3,"group_id":1,"week_of":"2026-04-02","watched":true,"updated_at":"2026-04-08T15:00:00.000Z"},
+  {"id":4,"user_id":4,"group_id":1,"week_of":"2026-04-02","watched":true,"updated_at":"2026-04-08T21:00:00.000Z"},
+
+  {"id":5,"user_id":1,"group_id":1,"week_of":"2026-04-09","watched":true,"updated_at":"2026-04-15T22:00:00.000Z"},
+  {"id":6,"user_id":2,"group_id":1,"week_of":"2026-04-09","watched":true,"updated_at":"2026-04-14T19:00:00.000Z"},
+  {"id":7,"user_id":3,"group_id":1,"week_of":"2026-04-09","watched":true,"updated_at":"2026-04-13T20:00:00.000Z"},
+  {"id":8,"user_id":4,"group_id":1,"week_of":"2026-04-09","watched":true,"updated_at":"2026-04-15T21:00:00.000Z"},
+
+  {"id":9,"user_id":4,"group_id":1,"week_of":"2026-04-16","watched":true,"updated_at":"2026-04-16T10:00:00.000Z"},
+
+  {"id":10,"user_id":2,"group_id":2,"week_of":"2026-04-01","watched":true,"updated_at":"2026-04-14T18:00:00.000Z"},
+  {"id":11,"user_id":1,"group_id":2,"week_of":"2026-04-01","watched":true,"updated_at":"2026-04-14T20:00:00.000Z"},
+  {"id":12,"user_id":5,"group_id":2,"week_of":"2026-04-01","watched":true,"updated_at":"2026-04-14T16:00:00.000Z"},
+  {"id":13,"user_id":4,"group_id":2,"week_of":"2026-04-01","watched":true,"updated_at":"2026-04-14T19:00:00.000Z"},
+
+  {"id":14,"user_id":2,"group_id":2,"week_of":"2026-04-15","watched":true,"updated_at":"2026-04-16T09:00:00.000Z"},
+
+  {"id":15,"user_id":3,"group_id":3,"week_of":"2026-04-06","watched":true,"updated_at":"2026-04-12T20:00:00.000Z"},
+  {"id":16,"user_id":4,"group_id":3,"week_of":"2026-04-06","watched":true,"updated_at":"2026-04-12T18:00:00.000Z"},
+  {"id":17,"user_id":5,"group_id":3,"week_of":"2026-04-06","watched":true,"updated_at":"2026-04-12T21:00:00.000Z"}
+]

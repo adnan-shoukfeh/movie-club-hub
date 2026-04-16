@@ -37,6 +37,7 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 
 	pendingVotes := 0
 	groupList := make([]groupItem, 0, len(groups))
+	groupConfigs := make(map[int32]TurnConfig)
 
 	for _, g := range groups {
 		item := groupItem{
@@ -52,6 +53,7 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 			groupList = append(groupList, item)
 			continue
 		}
+		groupConfigs[g.ID] = config
 
 		weekOf := getCurrentTurnWeekOf(config)
 		movie, err := h.q.GetMovieByGroupWeek(r.Context(), db.GetMovieByGroupWeekParams{
@@ -102,17 +104,23 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	recentRows, _ := h.q.GetRecentMoviesWithResults(r.Context(), db.GetRecentMoviesWithResultsParams{
-		UserID: userID, Limit: 5,
+		UserID: userID, Limit: 10,
 	})
 
 	recentResults := make([]recentResult, 0, len(recentRows))
 	for _, row := range recentRows {
-		// Filter to only include results that are actually available
+		config, ok := groupConfigs[row.GroupID]
+		if !ok || !isResultsAvailable(row.WeekOf, config, 0) {
+			continue
+		}
 		recentResults = append(recentResults, recentResult{
 			GroupID: row.GroupID, GroupName: row.GroupName,
 			Movie: row.Movie, AverageRating: row.AverageRating,
 			TotalVotes: row.TotalVotes, WeekOf: row.WeekOf,
 		})
+		if len(recentResults) == 5 {
+			break
+		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{

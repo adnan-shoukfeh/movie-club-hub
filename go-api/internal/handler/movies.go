@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -55,17 +56,23 @@ func (h *Handler) SearchMovies(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiURL := fmt.Sprintf("https://www.omdbapi.com/?s=%s&type=movie&apikey=%s", url.QueryEscape(q), apiKey)
-	resp, err := http.Get(apiURL)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, "Failed to search movies")
-		return
-	}
-	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, "Failed to read movie search response")
-		return
+	var body []byte
+	if cached, ok := h.omdbCache.get("search:" + q); ok {
+		body = cached
+	} else {
+		resp, err := http.Get(apiURL)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "Failed to search movies")
+			return
+		}
+		defer resp.Body.Close()
+		body, err = io.ReadAll(resp.Body)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "Failed to read movie search response")
+			return
+		}
+		h.omdbCache.set("search:"+q, body, 1*time.Hour)
 	}
 
 	var result omdbSearchResult
@@ -184,18 +191,28 @@ func (h *Handler) SetMovie(w http.ResponseWriter, r *http.Request) {
 	if imdbID != nil {
 		apiKey := os.Getenv("OMDB_API_KEY")
 		if apiKey != "" {
-			apiURL := fmt.Sprintf("https://www.omdbapi.com/?i=%s&apikey=%s", *imdbID, apiKey)
-			if resp, err := http.Get(apiURL); err == nil {
-				defer resp.Body.Close()
-				var detail omdbDetail
-				if body, err := io.ReadAll(resp.Body); err == nil {
-					if json.Unmarshal(body, &detail) == nil {
-						poster = filterNA(detail.Poster)
-						director = filterNA(detail.Director)
-						genre = filterNA(detail.Genre)
-						runtime = filterNA(detail.Runtime)
-						year = filterNA(detail.Year)
+			cacheKey := "detail:" + *imdbID
+			var detailBody []byte
+			if cached, ok := h.omdbCache.get(cacheKey); ok {
+				detailBody = cached
+			} else {
+				apiURL := fmt.Sprintf("https://www.omdbapi.com/?i=%s&apikey=%s", *imdbID, apiKey)
+				if resp, err := http.Get(apiURL); err == nil {
+					defer resp.Body.Close()
+					if b, err := io.ReadAll(resp.Body); err == nil {
+						detailBody = b
+						h.omdbCache.set(cacheKey, b, 24*time.Hour)
 					}
+				}
+			}
+			if detailBody != nil {
+				var detail omdbDetail
+				if json.Unmarshal(detailBody, &detail) == nil {
+					poster = filterNA(detail.Poster)
+					director = filterNA(detail.Director)
+					genre = filterNA(detail.Genre)
+					runtime = filterNA(detail.Runtime)
+					year = filterNA(detail.Year)
 				}
 			}
 		}

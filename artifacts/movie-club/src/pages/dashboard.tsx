@@ -148,14 +148,23 @@ export default function Dashboard() {
         {/* Groups */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-serif text-xl font-semibold text-foreground">Your Clubs</h2>
-          <Button
-            size="sm"
-            onClick={() => setLocation("/groups/new")}
-            className="bg-primary hover:bg-primary/90"
-          >
-            <Plus className="w-4 h-4 mr-1.5" />
-            New Club
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setLocation("/join")}
+            >
+              Join
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setLocation("/groups/new")}
+              className="bg-primary hover:bg-primary/90"
+            >
+              <Plus className="w-4 h-4 mr-1.5" />
+              New Club
+            </Button>
+          </div>
         </div>
 
         {dashboard?.groups && dashboard.groups.length > 0 ? (
@@ -198,7 +207,7 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center gap-1.5 bg-secondary/10 border border-secondary/20 rounded-lg px-3 py-1.5">
                     <Star className="w-3.5 h-3.5 text-secondary fill-secondary/40" />
-                    <span className="text-secondary font-bold text-sm">{result.averageRating}</span>
+                    <span className="text-secondary font-bold text-sm">{parseFloat(result.averageRating.toFixed(2))}</span>
                     <span className="text-muted-foreground text-xs">/ {result.totalVotes} ratings</span>
                   </div>
                 </div>
