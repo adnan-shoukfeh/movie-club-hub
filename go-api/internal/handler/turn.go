@@ -98,7 +98,8 @@ func getDeadlineMs(weekOf string, config TurnConfig, adminExtendedDays int) int6
 		}
 	}
 	turnDays := config.TurnLengthDays + extra + adminExtendedDays
-	turnStart, _ := time.Parse("2006-01-02", getTurnStartDate(idx, config))
+	loc, _ := time.LoadLocation("America/New_York")
+	turnStart, _ := time.ParseInLocation("2006-01-02", getTurnStartDate(idx, config), loc)
 	turnStart = turnStart.AddDate(0, 0, turnDays)
 	return turnStart.UnixMilli()
 }

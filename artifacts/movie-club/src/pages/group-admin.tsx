@@ -27,7 +27,6 @@ import {
   Check,
   X,
   Pencil,
-  CalendarIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,109 +47,119 @@ function addDaysToDateStr(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-interface TurnDeadlineInputProps {
-  weekOf: string;
-  turnLengthDays: number;
-  extendedDays: number;
-  onChange: (days: number) => void;
+// Display a YYYY-MM-DD calendar date without timezone conversion (avoids UTC→ET day shift).
+function formatCalendarDate(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00.000Z");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
-function TurnDeadlineInput({ weekOf, turnLengthDays, extendedDays, onChange }: TurnDeadlineInputProps) {
-  const [open, setOpen] = useState(false);
-  const max = 365;
-  const deadlineDateStr = addDaysToDateStr(weekOf, turnLengthDays + extendedDays);
-  const baseDeadlineDateStr = addDaysToDateStr(weekOf, turnLengthDays);
-  const minDate = new Date(addDaysToDateStr(weekOf, 1) + "T12:00:00");
-  const maxDate = new Date(addDaysToDateStr(weekOf, turnLengthDays + max) + "T12:00:00");
-  const selectedDate = new Date(deadlineDateStr + "T12:00:00");
-
-  const handleSelect = (date: Date | undefined) => {
-    if (!date) return;
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    const selectedStr = `${y}-${m}-${d}`;
-    const base = new Date(baseDeadlineDateStr + "T00:00:00.000Z");
-    const selected = new Date(selectedStr + "T00:00:00.000Z");
-    const newExtendedDays = Math.round((selected.getTime() - base.getTime()) / 86400000);
-    onChange(newExtendedDays);
-    setOpen(false);
-  };
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="flex-1 h-7 text-xs rounded-md bg-background border border-border px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary flex items-center gap-1.5 text-left min-w-0"
-        >
-          <CalendarIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-          <span className="truncate">{formatDateET(deadlineDateStr)}</span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={selectedDate}
-          onSelect={handleSelect}
-          disabled={(date) => date < minDate || date > maxDate}
-        />
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-interface TurnStartInputProps {
+interface TurnDateRangeInputProps {
   weekOf: string;
   turnLengthDays: number;
   extendedDays: number;
   startOffsetDays: number;
   prevDeadlineMs: number | null;
-  onChange: (offsetDays: number) => void;
+  nextTurnStartMs: number | null;
+  onStartChange: (offsetDays: number) => void;
+  onDeadlineChange: (extendedDays: number) => void;
 }
 
-function TurnStartInput({ weekOf, turnLengthDays, extendedDays, startOffsetDays, prevDeadlineMs, onChange }: TurnStartInputProps) {
+function TurnDateRangeInput({ weekOf, turnLengthDays, extendedDays, startOffsetDays, prevDeadlineMs, nextTurnStartMs, onStartChange, onDeadlineChange }: TurnDateRangeInputProps) {
   const [open, setOpen] = useState(false);
+  const [activeField, setActiveField] = useState<"start" | "deadline">("start");
+
   const startDateStr = addDaysToDateStr(weekOf, startOffsetDays);
-  const selectedDate = new Date(startDateStr + "T12:00:00");
+  const baseDeadlineExclusiveStr = addDaysToDateStr(weekOf, turnLengthDays);
+  const deadlineLastDayStr = addDaysToDateStr(weekOf, turnLengthDays + extendedDays - 1); // inclusive last day
 
-  // Start must be after prev turn's deadline and before this turn's deadline
-  const minDate = prevDeadlineMs
-    ? new Date(new Date(prevDeadlineMs).toISOString().slice(0, 10) + "T12:00:00")
-    : new Date(weekOf + "T12:00:00");
-  const maxDate = new Date(addDaysToDateStr(weekOf, turnLengthDays + extendedDays - 1) + "T12:00:00");
+  const startMinDate = prevDeadlineMs
+    ? new Date(new Date(prevDeadlineMs).toISOString().slice(0, 10) + "T00:00:00")
+    : new Date(weekOf + "T00:00:00");
+  const startMaxDate = new Date(deadlineLastDayStr + "T00:00:00");
+  // Deadline must be strictly after start; use start+1 as the minimum selectable deadline day.
+  const deadlineMinDate = new Date(addDaysToDateStr(startDateStr, 1) + "T00:00:00");
+  // Cap deadline at the day before the next turn's start (if one exists).
+  const baseDeadlineMaxStr = addDaysToDateStr(weekOf, turnLengthDays + 364);
+  const nextTurnStartDateStr = nextTurnStartMs ? new Date(nextTurnStartMs).toISOString().slice(0, 10) : null;
+  const nextTurnCapStr = nextTurnStartDateStr ? addDaysToDateStr(nextTurnStartDateStr, -1) : null;
+  const deadlineMaxStr = nextTurnCapStr && nextTurnCapStr < baseDeadlineMaxStr ? nextTurnCapStr : baseDeadlineMaxStr;
+  const deadlineMaxDate = new Date(deadlineMaxStr + "T00:00:00");
 
-  const handleSelect = (date: Date | undefined) => {
+  const handleStartSelect = (date: Date | undefined) => {
     if (!date) return;
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    const selectedStr = `${y}-${m}-${d}`;
+    const selectedStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     const base = new Date(weekOf + "T00:00:00.000Z");
     const selected = new Date(selectedStr + "T00:00:00.000Z");
-    const newOffset = Math.round((selected.getTime() - base.getTime()) / 86400000);
-    onChange(Math.max(0, newOffset));
+    onStartChange(Math.max(0, Math.round((selected.getTime() - base.getTime()) / 86400000)));
+    setActiveField("deadline");
+  };
+
+  const handleDeadlineSelect = (date: Date | undefined) => {
+    if (!date) return;
+    const selectedStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    // User picked the inclusive last day; exclusive deadline is one day later.
+    const exclusiveStr = addDaysToDateStr(selectedStr, 1);
+    const base = new Date(baseDeadlineExclusiveStr + "T00:00:00.000Z");
+    const selected = new Date(exclusiveStr + "T00:00:00.000Z");
+    onDeadlineChange(Math.round((selected.getTime() - base.getTime()) / 86400000));
     setOpen(false);
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) setActiveField("start"); }}>
       <PopoverTrigger asChild>
         <button
           type="button"
           className="flex-1 h-7 text-xs rounded-md bg-background border border-border px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary flex items-center gap-1.5 text-left min-w-0"
         >
-          <CalendarIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-          <span className="truncate">{formatDateET(startDateStr)}</span>
+          <CalendarIcon2 className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+          <span className="truncate">{formatCalendarDate(startDateStr)} → {formatCalendarDate(deadlineLastDayStr)}</span>
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={selectedDate}
-          onSelect={handleSelect}
-          disabled={(date) => date < minDate || date > maxDate}
-        />
+      <PopoverContent className="p-0" align="start">
+        <div className="flex gap-1.5 px-3 pt-2 pb-1">
+          <button
+            type="button"
+            onClick={() => setActiveField("start")}
+            className={`flex-1 text-center px-2 py-1.5 rounded-md transition-colors ${
+              activeField === "start"
+                ? "bg-primary/20 border border-primary/40 text-primary"
+                : "bg-muted/30 border border-border/40 text-muted-foreground hover:bg-muted/50"
+            }`}
+          >
+            <span className="block text-[10px] uppercase tracking-wide opacity-70">Start</span>
+            <span className="text-xs font-semibold">{formatCalendarDate(startDateStr)}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveField("deadline")}
+            className={`flex-1 text-center px-2 py-1.5 rounded-md transition-colors ${
+              activeField === "deadline"
+                ? "bg-primary/20 border border-primary/40 text-primary"
+                : "bg-muted/30 border border-border/40 text-muted-foreground hover:bg-muted/50"
+            }`}
+          >
+            <span className="block text-[10px] uppercase tracking-wide opacity-70">Deadline</span>
+            <span className="text-xs font-semibold">{formatCalendarDate(deadlineLastDayStr)}</span>
+          </button>
+        </div>
+        {activeField === "start" ? (
+          <Calendar
+            mode="single"
+            selected={new Date(startDateStr + "T12:00:00")}
+            onSelect={handleStartSelect}
+            disabled={(date) => date < startMinDate || date > startMaxDate}
+            classNames={{ root: "w-full" }}
+          />
+        ) : (
+          <Calendar
+            mode="single"
+            selected={new Date(deadlineLastDayStr + "T12:00:00")}
+            onSelect={handleDeadlineSelect}
+            disabled={(date) => date < deadlineMinDate || date > deadlineMaxDate}
+            classNames={{ root: "w-full" }}
+          />
+        )}
       </PopoverContent>
     </Popover>
   );
@@ -393,39 +402,25 @@ export default function GroupAdmin() {
     });
   };
 
-  const handleExtendTurn = async (weekOf: string) => {
-    const days = parseInt(extendDaysInput[weekOf] ?? "0", 10);
-    if (isNaN(days) || days < 0 || days > 365) {
-      toast({ title: "Invalid value", description: "Days must be between 0 and 365", variant: "destructive" });
-      return;
-    }
+  const handleSetTurnDates = async (weekOf: string) => {
+    const entry = scheduleWeeks.find((e) => e.weekOf === weekOf);
+    const startOffset = startOffsetInput[weekOf] ?? entry?.startOffsetDays ?? 0;
+    const extDays = parseInt(String(extendDaysInput[weekOf] ?? entry?.extendedDays ?? 0), 10);
     withConfirm(
-      `Extend the turn starting ${formatWeekLabel(weekOf)} by ${days} day(s)? This changes the rating deadline.`,
-      async () => {
-        await doAction(async () => {
-          await apiCall(`/api/admin/groups/${groupId}/extend-turn`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ weekOf, extendedDays: days }),
-          });
-          toast({ title: "Turn extended", description: `Deadline extended by ${days} day(s)` });
-        });
-      },
-      "warning"
-    );
-  };
-
-  const handleSetTurnStart = async (weekOf: string, startOffsetDays: number) => {
-    withConfirm(
-      `Set the start date for the turn starting ${formatWeekLabel(weekOf)}? This is a display adjustment only — it does not change which turn owns data keyed to this date.`,
+      `Update start and deadline for turn starting ${formatWeekLabel(weekOf)}? This adjusts when the turn opens and when rating closes.`,
       async () => {
         await doAction(async () => {
           await apiCall(`/api/admin/groups/${groupId}/turn-start`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ weekOf, startOffsetDays }),
+            body: JSON.stringify({ weekOf, startOffsetDays: startOffset }),
           });
-          toast({ title: "Turn start updated" });
+          await apiCall(`/api/admin/groups/${groupId}/extend-turn`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ weekOf, extendedDays: extDays }),
+          });
+          toast({ title: "Turn dates updated" });
         });
       },
       "warning"
@@ -702,18 +697,23 @@ export default function GroupAdmin() {
                 <div className="divide-y divide-border/10">
                   {scheduleWeeks.map((entry, i) => {
                     const isCurrent = entry.weekOf === currentTurnWeekOf;
+                    const turnLen = group.turnLengthDays ?? 7;
+                    const startOffset = startOffsetInput[entry.weekOf] ?? entry.startOffsetDays ?? 0;
+                    const extDays = parseInt(String(extendDaysInput[entry.weekOf] ?? entry.extendedDays), 10);
+                    const effectiveStartStr = addDaysToDateStr(entry.weekOf, startOffset);
+                    const effectiveDeadlineLastDayStr = addDaysToDateStr(entry.weekOf, turnLen + extDays - 1);
                     return (
                       <div key={`${i}_${entry.weekOf}`} className={`p-4 space-y-3 ${isCurrent ? "bg-primary/5" : ""}`}>
                         <div className="flex items-center justify-between">
                           <div>
                             <span className="text-sm font-medium text-foreground">
-                              {formatWeekLabel(entry.weekOf)}
+                              {formatCalendarDate(effectiveStartStr)}
                             </span>
                             {isCurrent && (
                               <Badge className="ml-2 bg-primary/20 text-primary border-primary/30 text-xs">Current</Badge>
                             )}
                           </div>
-                          <span className="text-xs text-muted-foreground">Deadline: {formatDeadlineET(entry.deadlineMs)}</span>
+                          <span className="text-xs text-muted-foreground">Deadline: {formatCalendarDate(effectiveDeadlineLastDayStr)}</span>
                         </div>
 
                         {/* Movie */}
@@ -844,43 +844,28 @@ export default function GroupAdmin() {
 
                         {/* Turn controls */}
                         <div className="flex flex-wrap gap-2 items-center w-full">
-                          {/* Start date calendar */}
+                          {/* Combined date range */}
                           <div className="flex items-center gap-2 w-full">
-                            <span className="text-xs text-muted-foreground flex-shrink-0 w-14">Start</span>
-                            <TurnStartInput
+                            <TurnDateRangeInput
                               weekOf={entry.weekOf}
                               turnLengthDays={group.turnLengthDays ?? 7}
                               extendedDays={parseInt(String(extendDaysInput[entry.weekOf] ?? entry.extendedDays), 10)}
                               startOffsetDays={startOffsetInput[entry.weekOf] ?? entry.startOffsetDays ?? 0}
                               prevDeadlineMs={i > 0 ? scheduleWeeks[i - 1].deadlineMs : null}
-                              onChange={(offset) => {
-                                setStartOffsetInput((prev) => ({ ...prev, [entry.weekOf]: offset }));
-                              }}
+                              nextTurnStartMs={i < scheduleWeeks.length - 1
+                                ? new Date(addDaysToDateStr(
+                                    scheduleWeeks[i + 1].weekOf,
+                                    startOffsetInput[scheduleWeeks[i + 1].weekOf] ?? scheduleWeeks[i + 1].startOffsetDays ?? 0
+                                  ) + "T00:00:00.000Z").getTime()
+                                : null}
+                              onStartChange={(offset) => setStartOffsetInput((prev) => ({ ...prev, [entry.weekOf]: offset }))}
+                              onDeadlineChange={(days) => setExtendDaysInput((prev) => ({ ...prev, [entry.weekOf]: String(days) }))}
                             />
                             <Button
                               size="sm"
                               variant="outline"
                               className="h-7 text-xs flex-shrink-0"
-                              onClick={() => handleSetTurnStart(entry.weekOf, startOffsetInput[entry.weekOf] ?? entry.startOffsetDays ?? 0)}
-                            >
-                              Set
-                            </Button>
-                          </div>
-
-                          {/* Deadline calendar */}
-                          <div className="flex items-center gap-2 w-full">
-                            <span className="text-xs text-muted-foreground flex-shrink-0 w-14">Deadline</span>
-                            <TurnDeadlineInput
-                              weekOf={entry.weekOf}
-                              turnLengthDays={group.turnLengthDays ?? 7}
-                              extendedDays={parseInt(String(extendDaysInput[entry.weekOf] ?? entry.extendedDays), 10)}
-                              onChange={(days) => setExtendDaysInput((prev) => ({ ...prev, [entry.weekOf]: String(days) }))}
-                            />
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs flex-shrink-0"
-                              onClick={() => handleExtendTurn(entry.weekOf)}
+                              onClick={() => handleSetTurnDates(entry.weekOf)}
                             >
                               Set
                             </Button>
@@ -1201,7 +1186,7 @@ export default function GroupAdmin() {
                           type="button"
                           className="h-9 text-sm rounded-md bg-background border border-border px-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary w-full max-w-xs flex items-center gap-2 text-left"
                         >
-                          <CalendarIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <CalendarIcon2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                           {settingsStartDate
                             ? new Date(settingsStartDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                             : <span className="text-muted-foreground/60">Pick a date</span>}

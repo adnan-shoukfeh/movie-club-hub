@@ -299,7 +299,8 @@ func (h *Handler) AdminSetTurnStart(w http.ResponseWriter, r *http.Request) {
 			GroupID: groupID, WeekOf: timeToPgDate(prevWeekOf),
 		})
 		prevDeadlineMs := getDeadlineMs(prevWeekOf, config, int(prevOverride.ExtendedDays))
-		thisStart, _ := time.Parse("2006-01-02", req.WeekOf)
+		loc, _ := time.LoadLocation("America/New_York")
+		thisStart, _ := time.ParseInLocation("2006-01-02", req.WeekOf, loc)
 		thisEffectiveStartMs := thisStart.AddDate(0, 0, int(req.StartOffsetDays)).UnixMilli()
 		if thisEffectiveStartMs < prevDeadlineMs {
 			writeError(w, http.StatusBadRequest, "start date overlaps with the previous turn's active period")
