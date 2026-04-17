@@ -6,6 +6,7 @@ import { useEffect } from "react";
 
 import Login from "./pages/login";
 import Dashboard from "./pages/dashboard";
+import Profile from "./pages/profile";
 import GroupsNew from "./pages/groups-new";
 import GroupDetail from "./pages/group-detail";
 import GroupAdmin from "./pages/group-admin";
@@ -35,6 +36,7 @@ function App() {
           <Switch>
             <Route path="/" component={Login} />
             <Route path="/dashboard" component={Dashboard} />
+            <Route path="/profile" component={Profile} />
             <Route path="/groups/new" component={GroupsNew} />
             <Route path="/groups/:groupId/results" component={GroupResults} />
             <Route path="/groups/:groupId/admin" component={GroupAdmin} />

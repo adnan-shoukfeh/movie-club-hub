@@ -2,7 +2,7 @@ import { useGetDashboard, useGetMe, useLogout, getGetMeQueryKey, getGetDashboard
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Film, Plus, LogOut, Users, Star, Clock } from "lucide-react";
+import { Film, Plus, LogOut, Users, Star, Clock, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -110,15 +110,26 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLogout}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <LogOut className="w-4 h-4 mr-1.5" />
-            Out
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setLocation("/profile")}
+              className="text-muted-foreground hover:text-foreground"
+              title="Profile settings"
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <LogOut className="w-4 h-4 mr-1.5" />
+              Out
+            </Button>
+          </div>
         </div>
       </header>
 
