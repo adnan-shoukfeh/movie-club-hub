@@ -10,7 +10,7 @@ import {
 import {
   ArrowLeft,
   Shield,
-  Calendar,
+  Calendar as CalendarIcon2,
   Clock,
   Film,
   Users,
@@ -27,10 +27,13 @@ import {
   Check,
   X,
   Pencil,
+  CalendarIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { formatDeadlineET, formatDateET } from "@/lib/utils";
 
@@ -182,6 +185,7 @@ export default function GroupAdmin() {
   const [settingsStartDate, setSettingsStartDate] = useState<string>("");
   const [settingsTurnLength, setSettingsTurnLength] = useState<string>("");
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsDateOpen, setSettingsDateOpen] = useState(false);
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
@@ -591,7 +595,7 @@ export default function GroupAdmin() {
             onClick={() => sectionToggle("schedule")}
           >
             <div className="flex items-center gap-2.5">
-              <Calendar className="w-4 h-4 text-primary" />
+              <CalendarIcon2 className="w-4 h-4 text-primary" />
               <span className="font-serif font-semibold text-foreground">Picker Schedule</span>
             </div>
             {activeSection === "schedule" ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -1063,7 +1067,7 @@ export default function GroupAdmin() {
               onClick={() => sectionToggle("settings")}
             >
               <div className="flex items-center gap-2.5">
-                <Calendar className="w-4 h-4 text-primary" />
+                <CalendarIcon2 className="w-4 h-4 text-primary" />
                 <span className="font-serif font-semibold text-foreground">Group Settings</span>
               </div>
               {activeSection === "settings" ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -1079,12 +1083,34 @@ export default function GroupAdmin() {
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs text-muted-foreground block mb-1">Group Start Date</label>
-                    <input
-                      type="date"
-                      value={settingsStartDate}
-                      onChange={(e) => setSettingsStartDate(e.target.value)}
-                      className="h-9 text-sm rounded-md bg-background border border-border px-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary w-full max-w-xs"
-                    />
+                    <Popover open={settingsDateOpen} onOpenChange={setSettingsDateOpen}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="h-9 text-sm rounded-md bg-background border border-border px-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary w-full max-w-xs flex items-center gap-2 text-left"
+                        >
+                          <CalendarIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          {settingsStartDate
+                            ? new Date(settingsStartDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                            : <span className="text-muted-foreground/60">Pick a date</span>}
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={settingsStartDate ? new Date(settingsStartDate + "T00:00:00") : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              const y = date.getFullYear();
+                              const m = String(date.getMonth() + 1).padStart(2, "0");
+                              const d = String(date.getDate()).padStart(2, "0");
+                              setSettingsStartDate(`${y}-${m}-${d}`);
+                              setSettingsDateOpen(false);
+                            }
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
                     <p className="text-xs text-muted-foreground/60 mt-1">The date when turn 1 began</p>
                   </div>
 
