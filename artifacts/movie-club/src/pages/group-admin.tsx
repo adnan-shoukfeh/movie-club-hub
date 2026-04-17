@@ -56,31 +56,47 @@ interface TurnDeadlineInputProps {
 }
 
 function TurnDeadlineInput({ weekOf, turnLengthDays, extendedDays, onChange }: TurnDeadlineInputProps) {
-  const min = -(turnLengthDays - 1);
+  const [open, setOpen] = useState(false);
   const max = 365;
   const deadlineDateStr = addDaysToDateStr(weekOf, turnLengthDays + extendedDays);
-  const minDateStr = addDaysToDateStr(weekOf, 1);
-  const maxDateStr = addDaysToDateStr(weekOf, turnLengthDays + max);
+  const baseDeadlineDateStr = addDaysToDateStr(weekOf, turnLengthDays);
+  const minDate = new Date(addDaysToDateStr(weekOf, 1) + "T12:00:00");
+  const maxDate = new Date(addDaysToDateStr(weekOf, turnLengthDays + max) + "T12:00:00");
+  const selectedDate = new Date(deadlineDateStr + "T12:00:00");
+
+  const handleSelect = (date: Date | undefined) => {
+    if (!date) return;
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    const selectedStr = `${y}-${m}-${d}`;
+    const base = new Date(baseDeadlineDateStr + "T00:00:00.000Z");
+    const selected = new Date(selectedStr + "T00:00:00.000Z");
+    const newExtendedDays = Math.round((selected.getTime() - base.getTime()) / 86400000);
+    onChange(newExtendedDays);
+    setOpen(false);
+  };
 
   return (
-    <div className="flex flex-col gap-1.5 w-full">
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>Deadline</span>
-        <span className="font-medium text-foreground">{formatDateET(deadlineDateStr)}</span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        value={extendedDays}
-        onChange={(e) => onChange(parseInt(e.target.value, 10))}
-        className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-primary/20 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-primary/50 [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-0"
-      />
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground/60">
-        <span>{formatDateET(minDateStr)}</span>
-        <span>{formatDateET(maxDateStr)}</span>
-      </div>
-    </div>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex-1 h-7 text-xs rounded-md bg-background border border-border px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary flex items-center gap-1.5 text-left min-w-0"
+        >
+          <CalendarIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+          <span className="truncate">{formatDateET(deadlineDateStr)}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={handleSelect}
+          disabled={(date) => date < minDate || date > maxDate}
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -753,17 +769,15 @@ export default function GroupAdmin() {
 
                         {/* Turn controls */}
                         <div className="flex flex-wrap gap-2 items-center w-full">
-                          {/* Deadline slider */}
+                          {/* Deadline calendar */}
                           <div className="flex items-center gap-2 w-full">
                             <Clock className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <TurnDeadlineInput
-                                weekOf={entry.weekOf}
-                                turnLengthDays={group.turnLengthDays ?? 7}
-                                extendedDays={parseInt(String(extendDaysInput[entry.weekOf] ?? entry.extendedDays), 10)}
-                                onChange={(days) => setExtendDaysInput((prev) => ({ ...prev, [entry.weekOf]: String(days) }))}
-                              />
-                            </div>
+                            <TurnDeadlineInput
+                              weekOf={entry.weekOf}
+                              turnLengthDays={group.turnLengthDays ?? 7}
+                              extendedDays={parseInt(String(extendDaysInput[entry.weekOf] ?? entry.extendedDays), 10)}
+                              onChange={(days) => setExtendDaysInput((prev) => ({ ...prev, [entry.weekOf]: String(days) }))}
+                            />
                             <Button
                               size="sm"
                               variant="outline"
