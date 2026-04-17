@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -61,7 +62,7 @@ func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	overrides, _ := h.q.GetTurnOverridesForGroup(r.Context(), groupID)
-	overrideMap := make(map[string]db.TurnOverride)
+	overrideMap := make(map[string]db.GetTurnOverridesForGroupRow)
 	for _, o := range overrides {
 		overrideMap[pgDateToString(o.WeekOf)] = o
 	}
@@ -78,6 +79,7 @@ func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 		ReviewUnlockedByAdmin bool    `json:"reviewUnlockedByAdmin"`
 		MovieUnlockedByAdmin  bool    `json:"movieUnlockedByAdmin"`
 		ExtendedDays          int32   `json:"extendedDays"`
+		StartOffsetDays       int32   `json:"startOffsetDays"`
 		DeadlineMs            int64   `json:"deadlineMs"`
 	}
 
@@ -105,6 +107,7 @@ func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 			entry.ReviewUnlockedByAdmin = o.ReviewUnlockedByAdmin
 			entry.MovieUnlockedByAdmin = o.MovieUnlockedByAdmin
 			entry.ExtendedDays = o.ExtendedDays
+			entry.StartOffsetDays = o.StartOffsetDays
 			adminExt = int(o.ExtendedDays)
 		}
 
@@ -213,6 +216,16 @@ func (h *Handler) AdminExtendTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Ensure deadline stays after the start offset for this turn.
+	existing, _ := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
+		GroupID: groupID, WeekOf: timeToPgDate(req.WeekOf),
+	})
+	effectiveTurnDays := int(group.TurnLengthDays) + int(req.ExtendedDays)
+	if effectiveTurnDays <= int(existing.StartOffsetDays) {
+		writeError(w, http.StatusBadRequest, "deadline must be at least 1 day after the turn's start date")
+		return
+	}
+
 	config, _ := h.buildTurnConfig(r.Context(), group)
 
 	weekOfPgDate := timeToPgDate(req.WeekOf)
@@ -227,6 +240,83 @@ func (h *Handler) AdminExtendTurn(w http.ResponseWriter, r *http.Request) {
 		"weekOf":       req.WeekOf,
 		"extendedDays": req.ExtendedDays,
 		"deadlineMs":   deadlineMs,
+	})
+}
+
+func (h *Handler) AdminSetTurnStart(w http.ResponseWriter, r *http.Request) {
+	groupID, err := pathInt(r, "groupId")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid group ID")
+		return
+	}
+
+	_, ok := h.requireAdmin(w, r, groupID)
+	if !ok {
+		return
+	}
+
+	var req struct {
+		WeekOf          string `json:"weekOf"`
+		StartOffsetDays int32  `json:"startOffsetDays"`
+	}
+	if err := decodeBody(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if !isValidDateStr(req.WeekOf) {
+		writeError(w, http.StatusBadRequest, "weekOf must be a valid YYYY-MM-DD date")
+		return
+	}
+
+	if req.StartOffsetDays < 0 {
+		writeError(w, http.StatusBadRequest, "startOffsetDays must be >= 0")
+		return
+	}
+
+	group, err := h.q.GetGroupByID(r.Context(), groupID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to fetch group")
+		return
+	}
+
+	// Deadline must remain at least 1 day after the new start.
+	existing, _ := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
+		GroupID: groupID, WeekOf: timeToPgDate(req.WeekOf),
+	})
+	effectiveTurnDays := int(group.TurnLengthDays) + int(existing.ExtendedDays)
+	if int(req.StartOffsetDays) >= effectiveTurnDays {
+		writeError(w, http.StatusBadRequest, "start date must be before the turn's deadline")
+		return
+	}
+
+	// Start must not overlap with the previous turn's active period.
+	config, _ := h.buildTurnConfig(r.Context(), group)
+	turnIdx := getTurnIndexForDate(req.WeekOf, config)
+	if turnIdx > 0 {
+		prevWeekOf := getTurnStartDate(turnIdx-1, config)
+		prevOverride, _ := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
+			GroupID: groupID, WeekOf: timeToPgDate(prevWeekOf),
+		})
+		prevDeadlineMs := getDeadlineMs(prevWeekOf, config, int(prevOverride.ExtendedDays))
+		thisStart, _ := time.Parse("2006-01-02", req.WeekOf)
+		thisEffectiveStartMs := thisStart.AddDate(0, 0, int(req.StartOffsetDays)).UnixMilli()
+		if thisEffectiveStartMs < prevDeadlineMs {
+			writeError(w, http.StatusBadRequest, "start date overlaps with the previous turn's active period")
+			return
+		}
+	}
+
+	h.q.UpsertTurnOverrideStartOffset(r.Context(), db.UpsertTurnOverrideStartOffsetParams{
+		GroupID:         groupID,
+		WeekOf:          timeToPgDate(req.WeekOf),
+		StartOffsetDays: req.StartOffsetDays,
+	})
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"message":         "Turn start updated",
+		"weekOf":          req.WeekOf,
+		"startOffsetDays": req.StartOffsetDays,
 	})
 }
 

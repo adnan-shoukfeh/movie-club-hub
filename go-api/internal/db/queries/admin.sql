@@ -31,12 +31,12 @@ ON CONFLICT ON CONSTRAINT turn_extensions_group_turn_unique
 DO UPDATE SET extra_days = EXCLUDED.extra_days;
 
 -- name: GetTurnOverride :one
-SELECT id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, updated_at
+SELECT id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, start_offset_days, updated_at
 FROM turn_overrides
 WHERE group_id = $1 AND week_of = $2;
 
 -- name: GetTurnOverridesForGroup :many
-SELECT id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, updated_at
+SELECT id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, start_offset_days, updated_at
 FROM turn_overrides
 WHERE group_id = $1
 ORDER BY week_of;
@@ -67,4 +67,11 @@ INSERT INTO turn_overrides (group_id, week_of, extended_days)
 VALUES ($1, $2, $3)
 ON CONFLICT ON CONSTRAINT turn_overrides_group_week_unique
 DO UPDATE SET extended_days = EXCLUDED.extended_days, updated_at = now()
-RETURNING id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, updated_at;
+RETURNING id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, start_offset_days, updated_at;
+
+-- name: UpsertTurnOverrideStartOffset :one
+INSERT INTO turn_overrides (group_id, week_of, start_offset_days)
+VALUES ($1, $2, $3)
+ON CONFLICT ON CONSTRAINT turn_overrides_group_week_unique
+DO UPDATE SET start_offset_days = EXCLUDED.start_offset_days, updated_at = now()
+RETURNING id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, start_offset_days, updated_at;

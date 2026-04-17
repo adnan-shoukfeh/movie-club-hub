@@ -100,6 +100,62 @@ function TurnDeadlineInput({ weekOf, turnLengthDays, extendedDays, onChange }: T
   );
 }
 
+interface TurnStartInputProps {
+  weekOf: string;
+  turnLengthDays: number;
+  extendedDays: number;
+  startOffsetDays: number;
+  prevDeadlineMs: number | null;
+  onChange: (offsetDays: number) => void;
+}
+
+function TurnStartInput({ weekOf, turnLengthDays, extendedDays, startOffsetDays, prevDeadlineMs, onChange }: TurnStartInputProps) {
+  const [open, setOpen] = useState(false);
+  const startDateStr = addDaysToDateStr(weekOf, startOffsetDays);
+  const selectedDate = new Date(startDateStr + "T12:00:00");
+
+  // Start must be after prev turn's deadline and before this turn's deadline
+  const minDate = prevDeadlineMs
+    ? new Date(new Date(prevDeadlineMs).toISOString().slice(0, 10) + "T12:00:00")
+    : new Date(weekOf + "T12:00:00");
+  const maxDate = new Date(addDaysToDateStr(weekOf, turnLengthDays + extendedDays - 1) + "T12:00:00");
+
+  const handleSelect = (date: Date | undefined) => {
+    if (!date) return;
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    const selectedStr = `${y}-${m}-${d}`;
+    const base = new Date(weekOf + "T00:00:00.000Z");
+    const selected = new Date(selectedStr + "T00:00:00.000Z");
+    const newOffset = Math.round((selected.getTime() - base.getTime()) / 86400000);
+    onChange(Math.max(0, newOffset));
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex-1 h-7 text-xs rounded-md bg-background border border-border px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary flex items-center gap-1.5 text-left min-w-0"
+        >
+          <CalendarIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+          <span className="truncate">{formatDateET(startDateStr)}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={handleSelect}
+          disabled={(date) => date < minDate || date > maxDate}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 interface ScheduleEntry {
   weekOf: string;
   pickerUserId: number | null;
@@ -108,6 +164,7 @@ interface ScheduleEntry {
   reviewUnlockedByAdmin: boolean;
   movieUnlockedByAdmin: boolean;
   extendedDays: number;
+  startOffsetDays: number;
   deadlineMs: number;
 }
 
@@ -191,6 +248,7 @@ export default function GroupAdmin() {
   const [editingVote, setEditingVote] = useState<{ userId: number; rating: string; review: string } | null>(null);
 
   const [extendDaysInput, setExtendDaysInput] = useState<{ [weekOf: string]: string }>({});
+  const [startOffsetInput, setStartOffsetInput] = useState<{ [weekOf: string]: number }>({});
   const [pickerWeekEdit, setPickerWeekEdit] = useState<string | null>(null);
   const [pendingPickerMap, setPendingPickerMap] = useState<Record<string, string>>({});
   const [expandedNominationsWeek, setExpandedNominationsWeek] = useState<string | null>(null);
@@ -351,6 +409,23 @@ export default function GroupAdmin() {
             body: JSON.stringify({ weekOf, extendedDays: days }),
           });
           toast({ title: "Turn extended", description: `Deadline extended by ${days} day(s)` });
+        });
+      },
+      "warning"
+    );
+  };
+
+  const handleSetTurnStart = async (weekOf: string, startOffsetDays: number) => {
+    withConfirm(
+      `Set the start date for the turn starting ${formatWeekLabel(weekOf)}? This is a display adjustment only — it does not change which turn owns data keyed to this date.`,
+      async () => {
+        await doAction(async () => {
+          await apiCall(`/api/admin/groups/${groupId}/turn-start`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ weekOf, startOffsetDays }),
+          });
+          toast({ title: "Turn start updated" });
         });
       },
       "warning"
@@ -769,9 +844,32 @@ export default function GroupAdmin() {
 
                         {/* Turn controls */}
                         <div className="flex flex-wrap gap-2 items-center w-full">
+                          {/* Start date calendar */}
+                          <div className="flex items-center gap-2 w-full">
+                            <span className="text-xs text-muted-foreground flex-shrink-0 w-14">Start</span>
+                            <TurnStartInput
+                              weekOf={entry.weekOf}
+                              turnLengthDays={group.turnLengthDays ?? 7}
+                              extendedDays={parseInt(String(extendDaysInput[entry.weekOf] ?? entry.extendedDays), 10)}
+                              startOffsetDays={startOffsetInput[entry.weekOf] ?? entry.startOffsetDays ?? 0}
+                              prevDeadlineMs={i > 0 ? scheduleWeeks[i - 1].deadlineMs : null}
+                              onChange={(offset) => {
+                                setStartOffsetInput((prev) => ({ ...prev, [entry.weekOf]: offset }));
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs flex-shrink-0"
+                              onClick={() => handleSetTurnStart(entry.weekOf, startOffsetInput[entry.weekOf] ?? entry.startOffsetDays ?? 0)}
+                            >
+                              Set
+                            </Button>
+                          </div>
+
                           {/* Deadline calendar */}
                           <div className="flex items-center gap-2 w-full">
-                            <Clock className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                            <span className="text-xs text-muted-foreground flex-shrink-0 w-14">Deadline</span>
                             <TurnDeadlineInput
                               weekOf={entry.weekOf}
                               turnLengthDays={group.turnLengthDays ?? 7}

@@ -150,6 +150,7 @@ func main() {
 			r.Get("/admin/groups/{groupId}/schedule", h.AdminGetSchedule)
 			r.Post("/admin/groups/{groupId}/picker", h.AdminSetPicker)
 			r.Post("/admin/groups/{groupId}/extend-turn", h.AdminExtendTurn)
+			r.Post("/admin/groups/{groupId}/turn-start", h.AdminSetTurnStart)
 			r.Post("/admin/groups/{groupId}/unlock-movie", h.AdminUnlockMovie)
 			r.Post("/admin/groups/{groupId}/unlock-reviews", h.AdminUnlockReviews)
 			r.Get("/admin/groups/{groupId}/votes", h.AdminGetVotes)

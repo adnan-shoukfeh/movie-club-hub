@@ -154,7 +154,7 @@ func (h *Handler) buildTurnConfig(ctx context.Context, group db.Group) (TurnConf
 		return baseConfig, err
 	}
 
-	adminOverrides := make([]db.TurnOverride, 0)
+	adminOverrides := make([]db.GetTurnOverridesForGroupRow, 0)
 	for _, o := range overrides {
 		if o.ExtendedDays > 0 {
 			adminOverrides = append(adminOverrides, o)

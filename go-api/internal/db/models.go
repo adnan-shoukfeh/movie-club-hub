@@ -71,6 +71,12 @@ type PickerAssignment struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type Session struct {
+	Token  string             `json:"token"`
+	Data   []byte             `json:"data"`
+	Expiry pgtype.Timestamptz `json:"expiry"`
+}
+
 type TurnExtension struct {
 	ID        int32     `json:"id"`
 	GroupID   int32     `json:"group_id"`
@@ -87,6 +93,7 @@ type TurnOverride struct {
 	MovieUnlockedByAdmin  bool        `json:"movie_unlocked_by_admin"`
 	ExtendedDays          int32       `json:"extended_days"`
 	UpdatedAt             time.Time   `json:"updated_at"`
+	StartOffsetDays       int32       `json:"start_offset_days"`
 }
 
 type User struct {

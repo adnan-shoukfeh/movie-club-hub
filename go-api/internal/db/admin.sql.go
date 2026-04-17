@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -134,7 +135,7 @@ func (q *Queries) GetTurnExtensions(ctx context.Context, groupID int32) ([]GetTu
 }
 
 const getTurnOverride = `-- name: GetTurnOverride :one
-SELECT id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, updated_at
+SELECT id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, start_offset_days, updated_at
 FROM turn_overrides
 WHERE group_id = $1 AND week_of = $2
 `
@@ -144,9 +145,20 @@ type GetTurnOverrideParams struct {
 	WeekOf  pgtype.Date `json:"week_of"`
 }
 
-func (q *Queries) GetTurnOverride(ctx context.Context, arg GetTurnOverrideParams) (TurnOverride, error) {
+type GetTurnOverrideRow struct {
+	ID                    int32       `json:"id"`
+	GroupID               int32       `json:"group_id"`
+	WeekOf                pgtype.Date `json:"week_of"`
+	ReviewUnlockedByAdmin bool        `json:"review_unlocked_by_admin"`
+	MovieUnlockedByAdmin  bool        `json:"movie_unlocked_by_admin"`
+	ExtendedDays          int32       `json:"extended_days"`
+	StartOffsetDays       int32       `json:"start_offset_days"`
+	UpdatedAt             time.Time   `json:"updated_at"`
+}
+
+func (q *Queries) GetTurnOverride(ctx context.Context, arg GetTurnOverrideParams) (GetTurnOverrideRow, error) {
 	row := q.db.QueryRow(ctx, getTurnOverride, arg.GroupID, arg.WeekOf)
-	var i TurnOverride
+	var i GetTurnOverrideRow
 	err := row.Scan(
 		&i.ID,
 		&i.GroupID,
@@ -154,27 +166,39 @@ func (q *Queries) GetTurnOverride(ctx context.Context, arg GetTurnOverrideParams
 		&i.ReviewUnlockedByAdmin,
 		&i.MovieUnlockedByAdmin,
 		&i.ExtendedDays,
+		&i.StartOffsetDays,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const getTurnOverridesForGroup = `-- name: GetTurnOverridesForGroup :many
-SELECT id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, updated_at
+SELECT id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, start_offset_days, updated_at
 FROM turn_overrides
 WHERE group_id = $1
 ORDER BY week_of
 `
 
-func (q *Queries) GetTurnOverridesForGroup(ctx context.Context, groupID int32) ([]TurnOverride, error) {
+type GetTurnOverridesForGroupRow struct {
+	ID                    int32       `json:"id"`
+	GroupID               int32       `json:"group_id"`
+	WeekOf                pgtype.Date `json:"week_of"`
+	ReviewUnlockedByAdmin bool        `json:"review_unlocked_by_admin"`
+	MovieUnlockedByAdmin  bool        `json:"movie_unlocked_by_admin"`
+	ExtendedDays          int32       `json:"extended_days"`
+	StartOffsetDays       int32       `json:"start_offset_days"`
+	UpdatedAt             time.Time   `json:"updated_at"`
+}
+
+func (q *Queries) GetTurnOverridesForGroup(ctx context.Context, groupID int32) ([]GetTurnOverridesForGroupRow, error) {
 	rows, err := q.db.Query(ctx, getTurnOverridesForGroup, groupID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []TurnOverride{}
+	items := []GetTurnOverridesForGroupRow{}
 	for rows.Next() {
-		var i TurnOverride
+		var i GetTurnOverridesForGroupRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.GroupID,
@@ -182,6 +206,7 @@ func (q *Queries) GetTurnOverridesForGroup(ctx context.Context, groupID int32) (
 			&i.ReviewUnlockedByAdmin,
 			&i.MovieUnlockedByAdmin,
 			&i.ExtendedDays,
+			&i.StartOffsetDays,
 			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -264,7 +289,7 @@ INSERT INTO turn_overrides (group_id, week_of, extended_days)
 VALUES ($1, $2, $3)
 ON CONFLICT ON CONSTRAINT turn_overrides_group_week_unique
 DO UPDATE SET extended_days = EXCLUDED.extended_days, updated_at = now()
-RETURNING id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, updated_at
+RETURNING id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, start_offset_days, updated_at
 `
 
 type UpsertTurnOverrideExtendedDaysParams struct {
@@ -273,9 +298,20 @@ type UpsertTurnOverrideExtendedDaysParams struct {
 	ExtendedDays int32       `json:"extended_days"`
 }
 
-func (q *Queries) UpsertTurnOverrideExtendedDays(ctx context.Context, arg UpsertTurnOverrideExtendedDaysParams) (TurnOverride, error) {
+type UpsertTurnOverrideExtendedDaysRow struct {
+	ID                    int32       `json:"id"`
+	GroupID               int32       `json:"group_id"`
+	WeekOf                pgtype.Date `json:"week_of"`
+	ReviewUnlockedByAdmin bool        `json:"review_unlocked_by_admin"`
+	MovieUnlockedByAdmin  bool        `json:"movie_unlocked_by_admin"`
+	ExtendedDays          int32       `json:"extended_days"`
+	StartOffsetDays       int32       `json:"start_offset_days"`
+	UpdatedAt             time.Time   `json:"updated_at"`
+}
+
+func (q *Queries) UpsertTurnOverrideExtendedDays(ctx context.Context, arg UpsertTurnOverrideExtendedDaysParams) (UpsertTurnOverrideExtendedDaysRow, error) {
 	row := q.db.QueryRow(ctx, upsertTurnOverrideExtendedDays, arg.GroupID, arg.WeekOf, arg.ExtendedDays)
-	var i TurnOverride
+	var i UpsertTurnOverrideExtendedDaysRow
 	err := row.Scan(
 		&i.ID,
 		&i.GroupID,
@@ -283,6 +319,7 @@ func (q *Queries) UpsertTurnOverrideExtendedDays(ctx context.Context, arg Upsert
 		&i.ReviewUnlockedByAdmin,
 		&i.MovieUnlockedByAdmin,
 		&i.ExtendedDays,
+		&i.StartOffsetDays,
 		&i.UpdatedAt,
 	)
 	return i, err
@@ -322,4 +359,45 @@ type UpsertTurnOverrideReviewUnlockedParams struct {
 func (q *Queries) UpsertTurnOverrideReviewUnlocked(ctx context.Context, arg UpsertTurnOverrideReviewUnlockedParams) error {
 	_, err := q.db.Exec(ctx, upsertTurnOverrideReviewUnlocked, arg.GroupID, arg.WeekOf, arg.ReviewUnlockedByAdmin)
 	return err
+}
+
+const upsertTurnOverrideStartOffset = `-- name: UpsertTurnOverrideStartOffset :one
+INSERT INTO turn_overrides (group_id, week_of, start_offset_days)
+VALUES ($1, $2, $3)
+ON CONFLICT ON CONSTRAINT turn_overrides_group_week_unique
+DO UPDATE SET start_offset_days = EXCLUDED.start_offset_days, updated_at = now()
+RETURNING id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, start_offset_days, updated_at
+`
+
+type UpsertTurnOverrideStartOffsetParams struct {
+	GroupID         int32       `json:"group_id"`
+	WeekOf          pgtype.Date `json:"week_of"`
+	StartOffsetDays int32       `json:"start_offset_days"`
+}
+
+type UpsertTurnOverrideStartOffsetRow struct {
+	ID                    int32       `json:"id"`
+	GroupID               int32       `json:"group_id"`
+	WeekOf                pgtype.Date `json:"week_of"`
+	ReviewUnlockedByAdmin bool        `json:"review_unlocked_by_admin"`
+	MovieUnlockedByAdmin  bool        `json:"movie_unlocked_by_admin"`
+	ExtendedDays          int32       `json:"extended_days"`
+	StartOffsetDays       int32       `json:"start_offset_days"`
+	UpdatedAt             time.Time   `json:"updated_at"`
+}
+
+func (q *Queries) UpsertTurnOverrideStartOffset(ctx context.Context, arg UpsertTurnOverrideStartOffsetParams) (UpsertTurnOverrideStartOffsetRow, error) {
+	row := q.db.QueryRow(ctx, upsertTurnOverrideStartOffset, arg.GroupID, arg.WeekOf, arg.StartOffsetDays)
+	var i UpsertTurnOverrideStartOffsetRow
+	err := row.Scan(
+		&i.ID,
+		&i.GroupID,
+		&i.WeekOf,
+		&i.ReviewUnlockedByAdmin,
+		&i.MovieUnlockedByAdmin,
+		&i.ExtendedDays,
+		&i.StartOffsetDays,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
