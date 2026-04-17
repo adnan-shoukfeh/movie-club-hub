@@ -199,3 +199,98 @@ func (h *Handler) userID(r *http.Request) int32 {
 
 // unused but keeps import of session package
 var _ = session.UserIDKey
+
+type updateUsernameRequest struct {
+	Username string `json:"username"`
+}
+
+func (h *Handler) UpdateUsername(w http.ResponseWriter, r *http.Request) {
+	var req updateUsernameRequest
+	if err := decodeBody(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	newUsername := sanitizeUsername(req.Username)
+	if !isValidUsername(newUsername) {
+		writeError(w, http.StatusBadRequest, "Username must be 2-32 characters, alphanumeric and underscores only.")
+		return
+	}
+
+	userID := h.userID(r)
+
+	// Check uniqueness — allow same username (user keeping their name)
+	existing, err := h.q.GetUserByUsername(r.Context(), newUsername)
+	if err == nil && existing.ID != userID {
+		writeError(w, http.StatusConflict, "Username is already taken.")
+		return
+	}
+
+	if err := h.q.UpdateUsername(r.Context(), db.UpdateUsernameParams{
+		Username: newUsername,
+		ID:       userID,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to update username")
+		return
+	}
+
+	user, err := h.q.GetUserByID(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to fetch updated user")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, toUserResponse(user))
+}
+
+type updatePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
+func (h *Handler) UpdatePassword(w http.ResponseWriter, r *http.Request) {
+	var req updatePasswordRequest
+	if err := decodeBody(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if len(req.NewPassword) < 8 {
+		writeError(w, http.StatusBadRequest, "New password must be at least 8 characters.")
+		return
+	}
+
+	userID := h.userID(r)
+	user, err := h.q.GetUserByID(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to fetch user")
+		return
+	}
+
+	if user.PasswordHash == nil {
+		writeError(w, http.StatusBadRequest, "Account has no password set.")
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(*user.PasswordHash), []byte(req.CurrentPassword)); err != nil {
+		writeError(w, http.StatusUnauthorized, "Current password is incorrect.")
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), 12)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to hash password")
+		return
+	}
+
+	hashStr := string(hash)
+	if err := h.q.UpdateUserPassword(r.Context(), db.UpdateUserPasswordParams{
+		PasswordHash: &hashStr,
+		ID:           userID,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to update password")
+		return
+	}
+
+	writeMessage(w, http.StatusOK, "Password updated")
+}
