@@ -604,7 +604,6 @@ export default function GroupDetail() {
   }
 
   const isAdminOrOwner = group.myRole === "owner" || group.myRole === "admin";
-  const canEditMovie = isAdminOrOwner || (!!group.movieUnlockedByAdmin && group.pickerUserId === me?.id);
   const currentTurnWeekOf = group.currentTurnWeekOf as string;
   const isCurrentWeek = selectedWeek === currentTurnWeekOf;
   const isPastWeek = selectedWeek < currentTurnWeekOf;
@@ -617,6 +616,12 @@ export default function GroupDetail() {
   const _currentIdx = getTurnIndexForDate(currentTurnWeekOf, _config);
   const _maxAllowedWeekOf = getTurnStartDate(_currentIdx + group.members.length, _config);
   const isAtFutureCap = selectedWeek >= _maxAllowedWeekOf;
+
+  const nextTurnWeekOf = getTurnStartDate(_currentIdx + 1, _config);
+  const isPickerForSelectedTurn = group.pickerUserId === me?.id;
+  const canEditMovie = isAdminOrOwner
+    || (!!group.movieUnlockedByAdmin && isPickerForSelectedTurn)
+    || (selectedWeek === nextTurnWeekOf && isPickerForSelectedTurn);
 
   return (
     <div className="min-h-screen bg-background">
@@ -702,7 +707,7 @@ export default function GroupDetail() {
               size="icon"
               className="h-8 w-8"
               onClick={() => setSelectedWeek(offsetWeekOf(selectedWeek, 1, group.turnConfig as TurnConfig))}
-              disabled={(!isAdminOrOwner && isCurrentWeek) || isAtFutureCap}
+              disabled={(!isAdminOrOwner && selectedWeek >= nextTurnWeekOf) || isAtFutureCap}
             >
               <ChevronRight className="w-4 h-4" />
             </Button>

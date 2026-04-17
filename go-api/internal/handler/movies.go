@@ -176,20 +176,29 @@ func (h *Handler) SetMovie(w http.ResponseWriter, r *http.Request) {
 
 	// Authorization
 	if mem.Role != "owner" && mem.Role != "admin" {
-		// Check if movie is unlocked and user is the picker
-		override, err := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
-			GroupID: groupID, WeekOf: timeToPgDate(weekOf),
-		})
-		if err != nil || !override.MovieUnlockedByAdmin {
-			writeError(w, http.StatusForbidden, "Only admins and owners can set the movie")
-			return
-		}
-		pa, err := h.q.GetPickerAssignment(r.Context(), db.GetPickerAssignmentParams{
+		currentWeekOf := getCurrentTurnWeekOf(config)
+		currentIdx := getTurnIndexForDate(currentWeekOf, config)
+		nextWeekOf := getTurnStartDate(currentIdx+1, config)
+
+		pa, paErr := h.q.GetPickerAssignment(r.Context(), db.GetPickerAssignmentParams{
 			GroupID: groupID, WeekOf: weekOf,
 		})
-		if err != nil || pa.UserID != userID {
-			writeError(w, http.StatusForbidden, "Only the assigned picker can set the movie when it has been unlocked")
-			return
+		isAssignedPicker := paErr == nil && pa.UserID == userID
+
+		if weekOf == nextWeekOf && isAssignedPicker {
+			// Picker may set their movie for the immediately-next turn
+		} else {
+			override, err := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
+				GroupID: groupID, WeekOf: timeToPgDate(weekOf),
+			})
+			if err != nil || !override.MovieUnlockedByAdmin {
+				writeError(w, http.StatusForbidden, "Only admins and owners can set the movie")
+				return
+			}
+			if !isAssignedPicker {
+				writeError(w, http.StatusForbidden, "Only the assigned picker can set the movie when it has been unlocked")
+				return
+			}
 		}
 	}
 
