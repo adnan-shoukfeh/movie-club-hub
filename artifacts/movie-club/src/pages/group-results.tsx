@@ -125,31 +125,42 @@ export default function GroupResults() {
             {/* Movie header with poster */}
             {movie?.poster ? (
               <div className="rounded-xl overflow-hidden border border-border/20">
-                <div className="relative h-52">
-                  {movie.imdbId ? (
-                    <a href={`https://www.imdb.com/title/${movie.imdbId}/`} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
-                      <img
-                        src={movie.poster}
-                        alt={movie.title}
-                        className="w-full h-full object-cover opacity-50 hover:opacity-60 transition-opacity"
-                        style={{ objectPosition: "center 20%" }}
-                      />
-                    </a>
-                  ) : (
-                  <img
-                    src={movie.poster}
-                    alt={movie.title}
-                    className="w-full h-full object-cover opacity-50"
-                    style={{ objectPosition: "center 20%" }}
-                  />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/95" />
-                  <div className="absolute bottom-0 left-0 right-0 p-5">
-                    <p className="text-muted-foreground text-xs mb-1">This week's film</p>
-                    <h1 className="font-serif text-2xl font-bold text-foreground">{movie.title}</h1>
-                    {movie.year && <p className="text-xs text-white/60 mt-0.5">{movie.year}</p>}
+                {movie.imdbId ? (
+                  <a
+                    href={`https://www.imdb.com/title/${movie.imdbId}/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="relative h-52 block hover:opacity-90 transition-opacity"
+                  >
+                    <img
+                      src={movie.poster}
+                      alt={movie.title}
+                      className="w-full h-full object-cover opacity-50"
+                      style={{ objectPosition: "center 20%" }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/95" />
+                    <div className="absolute bottom-0 left-0 right-0 p-5">
+                      <p className="text-muted-foreground text-xs mb-1">This week's film</p>
+                      <h1 className="font-serif text-2xl font-bold text-foreground">{movie.title}</h1>
+                      {movie.year && <p className="text-xs text-white/60 mt-0.5">{movie.year}</p>}
+                    </div>
+                  </a>
+                ) : (
+                  <div className="relative h-52">
+                    <img
+                      src={movie.poster}
+                      alt={movie.title}
+                      className="w-full h-full object-cover opacity-50"
+                      style={{ objectPosition: "center 20%" }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/95" />
+                    <div className="absolute bottom-0 left-0 right-0 p-5">
+                      <p className="text-muted-foreground text-xs mb-1">This week's film</p>
+                      <h1 className="font-serif text-2xl font-bold text-foreground">{movie.title}</h1>
+                      {movie.year && <p className="text-xs text-white/60 mt-0.5">{movie.year}</p>}
+                    </div>
                   </div>
-                </div>
+                )}
                 {(movie.genre || movie.runtime || movie.director) && (
                   <div className="bg-card/60 border-t border-border/20 px-5 py-3 flex flex-wrap gap-3">
                     {movie.genre && (
