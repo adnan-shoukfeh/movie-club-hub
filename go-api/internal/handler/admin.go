@@ -67,10 +67,7 @@ func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	centerIdx := getTurnIndexForDate(centerWeekOf, config)
-	startIdx := centerIdx - 4
-	if startIdx < 0 {
-		startIdx = 0
-	}
+	startIdx := max(centerIdx-4, 0)
 	endIdx := centerIdx + int(memberCount) + 1
 
 	type scheduleEntry struct {
@@ -204,12 +201,18 @@ func (h *Handler) AdminExtendTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.ExtendedDays < 0 || req.ExtendedDays > 365 {
-		writeError(w, http.StatusBadRequest, "extendedDays must be a number between 0 and 365")
+	group, err := h.q.GetGroupByID(r.Context(), groupID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to fetch group")
 		return
 	}
 
-	group, _ := h.q.GetGroupByID(r.Context(), groupID)
+	minDays := -(group.TurnLengthDays - 1)
+	if req.ExtendedDays < int32(minDays) || req.ExtendedDays > 365 {
+		writeError(w, http.StatusBadRequest, "extendedDays would result in a turn shorter than 1 day or longer than 365 extra days")
+		return
+	}
+
 	config, _ := h.buildTurnConfig(r.Context(), group)
 
 	weekOfPgDate := timeToPgDate(req.WeekOf)

@@ -39,6 +39,48 @@ function formatWeekLabel(weekOf: string): string {
   return formatDateET(weekOf);
 }
 
+function addDaysToDateStr(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00.000Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+interface TurnDeadlineInputProps {
+  weekOf: string;
+  turnLengthDays: number;
+  extendedDays: number;
+  onChange: (days: number) => void;
+}
+
+function TurnDeadlineInput({ weekOf, turnLengthDays, extendedDays, onChange }: TurnDeadlineInputProps) {
+  const min = -(turnLengthDays - 1);
+  const max = 365;
+  const deadlineDateStr = addDaysToDateStr(weekOf, turnLengthDays + extendedDays);
+  const minDateStr = addDaysToDateStr(weekOf, 1);
+  const maxDateStr = addDaysToDateStr(weekOf, turnLengthDays + max);
+
+  return (
+    <div className="flex flex-col gap-1.5 w-full">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>Deadline</span>
+        <span className="font-medium text-foreground">{formatDateET(deadlineDateStr)}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={extendedDays}
+        onChange={(e) => onChange(parseInt(e.target.value, 10))}
+        className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-primary/20 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-primary/50 [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-0"
+      />
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground/60">
+        <span>{formatDateET(minDateStr)}</span>
+        <span>{formatDateET(maxDateStr)}</span>
+      </div>
+    </div>
+  );
+}
+
 interface ScheduleEntry {
   weekOf: string;
   pickerUserId: number | null;
@@ -706,23 +748,22 @@ export default function GroupAdmin() {
                         </div>
 
                         {/* Turn controls */}
-                        <div className="flex flex-wrap gap-2 items-center">
-                          {/* Extend turn */}
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="w-3 h-3 text-muted-foreground" />
-                            <input
-                              type="number"
-                              min={0}
-                              max={365}
-                              value={extendDaysInput[entry.weekOf] ?? entry.extendedDays}
-                              onChange={(e) => setExtendDaysInput((prev) => ({ ...prev, [entry.weekOf]: e.target.value }))}
-                              className="w-16 h-7 text-xs rounded-md bg-background border border-border px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                            />
-                            <span className="text-xs text-muted-foreground">days ext.</span>
+                        <div className="flex flex-wrap gap-2 items-center w-full">
+                          {/* Deadline slider */}
+                          <div className="flex items-center gap-2 w-full">
+                            <Clock className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <TurnDeadlineInput
+                                weekOf={entry.weekOf}
+                                turnLengthDays={group.turnLengthDays ?? 7}
+                                extendedDays={parseInt(String(extendDaysInput[entry.weekOf] ?? entry.extendedDays), 10)}
+                                onChange={(days) => setExtendDaysInput((prev) => ({ ...prev, [entry.weekOf]: String(days) }))}
+                              />
+                            </div>
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 text-xs"
+                              className="h-7 text-xs flex-shrink-0"
                               onClick={() => handleExtendTurn(entry.weekOf)}
                             >
                               Set
