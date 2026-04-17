@@ -126,12 +126,23 @@ export default function GroupResults() {
             {movie?.poster ? (
               <div className="rounded-xl overflow-hidden border border-border/20">
                 <div className="relative h-52">
+                  {movie.imdbId ? (
+                    <a href={`https://www.imdb.com/title/${movie.imdbId}/`} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+                      <img
+                        src={movie.poster}
+                        alt={movie.title}
+                        className="w-full h-full object-cover opacity-50 hover:opacity-60 transition-opacity"
+                        style={{ objectPosition: "center 20%" }}
+                      />
+                    </a>
+                  ) : (
                   <img
                     src={movie.poster}
                     alt={movie.title}
                     className="w-full h-full object-cover opacity-50"
                     style={{ objectPosition: "center 20%" }}
                   />
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/95" />
                   <div className="absolute bottom-0 left-0 right-0 p-5">
                     <p className="text-muted-foreground text-xs mb-1">This week's film</p>

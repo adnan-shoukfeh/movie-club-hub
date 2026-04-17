@@ -839,11 +839,26 @@ export default function GroupDetail() {
           ) : movie ? (
             <div className="flex gap-4">
               {movie.poster ? (
-                <img
-                  src={movie.poster}
-                  alt={movie.title}
-                  className="w-16 h-24 object-cover rounded-lg flex-shrink-0 shadow-lg"
-                />
+                movie.imdbId ? (
+                  <a
+                    href={`https://www.imdb.com/title/${movie.imdbId}/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-shrink-0"
+                  >
+                    <img
+                      src={movie.poster}
+                      alt={movie.title}
+                      className="w-16 h-24 object-cover rounded-lg shadow-lg hover:opacity-80 transition-opacity"
+                    />
+                  </a>
+                ) : (
+                  <img
+                    src={movie.poster}
+                    alt={movie.title}
+                    className="w-16 h-24 object-cover rounded-lg flex-shrink-0 shadow-lg"
+                  />
+                )
               ) : (
                 <div className="w-16 h-24 bg-muted/40 rounded-lg flex-shrink-0 flex items-center justify-center">
                   <Film className="w-6 h-6 text-muted-foreground/50" />
@@ -1391,7 +1406,18 @@ export default function GroupDetail() {
                     className={`flex items-center gap-3 p-2.5 border rounded-lg ${muted ? "bg-muted/10 border-border/10 opacity-50" : "bg-muted/20 border-border/10"}`}
                   >
                     {nom.poster ? (
-                      <img src={nom.poster} alt={nom.title} className="w-8 h-11 object-cover rounded flex-shrink-0" />
+                      nom.imdbId ? (
+                        <a
+                          href={`https://www.imdb.com/title/${nom.imdbId}/`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-shrink-0"
+                        >
+                          <img src={nom.poster} alt={nom.title} className="w-8 h-11 object-cover rounded hover:opacity-80 transition-opacity" />
+                        </a>
+                      ) : (
+                        <img src={nom.poster} alt={nom.title} className="w-8 h-11 object-cover rounded flex-shrink-0" />
+                      )
                     ) : (
                       <div className="w-8 h-11 bg-muted rounded flex-shrink-0 flex items-center justify-center">
                         <Film className="w-3.5 h-3.5 text-muted-foreground" />

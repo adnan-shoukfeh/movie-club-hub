@@ -200,7 +200,11 @@ export default function Dashboard() {
             <h2 className="font-serif text-xl font-semibold text-foreground mb-4">Recent Results</h2>
             <div className="grid gap-3">
               {dashboard.recentResults.map((result, i) => (
-                <div key={i} className="bg-card/30 border border-border/20 rounded-xl p-4 flex items-center justify-between">
+                <button
+                  key={i}
+                  onClick={() => setLocation(`/groups/${result.groupId}/results?weekOf=${result.weekOf}`)}
+                  className="w-full text-left bg-card/30 border border-border/20 rounded-xl p-4 flex items-center justify-between hover:border-secondary/30 hover:bg-card/50 transition-all duration-200"
+                >
                   <div>
                     <p className="font-medium text-foreground text-sm">{result.movie}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{result.groupName} · {result.weekOf}</p>
@@ -210,7 +214,7 @@ export default function Dashboard() {
                     <span className="text-secondary font-bold text-sm">{parseFloat(result.averageRating.toFixed(2))}</span>
                     <span className="text-muted-foreground text-xs">/ {result.totalVotes} ratings</span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
