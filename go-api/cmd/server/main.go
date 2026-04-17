@@ -141,6 +141,9 @@ func main() {
 
 			r.Get("/dashboard", h.Dashboard)
 
+			r.Patch("/me/username", h.UpdateUsername)
+			r.Patch("/me/password", h.UpdatePassword)
+
 			r.Post("/groups/{groupId}/watch-status", h.SetWatchStatus)
 
 			// Admin routes
