@@ -70,6 +70,20 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 	return i, err
 }
 
+const updateUserPassword = `-- name: UpdateUserPassword :exec
+UPDATE users SET password_hash = $1 WHERE id = $2
+`
+
+type UpdateUserPasswordParams struct {
+	PasswordHash *string `json:"password_hash"`
+	ID           int32   `json:"id"`
+}
+
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
+	_, err := q.db.Exec(ctx, updateUserPassword, arg.PasswordHash, arg.ID)
+	return err
+}
+
 const updateUserPasswordHash = `-- name: UpdateUserPasswordHash :exec
 UPDATE users SET password_hash = $2 WHERE username = $1
 `
@@ -81,5 +95,19 @@ type UpdateUserPasswordHashParams struct {
 
 func (q *Queries) UpdateUserPasswordHash(ctx context.Context, arg UpdateUserPasswordHashParams) error {
 	_, err := q.db.Exec(ctx, updateUserPasswordHash, arg.Username, arg.PasswordHash)
+	return err
+}
+
+const updateUsername = `-- name: UpdateUsername :exec
+UPDATE users SET username = $1 WHERE id = $2
+`
+
+type UpdateUsernameParams struct {
+	Username string `json:"username"`
+	ID       int32  `json:"id"`
+}
+
+func (q *Queries) UpdateUsername(ctx context.Context, arg UpdateUsernameParams) error {
+	_, err := q.db.Exec(ctx, updateUsername, arg.Username, arg.ID)
 	return err
 }

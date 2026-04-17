@@ -15,3 +15,9 @@ RETURNING id, username, created_at;
 
 -- name: UpdateUserPasswordHash :exec
 UPDATE users SET password_hash = $2 WHERE username = $1;
+
+-- name: UpdateUsername :exec
+UPDATE users SET username = $1 WHERE id = $2;
+
+-- name: UpdateUserPassword :exec
+UPDATE users SET password_hash = $1 WHERE id = $2;
