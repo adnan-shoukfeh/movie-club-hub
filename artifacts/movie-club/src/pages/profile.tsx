@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
@@ -28,6 +28,10 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordSaving, setPasswordSaving] = useState(false);
 
+  useEffect(() => {
+    if (!isLoading && !me) setLocation("/");
+  }, [isLoading, me, setLocation]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background p-6">
@@ -40,10 +44,7 @@ export default function Profile() {
     );
   }
 
-  if (!me) {
-    setLocation("/");
-    return null;
-  }
+  if (!me) return null;
 
   const handleUpdateUsername = async (e: React.FormEvent) => {
     e.preventDefault();
