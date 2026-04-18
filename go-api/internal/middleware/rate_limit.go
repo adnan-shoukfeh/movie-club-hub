@@ -84,10 +84,7 @@ func RateLimit(rl *RateLimiter, keyFn func(*http.Request) string) func(http.Hand
 			reservation := rl.getLimiter(keyFn(r)).Reserve()
 			if delay := reservation.Delay(); delay > 0 {
 				reservation.Cancel()
-				retrySeconds := int(math.Ceil(delay.Seconds()))
-				if retrySeconds > 3600 {
-					retrySeconds = 3600
-				}
+				retrySeconds := min(int(math.Ceil(delay.Seconds())), 3600)
 				w.Header().Set("Retry-After", strconv.Itoa(retrySeconds))
 				http.Error(w, `{"error":"rate limit exceeded"}`, http.StatusTooManyRequests)
 				return
