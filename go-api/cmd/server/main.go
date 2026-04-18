@@ -47,6 +47,9 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
 	slog.SetDefault(logger)
 
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	// Database
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
@@ -94,8 +97,8 @@ func main() {
 	}
 	sm := session.NewManager(pool, sessionSecret)
 
-	authLimiter := middleware.NewRateLimiter(context.Background(), rate.Every(6*time.Second), 5)   // 10/min, burst 5
-	searchLimiter := middleware.NewRateLimiter(context.Background(), rate.Every(3*time.Second), 5) // 20/min, burst 5
+	authLimiter := middleware.NewRateLimiter(ctx, rate.Every(6*time.Second), 5)   // 10/min, burst 5
+	searchLimiter := middleware.NewRateLimiter(ctx, rate.Every(3*time.Second), 5) // 20/min, burst 5
 
 	// Router
 	r := chi.NewRouter()
@@ -195,14 +198,13 @@ func main() {
 		}
 	}()
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	<-ctx.Done()
+	stop()
 	slog.Info("shutting down server")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := srv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("server forced shutdown", "error", err)
 	}
 	slog.Info("server stopped")
