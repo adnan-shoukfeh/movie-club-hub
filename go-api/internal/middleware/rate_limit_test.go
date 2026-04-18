@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -21,7 +22,9 @@ func makeRequest(ip string) *http.Request {
 }
 
 func TestRateLimit_AllowsRequestsWithinBurst(t *testing.T) {
-	rl := NewRateLimiter(context.Background(), rate.Every(time.Hour), 3)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	rl := NewRateLimiter(ctx, rate.Every(time.Hour), 3)
 	handler := RateLimit(rl, IPKey)(okHandler)
 
 	for i := range 3 {
@@ -34,7 +37,9 @@ func TestRateLimit_AllowsRequestsWithinBurst(t *testing.T) {
 }
 
 func TestRateLimit_BlocksRequestsExceedingBurst(t *testing.T) {
-	rl := NewRateLimiter(context.Background(), rate.Every(time.Hour), 2)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	rl := NewRateLimiter(ctx, rate.Every(time.Hour), 2)
 	handler := RateLimit(rl, IPKey)(okHandler)
 
 	for i := range 2 {
@@ -53,7 +58,9 @@ func TestRateLimit_BlocksRequestsExceedingBurst(t *testing.T) {
 }
 
 func TestRateLimit_TracksKeysSeparately(t *testing.T) {
-	rl := NewRateLimiter(context.Background(), rate.Every(time.Hour), 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	rl := NewRateLimiter(ctx, rate.Every(time.Hour), 1)
 	handler := RateLimit(rl, IPKey)(okHandler)
 
 	// First request from 10.0.0.1 — should pass.
@@ -79,7 +86,9 @@ func TestRateLimit_TracksKeysSeparately(t *testing.T) {
 }
 
 func TestRateLimit_SetsRetryAfterHeader(t *testing.T) {
-	rl := NewRateLimiter(context.Background(), rate.Every(time.Hour), 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	rl := NewRateLimiter(ctx, rate.Every(time.Hour), 1)
 	handler := RateLimit(rl, IPKey)(okHandler)
 
 	// Consume the single burst token.
@@ -98,12 +107,21 @@ func TestRateLimit_SetsRetryAfterHeader(t *testing.T) {
 
 	retryAfter := w2.Header().Get("Retry-After")
 	if retryAfter == "" {
-		t.Error("Retry-After header is missing on 429 response")
+		t.Fatal("Retry-After header is missing on 429 response")
+	}
+	val, err := strconv.Atoi(retryAfter)
+	if err != nil {
+		t.Errorf("Retry-After header is not a valid integer: %q", retryAfter)
+	}
+	if val <= 0 || val > 3600 {
+		t.Errorf("Retry-After value out of expected range [1, 3600]: got %d", val)
 	}
 }
 
 func TestRateLimiter_CleanupRemovesStaleEntries(t *testing.T) {
-	rl := NewRateLimiter(context.Background(), rate.Every(time.Second), 10)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	rl := NewRateLimiter(ctx, rate.Every(time.Second), 10)
 	handler := RateLimit(rl, IPKey)(okHandler)
 
 	req := makeRequest("10.0.0.1:1234")
@@ -123,13 +141,17 @@ func TestRateLimiter_CleanupRemovesStaleEntries(t *testing.T) {
 	}
 	rl.mu.Unlock()
 
+	// Add a fresh entry that should survive cleanup.
+	req2 := makeRequest("10.0.0.2:1234")
+	rl.getLimiter(IPKey(req2))
+
 	rl.cleanupOlderThan(10 * time.Minute)
 
 	rl.mu.Lock()
 	remaining := len(rl.entries)
 	rl.mu.Unlock()
 
-	if remaining != 0 {
-		t.Errorf("expected 0 entries after cleanup, got %d", remaining)
+	if remaining != 1 {
+		t.Errorf("expected 1 entry after cleanup (fresh entry preserved), got %d", remaining)
 	}
 }
