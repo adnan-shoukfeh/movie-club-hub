@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -22,9 +21,7 @@ func makeRequest(ip string) *http.Request {
 }
 
 func TestRateLimit_AllowsRequestsWithinBurst(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	rl := NewRateLimiter(ctx, rate.Every(time.Hour), 3)
+	rl := NewRateLimiter(t.Context(), rate.Every(time.Hour), 3)
 	handler := RateLimit(rl, IPKey)(okHandler)
 
 	for i := range 3 {
@@ -37,9 +34,7 @@ func TestRateLimit_AllowsRequestsWithinBurst(t *testing.T) {
 }
 
 func TestRateLimit_BlocksRequestsExceedingBurst(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	rl := NewRateLimiter(ctx, rate.Every(time.Hour), 2)
+	rl := NewRateLimiter(t.Context(), rate.Every(time.Hour), 2)
 	handler := RateLimit(rl, IPKey)(okHandler)
 
 	for i := range 2 {
@@ -58,9 +53,7 @@ func TestRateLimit_BlocksRequestsExceedingBurst(t *testing.T) {
 }
 
 func TestRateLimit_TracksKeysSeparately(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	rl := NewRateLimiter(ctx, rate.Every(time.Hour), 1)
+	rl := NewRateLimiter(t.Context(), rate.Every(time.Hour), 1)
 	handler := RateLimit(rl, IPKey)(okHandler)
 
 	// First request from 10.0.0.1 — should pass.
@@ -86,9 +79,7 @@ func TestRateLimit_TracksKeysSeparately(t *testing.T) {
 }
 
 func TestRateLimit_SetsRetryAfterHeader(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	rl := NewRateLimiter(ctx, rate.Every(time.Hour), 1)
+	rl := NewRateLimiter(t.Context(), rate.Every(time.Hour), 1)
 	handler := RateLimit(rl, IPKey)(okHandler)
 
 	// Consume the single burst token.
@@ -119,9 +110,7 @@ func TestRateLimit_SetsRetryAfterHeader(t *testing.T) {
 }
 
 func TestRateLimiter_CleanupRemovesStaleEntries(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	rl := NewRateLimiter(ctx, rate.Every(time.Second), 10)
+	rl := NewRateLimiter(t.Context(), rate.Every(time.Second), 10)
 	handler := RateLimit(rl, IPKey)(okHandler)
 
 	req := makeRequest("10.0.0.1:1234")
