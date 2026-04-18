@@ -24,7 +24,7 @@ func TestRateLimit_AllowsRequestsWithinBurst(t *testing.T) {
 	rl := NewRateLimiter(context.Background(), rate.Every(time.Hour), 3)
 	handler := RateLimit(rl, IPKey)(okHandler)
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, makeRequest("10.0.0.1:1234"))
 		if w.Code != http.StatusOK {
@@ -37,7 +37,7 @@ func TestRateLimit_BlocksRequestsExceedingBurst(t *testing.T) {
 	rl := NewRateLimiter(context.Background(), rate.Every(time.Hour), 2)
 	handler := RateLimit(rl, IPKey)(okHandler)
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, makeRequest("10.0.0.1:1234"))
 		if w.Code != http.StatusOK {
