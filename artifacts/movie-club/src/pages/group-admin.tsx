@@ -120,7 +120,7 @@ function TurnDateRangeInput({ weekOf, turnLengthDays, extendedDays, startOffsetD
           <span className="truncate">{formatCalendarDate(startDateStr)} → {formatCalendarDate(deadlineLastDayStr)}</span>
         </button>
       </PopoverTrigger>
-      <PopoverContent className="p-0" align="start">
+      <PopoverContent className="p-0 overflow-hidden" align="start">
         <div className="flex gap-1.5 px-3 pt-2 pb-1">
           <button
             type="button"
