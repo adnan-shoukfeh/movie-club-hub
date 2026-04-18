@@ -1,9 +1,12 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
+	"math"
 	"net"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -25,14 +28,15 @@ type RateLimiter struct {
 	b       int
 }
 
-// NewRateLimiter creates a RateLimiter and starts a background cleanup goroutine.
-func NewRateLimiter(r rate.Limit, b int) *RateLimiter {
+// NewRateLimiter creates a RateLimiter and starts a background cleanup goroutine
+// that runs until ctx is cancelled.
+func NewRateLimiter(ctx context.Context, r rate.Limit, b int) *RateLimiter {
 	rl := &RateLimiter{
 		entries: make(map[string]*entry),
 		r:       r,
 		b:       b,
 	}
-	go rl.cleanup()
+	go rl.cleanup(ctx)
 	return rl
 }
 
@@ -58,21 +62,33 @@ func (rl *RateLimiter) cleanupOlderThan(age time.Duration) {
 	}
 }
 
-func (rl *RateLimiter) cleanup() {
+func (rl *RateLimiter) cleanup(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
-	for range ticker.C {
-		rl.cleanupOlderThan(10 * time.Minute)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			rl.cleanupOlderThan(10 * time.Minute)
+		}
 	}
 }
 
 // RateLimit returns chi-compatible middleware that limits requests by key.
-// Returns 429 Too Many Requests when the limit is exceeded.
+// Returns 429 Too Many Requests when the limit is exceeded; Retry-After reflects
+// the actual time until the next token is available.
 func RateLimit(rl *RateLimiter, keyFn func(*http.Request) string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !rl.getLimiter(keyFn(r)).Allow() {
-				w.Header().Set("Retry-After", "60")
+			reservation := rl.getLimiter(keyFn(r)).Reserve()
+			if delay := reservation.Delay(); delay > 0 {
+				reservation.Cancel()
+				retrySeconds := int(math.Ceil(delay.Seconds()))
+				if retrySeconds > 3600 {
+					retrySeconds = 3600
+				}
+				w.Header().Set("Retry-After", strconv.Itoa(retrySeconds))
 				http.Error(w, `{"error":"rate limit exceeded"}`, http.StatusTooManyRequests)
 				return
 			}
@@ -82,6 +98,7 @@ func RateLimit(rl *RateLimiter, keyFn func(*http.Request) string) func(http.Hand
 }
 
 // IPKey extracts the client IP from RemoteAddr (port stripped).
+// r.RemoteAddr is already the real client IP because chimw.RealIP runs before this middleware.
 func IPKey(r *http.Request) string {
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -90,9 +107,9 @@ func IPKey(r *http.Request) string {
 	return ip
 }
 
-// UserIDKey returns a key function that uses the authenticated user ID,
+// UserIDKeyFunc returns a key function that uses the authenticated user ID,
 // falling back to IP for unauthenticated requests.
-func UserIDKey(sm *session.Manager) func(*http.Request) string {
+func UserIDKeyFunc(sm *session.Manager) func(*http.Request) string {
 	return func(r *http.Request) string {
 		userID, ok := sm.GetUserID(r)
 		if !ok {
