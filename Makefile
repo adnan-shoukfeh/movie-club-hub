@@ -165,7 +165,7 @@ gcp-deploy: ## Deploy the image to Cloud Run (CI manages secrets/Cloud SQL; use 
 
 gcp-logs: ## Tail Cloud Run service logs
 	@test -n "$(GCP_PROJECT_ID)" || (echo "error: GCP_PROJECT_ID is not set" && exit 1)
-	gcloud logging tail \
+	gcloud beta logging tail \
 		"resource.type=cloud_run_revision AND resource.labels.service_name=$(SERVICE) AND resource.labels.location=$(REGION)" \
 		--project="$(GCP_PROJECT_ID)"
 

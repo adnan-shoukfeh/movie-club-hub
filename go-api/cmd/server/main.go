@@ -18,6 +18,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "time/tzdata"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"

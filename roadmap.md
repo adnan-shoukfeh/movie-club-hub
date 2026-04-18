@@ -1,9 +1,47 @@
-- Allow profile images
-- Allow reactions to reviews (like sleeper)
-  - Eventually allow responding to reviews
-- There should only be one invite code at a time for all admins. Allow admins to see invite code where it currently shows "generate invite". Have the code persist as the only valid code until it is manually refreshed by an admin through the same interface that generates code now.
-- Only show ratings slider once a user marks movie as watched. Moving back to unwatched clears it (although when you go back to watched again whatever you had entered stays saved for you to continue)
-- Add logo
-- Clicking on movie title takes you to Imdb, OR takes you to our movie page populated by Omdb and nominations/picks and reviews and such.
-- ADD DEV ENV!!!!!!
-- Refactor everything and break it into smaller components (can do this handler by handler)
+# Movie Club Hub — Roadmap
+
+A running list of features, improvements, and technical work. Add ideas anywhere; move them into a priority bucket when they're ready to be worked on.
+
+---
+
+## P0 — Critical / Do First
+
+| Task | Notes | Effort |
+|------|-------|--------|
+| Set up GCP dev environment | Dedicated GCP environment + git branch for staging/dev; local Docker dev already works | M |
+| Fix invite code system | One shared invite code for all admins at a time; visible in the same place it's currently generated; persists until manually regenerated | S |
+| Add rate limiting | Protect API endpoints from abuse | S |
+
+## P1 — High Value
+
+| Task | Notes | Effort |
+|------|-------|--------|
+| Rating slider gating | Only show the rating slider after a user marks a movie as watched; moving back to "unwatched" clears the rating (but restores it if they re-mark watched) | S |
+| Movie title links | Clicking a movie title opens either the IMDb page or an internal movie detail page (populated via OMDb + nominations, picks, and reviews) | M |
+| Profile images | Allow users to upload/set a profile photo | M |
+
+## P2 — Nice to Have
+
+| Task | Notes | Effort |
+|------|-------|--------|
+| Review reactions | Users can react to reviews (e.g. "sleeper pick") | S |
+| Review replies | Threaded responses to reviews (follow-on from reactions) | M |
+| Add logo | Brand identity for the app | S |
+
+## P3 — Technical Debt / Infrastructure
+
+| Task | Notes | Effort |
+|------|-------|--------|
+| Refactor into smaller components | Break up large handlers/components incrementally, one at a time | L |
+---
+
+## Completed
+
+| Task | Notes |
+|------|-------|
+| Go backend rewrite | `go-api/` exists with full structure (cmd, internal, migrations, sqlc); Docker + docker-compose in place |
+
+---
+
+## Effort Scale
+`S` = hours · `M` = 1–2 days · `L` = ~1 week · `XL` = multi-week
