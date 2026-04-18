@@ -59,12 +59,12 @@ interface TurnDateRangeInputProps {
   extendedDays: number;
   startOffsetDays: number;
   prevDeadlineMs: number | null;
-  nextTurnStartMs: number | null;
+  nextTurnDeadlineMs: number | null;
   onStartChange: (offsetDays: number) => void;
   onDeadlineChange: (extendedDays: number) => void;
 }
 
-function TurnDateRangeInput({ weekOf, turnLengthDays, extendedDays, startOffsetDays, prevDeadlineMs, nextTurnStartMs, onStartChange, onDeadlineChange }: TurnDateRangeInputProps) {
+function TurnDateRangeInput({ weekOf, turnLengthDays, extendedDays, startOffsetDays, prevDeadlineMs, nextTurnDeadlineMs, onStartChange, onDeadlineChange }: TurnDateRangeInputProps) {
   const [open, setOpen] = useState(false);
   const [activeField, setActiveField] = useState<"start" | "deadline">("start");
 
@@ -78,10 +78,14 @@ function TurnDateRangeInput({ weekOf, turnLengthDays, extendedDays, startOffsetD
   const startMaxDate = new Date(deadlineLastDayStr + "T00:00:00");
   // Deadline must be strictly after start; use start+1 as the minimum selectable deadline day.
   const deadlineMinDate = new Date(addDaysToDateStr(startDateStr, 1) + "T00:00:00");
-  // Cap deadline at the day before the next turn's start (if one exists).
+  // Cap deadline so the next turn still has at least 1 day after the cascade adjusts its start.
+  // nextTurnDeadlineMs is ET midnight (exclusive) of the next turn's deadline.
+  // Max inclusive last day for this turn = nextTurnDeadline - 2 days.
   const baseDeadlineMaxStr = addDaysToDateStr(weekOf, turnLengthDays + 364);
-  const nextTurnStartDateStr = nextTurnStartMs ? new Date(nextTurnStartMs).toISOString().slice(0, 10) : null;
-  const nextTurnCapStr = nextTurnStartDateStr ? addDaysToDateStr(nextTurnStartDateStr, -1) : null;
+  const nextTurnDeadlineDateStr = nextTurnDeadlineMs
+    ? new Date(nextTurnDeadlineMs).toISOString().slice(0, 10)
+    : null;
+  const nextTurnCapStr = nextTurnDeadlineDateStr ? addDaysToDateStr(nextTurnDeadlineDateStr, -2) : null;
   const deadlineMaxStr = nextTurnCapStr && nextTurnCapStr < baseDeadlineMaxStr ? nextTurnCapStr : baseDeadlineMaxStr;
   const deadlineMaxDate = new Date(deadlineMaxStr + "T00:00:00");
 
@@ -90,7 +94,7 @@ function TurnDateRangeInput({ weekOf, turnLengthDays, extendedDays, startOffsetD
     const selectedStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     const base = new Date(weekOf + "T00:00:00.000Z");
     const selected = new Date(selectedStr + "T00:00:00.000Z");
-    onStartChange(Math.max(0, Math.round((selected.getTime() - base.getTime()) / 86400000)));
+    onStartChange(Math.round((selected.getTime() - base.getTime()) / 86400000));
     setActiveField("deadline");
   };
 
@@ -852,12 +856,7 @@ export default function GroupAdmin() {
                               extendedDays={parseInt(String(extendDaysInput[entry.weekOf] ?? entry.extendedDays), 10)}
                               startOffsetDays={startOffsetInput[entry.weekOf] ?? entry.startOffsetDays ?? 0}
                               prevDeadlineMs={i > 0 ? scheduleWeeks[i - 1].deadlineMs : null}
-                              nextTurnStartMs={i < scheduleWeeks.length - 1
-                                ? new Date(addDaysToDateStr(
-                                    scheduleWeeks[i + 1].weekOf,
-                                    startOffsetInput[scheduleWeeks[i + 1].weekOf] ?? scheduleWeeks[i + 1].startOffsetDays ?? 0
-                                  ) + "T00:00:00.000Z").getTime()
-                                : null}
+                              nextTurnDeadlineMs={i < scheduleWeeks.length - 1 ? scheduleWeeks[i + 1].deadlineMs : null}
                               onStartChange={(offset) => setStartOffsetInput((prev) => ({ ...prev, [entry.weekOf]: offset }))}
                               onDeadlineChange={(days) => setExtendDaysInput((prev) => ({ ...prev, [entry.weekOf]: String(days) }))}
                             />

@@ -235,6 +235,24 @@ func (h *Handler) AdminExtendTurn(w http.ResponseWriter, r *http.Request) {
 
 	deadlineMs := getDeadlineMs(req.WeekOf, config, int(req.ExtendedDays))
 
+	// Cascade: the next turn's start adjusts to match this turn's new deadline.
+	loc, _ := time.LoadLocation("America/New_York")
+	deadlineDateStr := time.UnixMilli(deadlineMs).In(loc).Format("2006-01-02")
+	turnIdx := getTurnIndexForDate(req.WeekOf, config)
+	nextWeekOf := getTurnStartDate(turnIdx+1, config)
+	deadlineDate, _ := time.Parse("2006-01-02", deadlineDateStr)
+	nextBase, _ := time.Parse("2006-01-02", nextWeekOf)
+	nextStartOffset := int32(math.Round(deadlineDate.Sub(nextBase).Hours() / 24))
+	nextOverride, _ := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
+		GroupID: groupID, WeekOf: timeToPgDate(nextWeekOf),
+	})
+	nextEffectiveDays := int32(group.TurnLengthDays) + nextOverride.ExtendedDays
+	if nextStartOffset < nextEffectiveDays {
+		h.q.UpsertTurnOverrideStartOffset(r.Context(), db.UpsertTurnOverrideStartOffsetParams{
+			GroupID: groupID, WeekOf: timeToPgDate(nextWeekOf), StartOffsetDays: nextStartOffset,
+		})
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"message":      "Turn extended",
 		"weekOf":       req.WeekOf,
@@ -266,11 +284,6 @@ func (h *Handler) AdminSetTurnStart(w http.ResponseWriter, r *http.Request) {
 
 	if !isValidDateStr(req.WeekOf) {
 		writeError(w, http.StatusBadRequest, "weekOf must be a valid YYYY-MM-DD date")
-		return
-	}
-
-	if req.StartOffsetDays < 0 {
-		writeError(w, http.StatusBadRequest, "startOffsetDays must be >= 0")
 		return
 	}
 
