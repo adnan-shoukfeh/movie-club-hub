@@ -97,6 +97,8 @@ func main() {
 	}
 	sm := session.NewManager(pool, sessionSecret)
 
+	// Per-instance in-memory limiters. Under Cloud Run autoscaling the effective limit is
+	// higher (each instance has its own budget). Acceptable for a small private club app.
 	authLimiter := middleware.NewRateLimiter(ctx, rate.Every(6*time.Second), 5)   // 10/min, burst 5
 	searchLimiter := middleware.NewRateLimiter(ctx, rate.Every(3*time.Second), 5) // 20/min, burst 5
 

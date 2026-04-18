@@ -15,6 +15,11 @@ import (
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/session"
 )
 
+const (
+	cleanupInterval = 5 * time.Minute
+	entryMaxAge     = 10 * time.Minute
+)
+
 type entry struct {
 	limiter  *rate.Limiter
 	lastSeen time.Time
@@ -63,14 +68,14 @@ func (rl *RateLimiter) cleanupOlderThan(age time.Duration) {
 }
 
 func (rl *RateLimiter) cleanup(ctx context.Context) {
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(cleanupInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			rl.cleanupOlderThan(10 * time.Minute)
+			rl.cleanupOlderThan(entryMaxAge)
 		}
 	}
 }
@@ -85,8 +90,10 @@ func RateLimit(rl *RateLimiter, keyFn func(*http.Request) string) func(http.Hand
 			if delay := reservation.Delay(); delay > 0 {
 				reservation.Cancel()
 				retrySeconds := min(int(math.Ceil(delay.Seconds())), 3600)
+				w.Header().Set("Content-Type", "application/json")
 				w.Header().Set("Retry-After", strconv.Itoa(retrySeconds))
-				http.Error(w, `{"error":"rate limit exceeded"}`, http.StatusTooManyRequests)
+				w.WriteHeader(http.StatusTooManyRequests)
+				w.Write([]byte(`{"error":"rate limit exceeded"}`)) //nolint:errcheck
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -95,7 +102,8 @@ func RateLimit(rl *RateLimiter, keyFn func(*http.Request) string) func(http.Hand
 }
 
 // IPKey extracts the client IP from RemoteAddr (port stripped).
-// r.RemoteAddr is already the real client IP because chimw.RealIP runs before this middleware.
+// Relies on chimw.RealIP having already rewritten RemoteAddr from X-Forwarded-For.
+// This is trustworthy behind Cloud Run's load balancer; do not use in a non-proxied environment.
 func IPKey(r *http.Request) string {
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {

@@ -26,7 +26,9 @@ func RequireAuth(sm *session.Manager) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if _, ok := sm.GetUserID(r); !ok {
-				http.Error(w, `{"error":"Not authenticated"}`, http.StatusUnauthorized)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				w.Write([]byte(`{"error":"Not authenticated"}`)) //nolint:errcheck
 				return
 			}
 			next.ServeHTTP(w, r)
