@@ -20,6 +20,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "time/tzdata"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/time/rate"
 
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/handler"
@@ -93,6 +94,9 @@ func main() {
 	}
 	sm := session.NewManager(pool, sessionSecret)
 
+	authLimiter := middleware.NewRateLimiter(context.Background(), rate.Every(6*time.Second), 5)   // 10/min, burst 5
+	searchLimiter := middleware.NewRateLimiter(context.Background(), rate.Every(3*time.Second), 5) // 20/min, burst 5
+
 	// Router
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
@@ -107,8 +111,8 @@ func main() {
 		r.Get("/health", h.HealthCheck)
 
 		r.Route("/auth", func(r chi.Router) {
-			r.Post("/register", h.Register)
-			r.Post("/login", h.Login)
+			r.With(middleware.RateLimit(authLimiter, middleware.IPKey)).Post("/register", h.Register)
+			r.With(middleware.RateLimit(authLimiter, middleware.IPKey)).Post("/login", h.Login)
 			r.With(middleware.RequireAuth(sm)).Post("/logout", h.Logout)
 			r.With(middleware.RequireAuth(sm)).Get("/me", h.Me)
 		})
@@ -125,7 +129,7 @@ func main() {
 			r.Post("/groups/{groupId}/picker", h.AssignPicker)
 			r.Post("/groups/{groupId}/turns/{turnIndex}/extension", h.SetTurnExtension)
 
-			r.Get("/movies/search", h.SearchMovies)
+			r.With(middleware.RateLimit(searchLimiter, middleware.UserIDKeyFunc(sm))).Get("/movies/search", h.SearchMovies)
 			r.Post("/groups/{groupId}/movie", h.SetMovie)
 
 			r.Post("/groups/{groupId}/vote", h.SubmitVote)
