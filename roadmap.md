@@ -27,6 +27,7 @@ A running list of features, improvements, and technical work. Add ideas anywhere
 | Review reactions | Users can react to reviews (e.g. "sleeper pick") | S |
 | Review replies | Threaded responses to reviews (follow-on from reactions) | M |
 | Add logo | Brand identity for the app | S |
+| Add tests | CI/CD and local dev test suites | S |
 
 ## P3 — Technical Debt / Infrastructure
 

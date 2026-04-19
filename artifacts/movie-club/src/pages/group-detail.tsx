@@ -444,9 +444,6 @@ export default function GroupDetail() {
   };
 
   const handleNotYet = () => {
-    setIntIdx(6);
-    setDecIdx(0);
-    setReviewText("");
     setEditingVote(false);
     handleWatchedToggle(false);
   };
@@ -981,88 +978,90 @@ export default function GroupDetail() {
               </div>
             )}
 
-            {status.hasVoted && !editingVote ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5 bg-background/60 border border-border/40 rounded-lg px-4 py-2">
-                    <Star className="w-4 h-4 text-secondary fill-secondary/60" />
-                    <span className="text-secondary font-bold text-lg tabular-nums">{status.myVote}</span>
-                    <span className="text-muted-foreground text-sm">/ 10</span>
-                  </div>
-                </div>
-                {status.myReview && (
-                  <div className="bg-muted/20 rounded-lg px-4 py-3 text-sm text-foreground/80 italic border border-border/20">
-                    "{status.myReview}"
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-5">
-                {/* Wheel picker */}
-                <div>
-                  <p className="text-xs text-muted-foreground mb-3">Select your rating</p>
-                  <div className="flex items-center justify-center gap-1">
-                    <div className="bg-card border border-border/40 rounded-xl overflow-hidden">
-                      <WheelPicker
-                        items={INT_ITEMS}
-                        selectedIndex={intIdx}
-                        onIndexChange={setIntIdx}
-                      />
-                    </div>
-                    <span className="text-2xl font-bold text-muted-foreground/60 pb-0.5 w-5 text-center">.</span>
-                    <div className="bg-card border border-border/40 rounded-xl overflow-hidden">
-                      <WheelPicker
-                        items={DEC_ITEMS}
-                        selectedIndex={decIdx}
-                        onIndexChange={setDecIdx}
-                        disabled={intIdx === 9}
-                      />
+            {group.myWatched && (
+              status.hasVoted && !editingVote ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 bg-background/60 border border-border/40 rounded-lg px-4 py-2">
+                      <Star className="w-4 h-4 text-secondary fill-secondary/60" />
+                      <span className="text-secondary font-bold text-lg tabular-nums">{status.myVote}</span>
+                      <span className="text-muted-foreground text-sm">/ 10</span>
                     </div>
                   </div>
-                </div>
-
-                {/* Review */}
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1.5">Review (optional)</p>
-                  <textarea
-                    value={reviewText}
-                    onChange={(e) => setReviewText(e.target.value)}
-                    placeholder="What did you think? (hidden until reveal)"
-                    rows={3}
-                    className="w-full px-3 py-2 rounded-lg bg-background/60 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-                  />
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    className="flex-1 bg-primary hover:bg-primary/90"
-                    disabled={submitVote.isPending}
-                    onClick={handleVote}
-                  >
-                    {submitVote.isPending
-                      ? "Saving..."
-                      : editingVote
-                      ? `Update — ${effectiveRating.toFixed(1)}/10`
-                      : `Submit — ${effectiveRating.toFixed(1)}/10`}
-                  </Button>
-                  {editingVote && (
-                    <>
-                      <Button variant="ghost" onClick={() => setEditingVote(false)}>
-                        Cancel
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        className="text-destructive/70 hover:text-destructive"
-                        disabled={clearVoteMutation.isPending}
-                        onClick={() => clearVoteMutation.mutate()}
-                      >
-                        <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                        Clear
-                      </Button>
-                    </>
+                  {status.myReview && (
+                    <div className="bg-muted/20 rounded-lg px-4 py-3 text-sm text-foreground/80 italic border border-border/20">
+                      "{status.myReview}"
+                    </div>
                   )}
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-5">
+                  {/* Wheel picker */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-3">Select your rating</p>
+                    <div className="flex items-center justify-center gap-1">
+                      <div className="bg-card border border-border/40 rounded-xl overflow-hidden">
+                        <WheelPicker
+                          items={INT_ITEMS}
+                          selectedIndex={intIdx}
+                          onIndexChange={setIntIdx}
+                        />
+                      </div>
+                      <span className="text-2xl font-bold text-muted-foreground/60 pb-0.5 w-5 text-center">.</span>
+                      <div className="bg-card border border-border/40 rounded-xl overflow-hidden">
+                        <WheelPicker
+                          items={DEC_ITEMS}
+                          selectedIndex={decIdx}
+                          onIndexChange={setDecIdx}
+                          disabled={intIdx === 9}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Review */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1.5">Review (optional)</p>
+                    <textarea
+                      value={reviewText}
+                      onChange={(e) => setReviewText(e.target.value)}
+                      placeholder="What did you think? (hidden until reveal)"
+                      rows={3}
+                      className="w-full px-3 py-2 rounded-lg bg-background/60 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1 bg-primary hover:bg-primary/90"
+                      disabled={submitVote.isPending}
+                      onClick={handleVote}
+                    >
+                      {submitVote.isPending
+                        ? "Saving..."
+                        : editingVote
+                        ? `Update — ${effectiveRating.toFixed(1)}/10`
+                        : `Submit — ${effectiveRating.toFixed(1)}/10`}
+                    </Button>
+                    {editingVote && (
+                      <>
+                        <Button variant="ghost" onClick={() => setEditingVote(false)}>
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="text-destructive/70 hover:text-destructive"
+                          disabled={clearVoteMutation.isPending}
+                          onClick={() => clearVoteMutation.mutate()}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                          Clear
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )
             )}
           </div>
         )}
