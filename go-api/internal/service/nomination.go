@@ -87,7 +87,7 @@ func (s *NominationService) Delete(ctx context.Context, userID, groupID int32, n
 	}
 
 	if nom.UserID != userID && mem.Role != "owner" && mem.Role != "admin" {
-		return errors.New("cannot delete another member's nomination")
+		return ErrForbidden
 	}
 
 	return s.queries.DeleteNomination(ctx, nominationID)

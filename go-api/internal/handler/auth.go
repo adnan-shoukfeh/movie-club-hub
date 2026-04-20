@@ -5,9 +5,9 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
+	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/service"
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/session"
 )
 
@@ -36,59 +36,22 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-
-	username := sanitizeUsername(req.Username)
-	if !isValidUsername(username) {
-		writeError(w, http.StatusBadRequest, "Username must be 2-32 characters, alphanumeric and underscores only.")
-		return
-	}
-	if len(req.Password) < 8 {
-		writeError(w, http.StatusBadRequest, "Password must be at least 8 characters.")
-		return
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
+	user, err := h.authSvc.RegisterUser(r.Context(), req.Username, req.Password)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to hash password")
-		return
-	}
-
-	// Check if user exists without password (created via some other flow)
-	existing, err := h.q.GetUserByUsername(r.Context(), username)
-	if err == nil && existing.PasswordHash == nil {
-		// Update existing user with password hash
-		hashStr := string(hash)
-		if err := h.q.UpdateUserPasswordHash(r.Context(), db.UpdateUserPasswordHashParams{
-			Username:     username,
-			PasswordHash: &hashStr,
-		}); err != nil {
-			writeError(w, http.StatusInternalServerError, "Failed to update user")
-			return
+		switch {
+		case errors.Is(err, service.ErrUsernameTaken):
+			writeError(w, http.StatusConflict, "Username is already taken.")
+		case errors.Is(err, service.ErrInvalidUsername):
+			writeError(w, http.StatusBadRequest, "Username must be 2-32 characters, alphanumeric and underscores only.")
+		case errors.Is(err, service.ErrWeakPassword):
+			writeError(w, http.StatusBadRequest, "Password must be at least 8 characters.")
+		default:
+			writeError(w, http.StatusInternalServerError, "Failed to register user")
 		}
-		h.sm.SetUserID(r, int64(existing.ID))
-		writeJSON(w, http.StatusCreated, toUserResponse(existing))
-		return
-	} else if err == nil {
-		writeError(w, http.StatusConflict, "Username is already taken.")
 		return
 	}
-
-	hashStr := string(hash)
-	user, err := h.q.CreateUser(r.Context(), db.CreateUserParams{
-		Username:     username,
-		PasswordHash: &hashStr,
-	})
-	if err != nil {
-		writeError(w, http.StatusConflict, "Username is already taken.")
-		return
-	}
-
 	h.sm.SetUserID(r, int64(user.ID))
-	writeJSON(w, http.StatusCreated, userResponse{
-		ID:        user.ID,
-		Username:  user.Username,
-		CreatedAt: user.CreatedAt.Format("2006-01-02T15:04:05.000Z"),
-	})
+	writeJSON(w, http.StatusCreated, toUserResponse(user))
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -97,24 +60,15 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-
-	username := sanitizeUsername(req.Username)
-	user, err := h.q.GetUserByUsername(r.Context(), username)
+	user, err := h.authSvc.Login(r.Context(), req.Username, req.Password)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "Invalid username or password.")
+		if errors.Is(err, service.ErrInvalidCredentials) {
+			writeError(w, http.StatusUnauthorized, "Invalid username or password.")
+		} else {
+			writeError(w, http.StatusInternalServerError, "Failed to login")
+		}
 		return
 	}
-
-	if user.PasswordHash == nil {
-		writeError(w, http.StatusUnauthorized, "Invalid username or password.")
-		return
-	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(*user.PasswordHash), []byte(req.Password)); err != nil {
-		writeError(w, http.StatusUnauthorized, "Invalid username or password.")
-		return
-	}
-
 	h.sm.SetUserID(r, int64(user.ID))
 	writeJSON(w, http.StatusOK, toUserResponse(user))
 }
@@ -210,36 +164,19 @@ func (h *Handler) UpdateUsername(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-
-	newUsername := sanitizeUsername(req.Username)
-	if !isValidUsername(newUsername) {
-		writeError(w, http.StatusBadRequest, "Username must be 2-32 characters, alphanumeric and underscores only.")
-		return
-	}
-
 	userID := h.userID(r)
-
-	// Check uniqueness — allow same username (user keeping their name)
-	existing, err := h.q.GetUserByUsername(r.Context(), newUsername)
-	if err == nil && existing.ID != userID {
-		writeError(w, http.StatusConflict, "Username is already taken.")
-		return
-	}
-
-	if err := h.q.UpdateUsername(r.Context(), db.UpdateUsernameParams{
-		Username: newUsername,
-		ID:       userID,
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to update username")
-		return
-	}
-
-	user, err := h.q.GetUserByID(r.Context(), userID)
+	user, err := h.authSvc.UpdateUsername(r.Context(), userID, req.Username)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to fetch updated user")
+		switch {
+		case errors.Is(err, service.ErrUsernameTaken):
+			writeError(w, http.StatusConflict, "Username is already taken.")
+		case errors.Is(err, service.ErrInvalidUsername):
+			writeError(w, http.StatusBadRequest, "Username must be 2-32 characters, alphanumeric and underscores only.")
+		default:
+			writeError(w, http.StatusInternalServerError, "Failed to update username")
+		}
 		return
 	}
-
 	writeJSON(w, http.StatusOK, toUserResponse(user))
 }
 
@@ -254,43 +191,19 @@ func (h *Handler) UpdatePassword(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-
-	if len(req.NewPassword) < 8 {
-		writeError(w, http.StatusBadRequest, "New password must be at least 8 characters.")
-		return
-	}
-
 	userID := h.userID(r)
-	user, err := h.q.GetUserByID(r.Context(), userID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to fetch user")
+	if err := h.authSvc.UpdatePassword(r.Context(), userID, req.CurrentPassword, req.NewPassword); err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidCredentials):
+			writeError(w, http.StatusUnauthorized, "Current password is incorrect.")
+		case errors.Is(err, service.ErrWeakPassword):
+			writeError(w, http.StatusBadRequest, "New password must be at least 8 characters.")
+		case errors.Is(err, service.ErrNotFound):
+			writeError(w, http.StatusBadRequest, "Account has no password set.")
+		default:
+			writeError(w, http.StatusInternalServerError, "Failed to update password")
+		}
 		return
 	}
-
-	if user.PasswordHash == nil {
-		writeError(w, http.StatusBadRequest, "Account has no password set.")
-		return
-	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(*user.PasswordHash), []byte(req.CurrentPassword)); err != nil {
-		writeError(w, http.StatusUnauthorized, "Current password is incorrect.")
-		return
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), 12)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to hash password")
-		return
-	}
-
-	hashStr := string(hash)
-	if err := h.q.UpdateUserPassword(r.Context(), db.UpdateUserPasswordParams{
-		PasswordHash: &hashStr,
-		ID:           userID,
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to update password")
-		return
-	}
-
 	writeMessage(w, http.StatusOK, "Password updated")
 }
