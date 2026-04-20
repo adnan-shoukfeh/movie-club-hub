@@ -38,9 +38,21 @@ func NewVerdictService(q *db.Queries, pool *pgxpool.Pool, cfg Config) *VerdictSe
 }
 
 // SubmitVerdict writes vote and watch status atomically.
-// If watched=false, rating/review must be nil.
-// Validates voting window is open.
+//
+// Rules:
+//   - watched=false: upsert watch_status(watched=false) and delete any existing vote
+//   - watched=true, rating provided: upsert watch_status AND upsert vote in one transaction
+//   - watched=true, no rating: upsert watch_status only
+//
+// Validates voting window is open. Rating must be 1.0–10.0 if provided.
 func (s *VerdictService) SubmitVerdict(ctx context.Context, userID, groupID int32, weekOf string, watched bool, rating *float64, review *string) error {
+	// Validate rating range early.
+	if rating != nil {
+		if *rating < 1 || *rating > 10 {
+			return errors.New("rating must be between 1 and 10")
+		}
+	}
+
 	group, err := s.queries.GetGroupByID(ctx, groupID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -71,13 +83,6 @@ func (s *VerdictService) SubmitVerdict(ctx context.Context, userID, groupID int3
 		weekOf = currentWeekOf
 	}
 
-	// Validate rating range
-	if rating != nil {
-		if *rating < 1 || *rating > 10 {
-			return errors.New("rating must be between 1 and 10")
-		}
-	}
-
 	// Check movie exists
 	if _, err := s.queries.GetMovieByGroupWeek(ctx, db.GetMovieByGroupWeekParams{
 		GroupID: groupID,
@@ -104,38 +109,70 @@ func (s *VerdictService) SubmitVerdict(ctx context.Context, userID, groupID int3
 		return errors.New("voting is closed for this week")
 	}
 
-	// Upsert watch status
-	if err := s.queries.UpsertWatchStatus(ctx, db.UpsertWatchStatusParams{
+	if !watched {
+		// User is marking unwatched: record watch_status(false) and remove any vote.
+		if err := s.queries.UpsertWatchStatus(ctx, db.UpsertWatchStatusParams{
+			UserID:  userID,
+			GroupID: groupID,
+			WeekOf:  weekOf,
+			Watched: false,
+		}); err != nil {
+			return err
+		}
+		return s.queries.DeleteVote(ctx, db.DeleteVoteParams{
+			UserID:  userID,
+			GroupID: groupID,
+			WeekOf:  weekOf,
+		})
+	}
+
+	if rating == nil {
+		// Watched but no rating yet: upsert watch_status only.
+		return s.queries.UpsertWatchStatus(ctx, db.UpsertWatchStatusParams{
+			UserID:  userID,
+			GroupID: groupID,
+			WeekOf:  weekOf,
+			Watched: true,
+		})
+	}
+
+	// Watched with rating: upsert both in a single transaction.
+	rounded := float32(math.Round(*rating*10) / 10)
+
+	var sanitizedReview *string
+	if review != nil {
+		s2 := sanitizeReview(*review)
+		sanitizedReview = &s2
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	txq := db.New(tx)
+
+	if err := txq.UpsertWatchStatus(ctx, db.UpsertWatchStatusParams{
 		UserID:  userID,
 		GroupID: groupID,
 		WeekOf:  weekOf,
-		Watched: watched,
+		Watched: true,
 	}); err != nil {
 		return err
 	}
 
-	// Upsert vote if rating provided
-	if rating != nil {
-		rounded := float32(math.Round(*rating*10) / 10)
-
-		var sanitizedReview *string
-		if review != nil {
-			s2 := sanitizeReview(*review)
-			sanitizedReview = &s2
-		}
-
-		if err := s.queries.UpsertVote(ctx, db.UpsertVoteParams{
-			UserID:  userID,
-			GroupID: groupID,
-			Rating:  rounded,
-			Review:  sanitizedReview,
-			WeekOf:  weekOf,
-		}); err != nil {
-			return err
-		}
+	if err := txq.UpsertVote(ctx, db.UpsertVoteParams{
+		UserID:  userID,
+		GroupID: groupID,
+		Rating:  rounded,
+		Review:  sanitizedReview,
+		WeekOf:  weekOf,
+	}); err != nil {
+		return err
 	}
 
-	return nil
+	return tx.Commit(ctx)
 }
 
 // DeleteVerdict removes a vote (watch status remains). Validates voting window.
@@ -251,15 +288,27 @@ func (s *VerdictService) GetVerdicts(ctx context.Context, userID, groupID int32,
 		GroupID: groupID,
 		WeekOf:  weekOf,
 	})
-	watchMap := make(map[int32]bool)
+
+	// Build maps for fast lookup.
+	watchMap := make(map[int32]bool, len(watchStatuses))
 	for _, ws := range watchStatuses {
 		watchMap[ws.UserID] = ws.Watched
 	}
 
-	verdicts := make([]Verdict, 0, len(votes))
+	// Build a userID→username map from group members for watch-only users.
+	members, _ := s.queries.GetGroupMembers(ctx, groupID)
+	usernameMap := make(map[int32]string, len(members))
+	for _, m := range members {
+		usernameMap[m.UserID] = m.Username
+	}
+
+	// Outer-join: start with votes, then add watch-only entries.
+	seen := make(map[int32]struct{}, len(votes))
+	verdicts := make([]Verdict, 0, len(votes)+len(watchStatuses))
+
 	for _, v := range votes {
 		rating := v.Rating
-		verdict := Verdict{
+		verdicts = append(verdicts, Verdict{
 			UserID:    v.UserID,
 			GroupID:   groupID,
 			WeekOf:    weekOf,
@@ -268,8 +317,24 @@ func (s *VerdictService) GetVerdicts(ctx context.Context, userID, groupID int32,
 			Review:    v.Review,
 			Username:  v.Username,
 			UpdatedAt: v.UpdatedAt,
+		})
+		seen[v.UserID] = struct{}{}
+	}
+
+	// Include members who watched but have not voted.
+	for _, ws := range watchStatuses {
+		if _, alreadySeen := seen[ws.UserID]; alreadySeen {
+			continue
 		}
-		verdicts = append(verdicts, verdict)
+		verdicts = append(verdicts, Verdict{
+			UserID:  ws.UserID,
+			GroupID: groupID,
+			WeekOf:  weekOf,
+			Watched: ws.Watched,
+			Rating:  nil,
+			Review:  nil,
+			Username: usernameMap[ws.UserID],
+		})
 	}
 
 	return verdicts, nil
