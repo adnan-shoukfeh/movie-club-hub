@@ -10,7 +10,7 @@ export {
 } from "./generated/api";
 
 export type {
-  SubmitVoteBody as SubmitVerdictBody,
+  SubmitVoteMutationBody as SubmitVerdictBody,
   SubmitVoteMutationResult as SubmitVerdictMutationResult,
   SubmitVoteMutationError as SubmitVerdictMutationError,
 } from "./generated/api";

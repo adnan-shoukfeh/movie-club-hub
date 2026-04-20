@@ -1,4 +1,4 @@
-import { useGetGroup, useGetGroupStatus } from "@workspace/api-client-react";
+import { useGetGroup, useGetGroupStatus, getGetGroupQueryKey, getGetGroupStatusQueryKey } from "@workspace/api-client-react";
 
 interface TurnState {
   currentWeekOf: string | null;
@@ -16,10 +16,10 @@ export function useTurnState(
   currentUserId?: number,
 ): TurnState {
   const { data: group } = useGetGroup(groupId, {}, {
-    query: { enabled: !!groupId },
+    query: { queryKey: getGetGroupQueryKey(groupId), enabled: !!groupId },
   });
   const { data: status } = useGetGroupStatus(groupId, {}, {
-    query: { enabled: !!groupId },
+    query: { queryKey: getGetGroupStatusQueryKey(groupId), enabled: !!groupId },
   });
 
   const currentWeekOf = group?.currentTurnWeekOf ?? null;

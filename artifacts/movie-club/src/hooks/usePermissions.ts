@@ -1,9 +1,9 @@
-import { useGetMe, useGetGroup } from "@workspace/api-client-react";
+import { useGetMe, useGetGroup, getGetGroupQueryKey } from "@workspace/api-client-react";
 
 export function usePermissions(groupId: number) {
   const { data: me } = useGetMe();
   const { data: group } = useGetGroup(groupId, {}, {
-    query: { enabled: !!groupId },
+    query: { queryKey: getGetGroupQueryKey(groupId), enabled: !!groupId },
   });
 
   const role = group?.myRole ?? "member";

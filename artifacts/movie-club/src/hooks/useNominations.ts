@@ -10,7 +10,7 @@ export function useNominations(groupId: number) {
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useListNominations(groupId, {
-    query: { enabled: !!groupId },
+    query: { queryKey: getListNominationsQueryKey(groupId), enabled: !!groupId },
   });
 
   const nominations = data ?? [];
