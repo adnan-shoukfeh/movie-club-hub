@@ -150,13 +150,13 @@ func TestIsVotingOpen(t *testing.T) {
 
 	// For a past config, voting should be closed on any historical weekOf.
 	pastWeekOf := "2020-01-01"
-	if isVotingOpen(pastWeekOf, pastConfig, 0) {
+	if isVotingOpen(pastWeekOf, pastConfig, 0, 0) {
 		t.Errorf("isVotingOpen(%q) should be false for past turn with no extension", pastWeekOf)
 	}
 
 	// For a future config, voting should be open.
 	futureWeekOf := "2099-01-01"
-	if !isVotingOpen(futureWeekOf, futureConfig, 0) {
+	if !isVotingOpen(futureWeekOf, futureConfig, 0, 0) {
 		t.Errorf("isVotingOpen(%q) should be true for future turn", futureWeekOf)
 	}
 
@@ -168,7 +168,7 @@ func TestIsVotingOpen(t *testing.T) {
 		Extensions:     nil,
 	}
 	// Today is turn 0. Without extension, voting is open (deadline is 7 days away).
-	if !isVotingOpen(today, recentConfig, 0) {
+	if !isVotingOpen(today, recentConfig, 0, 0) {
 		t.Errorf("isVotingOpen should be true for current turn started today")
 	}
 }
@@ -187,18 +187,18 @@ func TestIsResultsAvailable(t *testing.T) {
 	}
 
 	// Past turn: results should be available.
-	if !isResultsAvailable("2020-01-01", pastConfig, 0) {
+	if !isResultsAvailable("2020-01-01", pastConfig, 0, 0) {
 		t.Errorf("isResultsAvailable should be true for past turn")
 	}
 
 	// Future turn: results should not be available yet.
-	if isResultsAvailable("2099-01-01", futureConfig, 0) {
+	if isResultsAvailable("2099-01-01", futureConfig, 0, 0) {
 		t.Errorf("isResultsAvailable should be false for future turn")
 	}
 
 	// isResultsAvailable is the complement of isVotingOpen.
 	weekOf := "2020-06-01"
-	if isVotingOpen(weekOf, pastConfig, 0) == isResultsAvailable(weekOf, pastConfig, 0) {
+	if isVotingOpen(weekOf, pastConfig, 0, 0) == isResultsAvailable(weekOf, pastConfig, 0, 0) {
 		t.Errorf("isVotingOpen and isResultsAvailable must not both return the same value for the same turn")
 	}
 }
@@ -217,7 +217,7 @@ func TestGetDeadlineMs(t *testing.T) {
 	expectedDeadline := time.Date(2024, 1, 8, 0, 0, 0, 0, loc)
 	expectedMs := expectedDeadline.UnixMilli()
 
-	got := getDeadlineMs("2024-01-01", config, 0)
+	got := getDeadlineMs("2024-01-01", config, 0, 0)
 	if got != expectedMs {
 		t.Errorf("getDeadlineMs turn 0 = %d, want %d", got, expectedMs)
 	}
@@ -226,7 +226,7 @@ func TestGetDeadlineMs(t *testing.T) {
 	expectedDeadlineExtended := time.Date(2024, 1, 11, 0, 0, 0, 0, loc)
 	expectedMsExtended := expectedDeadlineExtended.UnixMilli()
 
-	gotExtended := getDeadlineMs("2024-01-01", config, 3)
+	gotExtended := getDeadlineMs("2024-01-01", config, 3, 0)
 	if gotExtended != expectedMsExtended {
 		t.Errorf("getDeadlineMs with 3 admin days = %d, want %d", gotExtended, expectedMsExtended)
 	}
@@ -239,7 +239,7 @@ func TestGetDeadlineMs(t *testing.T) {
 	}
 	expectedDeadlineExt := time.Date(2024, 1, 10, 0, 0, 0, 0, loc)
 	expectedMsExt := expectedDeadlineExt.UnixMilli()
-	gotExt := getDeadlineMs("2024-01-01", configWithExt, 0)
+	gotExt := getDeadlineMs("2024-01-01", configWithExt, 0, 0)
 	if gotExt != expectedMsExt {
 		t.Errorf("getDeadlineMs with turn extension = %d, want %d", gotExt, expectedMsExt)
 	}

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"time"
 
@@ -91,7 +92,9 @@ func getCurrentTurnWeekOf(config TurnConfig) string {
 }
 
 // getDeadlineMs returns the deadline (Unix millis) for a given weekOf.
-func getDeadlineMs(weekOf string, config TurnConfig, adminExtendedDays int) int64 {
+// adminExtendedDays shifts the end of the turn (deadline moves later).
+// startOffsetDays shifts both the start and end of the turn by the same amount.
+func getDeadlineMs(weekOf string, config TurnConfig, adminExtendedDays int, startOffsetDays int) int64 {
 	idx := getTurnIndexForDate(weekOf, config)
 	extra := 0
 	for _, ext := range config.Extensions {
@@ -103,18 +106,19 @@ func getDeadlineMs(weekOf string, config TurnConfig, adminExtendedDays int) int6
 	turnDays := config.TurnLengthDays + extra + adminExtendedDays
 	loc, _ := time.LoadLocation("America/New_York")
 	turnStart, _ := time.ParseInLocation("2006-01-02", getTurnStartDate(idx, config), loc)
-	turnStart = turnStart.AddDate(0, 0, turnDays)
+	// startOffsetDays shifts both start and end — deadline moves by the same offset.
+	turnStart = turnStart.AddDate(0, 0, startOffsetDays+turnDays)
 	return turnStart.UnixMilli()
 }
 
 // isVotingOpen returns true if current time < deadline.
-func isVotingOpen(weekOf string, config TurnConfig, adminExtendedDays int) bool {
-	return time.Now().UnixMilli() < getDeadlineMs(weekOf, config, adminExtendedDays)
+func isVotingOpen(weekOf string, config TurnConfig, adminExtendedDays int, startOffsetDays int) bool {
+	return time.Now().UnixMilli() < getDeadlineMs(weekOf, config, adminExtendedDays, startOffsetDays)
 }
 
 // isResultsAvailable returns true if current time >= deadline.
-func isResultsAvailable(weekOf string, config TurnConfig, adminExtendedDays int) bool {
-	return time.Now().UnixMilli() >= getDeadlineMs(weekOf, config, adminExtendedDays)
+func isResultsAvailable(weekOf string, config TurnConfig, adminExtendedDays int, startOffsetDays int) bool {
+	return time.Now().UnixMilli() >= getDeadlineMs(weekOf, config, adminExtendedDays, startOffsetDays)
 }
 
 // getMaxFutureTurnIndex returns current turn index + memberCount.
@@ -241,14 +245,16 @@ func (s *TurnService) GetEffectiveDeadline(ctx context.Context, groupID int32, w
 	}
 
 	adminExt := 0
+	startOffset := 0
 	if override, err := s.queries.GetTurnOverride(ctx, db.GetTurnOverrideParams{
 		GroupID: groupID,
 		WeekOf:  timeToPgDate(weekOf),
 	}); err == nil {
 		adminExt = int(override.ExtendedDays)
+		startOffset = int(override.StartOffsetDays)
 	}
 
-	ms := getDeadlineMs(weekOf, config, adminExt)
+	ms := getDeadlineMs(weekOf, config, adminExt, startOffset)
 	return time.UnixMilli(ms), nil
 }
 
@@ -265,4 +271,62 @@ func (s *TurnService) GetCurrentWeekOf(ctx context.Context, groupID int32) (stri
 	}
 
 	return getCurrentTurnWeekOf(config), nil
+}
+
+// GetPicker returns the user assigned to pick for the given weekOf.
+// If an assignment already exists in picker_assignments it is returned directly.
+// Otherwise the picker is calculated from the member rotation, persisted, and returned.
+func (s *TurnService) GetPicker(ctx context.Context, groupID int32, weekOf string) (db.User, error) {
+	// 1. Check for an existing assignment.
+	assignment, err := s.queries.GetPickerAssignment(ctx, db.GetPickerAssignmentParams{
+		GroupID: groupID,
+		WeekOf:  weekOf,
+	})
+	if err == nil {
+		// Assignment found — return the corresponding user.
+		return s.queries.GetUserByID(ctx, assignment.UserID)
+	}
+
+	// 2. No assignment — calculate from rotation.
+	group, err := s.queries.GetGroupByID(ctx, groupID)
+	if err != nil {
+		return db.User{}, err
+	}
+
+	config, err := s.BuildTurnConfig(ctx, group)
+	if err != nil {
+		return db.User{}, err
+	}
+
+	members, err := s.queries.GetGroupMembers(ctx, groupID)
+	if err != nil {
+		return db.User{}, err
+	}
+	if len(members) == 0 {
+		return db.User{}, fmt.Errorf("group %d has no members", groupID)
+	}
+
+	turnIndex := getTurnIndexForDate(weekOf, config)
+	pickerIndex := turnIndex % len(members)
+	pickerMember := members[pickerIndex]
+
+	// 3. Persist the assignment so future calls are O(1).
+	if err := s.queries.UpsertPickerAssignment(ctx, db.UpsertPickerAssignmentParams{
+		GroupID: groupID,
+		UserID:  pickerMember.UserID,
+		WeekOf:  weekOf,
+	}); err != nil {
+		return db.User{}, err
+	}
+
+	return s.queries.GetUserByID(ctx, pickerMember.UserID)
+}
+
+// SetPicker overrides the picker for a turn. Used by admin to explicitly assign a user.
+func (s *TurnService) SetPicker(ctx context.Context, groupID int32, weekOf string, userID int32) error {
+	return s.queries.UpsertPickerAssignment(ctx, db.UpsertPickerAssignmentParams{
+		GroupID: groupID,
+		UserID:  userID,
+		WeekOf:  weekOf,
+	})
 }

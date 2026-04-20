@@ -183,9 +183,7 @@ func (h *Handler) AdminSetPicker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.q.UpsertPickerAssignment(r.Context(), db.UpsertPickerAssignmentParams{
-		GroupID: groupID, UserID: *req.UserID, WeekOf: req.WeekOf,
-	}); err != nil {
+	if err := h.turnSvc.SetPicker(r.Context(), groupID, req.WeekOf, *req.UserID); err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to assign picker")
 		return
 	}
