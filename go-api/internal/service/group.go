@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -124,11 +125,11 @@ func (s *GroupService) RemoveMember(ctx context.Context, requesterID, groupID, t
 	}
 
 	if targetMem.Role == "owner" {
-		return errors.New("cannot kick the owner")
+		return fmt.Errorf("%w: cannot kick the owner", ErrForbidden)
 	}
 
 	if callerMem.Role == "admin" && targetMem.Role == "admin" {
-		return errors.New("admins cannot kick other admins")
+		return fmt.Errorf("%w: admins cannot kick other admins", ErrForbidden)
 	}
 
 	return s.queries.DeleteMembership(ctx, db.DeleteMembershipParams{
@@ -170,7 +171,7 @@ func (s *GroupService) UpdateMemberRole(ctx context.Context, requesterID, groupI
 	}
 
 	if targetMem.Role == "owner" {
-		return errors.New("cannot change the owner's role")
+		return fmt.Errorf("%w: cannot change the owner's role", ErrForbidden)
 	}
 
 	return s.queries.UpdateMemberRole(ctx, db.UpdateMemberRoleParams{

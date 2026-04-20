@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
+	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/service"
 )
 
 func (h *Handler) ListGroups(w http.ResponseWriter, r *http.Request) {
@@ -94,45 +95,20 @@ func (h *Handler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	name := sanitizeGroupName(req.Name)
-	if name == "" {
-		writeError(w, http.StatusBadRequest, "Group name is required")
-		return
-	}
-
 	turnLen := int32(7)
 	if req.TurnLengthDays != nil {
 		turnLen = *req.TurnLengthDays
-		if turnLen < 1 || turnLen > 365 {
-			writeError(w, http.StatusBadRequest, "turnLengthDays must be between 1 and 365")
-			return
-		}
 	}
 
-	startDate := time.Now().UTC()
+	startDate := ""
 	if req.StartDate != nil {
-		if !isValidDateStr(*req.StartDate) {
-			writeError(w, http.StatusBadRequest, "startDate must be a YYYY-MM-DD date string")
-			return
-		}
-		parsed, _ := time.Parse("2006-01-02", *req.StartDate)
-		startDate = parsed
+		startDate = *req.StartDate
 	}
 
 	userID := h.userID(r)
-	group, err := h.q.CreateGroup(r.Context(), db.CreateGroupParams{
-		Name: name, OwnerID: userID, StartDate: toPgDate(startDate), TurnLengthDays: turnLen,
-	})
+	group, err := h.groupSvc.Create(r.Context(), userID, req.Name, startDate, turnLen)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to create group")
-		return
-	}
-
-	_, err = h.q.CreateMembership(r.Context(), db.CreateMembershipParams{
-		UserID: userID, GroupID: group.ID, Role: "owner",
-	})
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to create membership")
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -473,11 +449,6 @@ func (h *Handler) KickMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	callerMem, ok := h.requireAdmin(w, r, groupID)
-	if !ok {
-		return
-	}
-
 	var req struct {
 		UserID int32 `json:"userId"`
 	}
@@ -486,28 +457,16 @@ func (h *Handler) KickMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	targetMem, err := h.q.GetMembership(r.Context(), db.GetMembershipParams{
-		UserID: req.UserID, GroupID: groupID,
-	})
-	if err != nil {
-		writeError(w, http.StatusNotFound, "Member not found")
-		return
-	}
-
-	if targetMem.Role == "owner" {
-		writeError(w, http.StatusForbidden, "Cannot kick the owner")
-		return
-	}
-
-	if callerMem.Role == "admin" && targetMem.Role == "admin" {
-		writeError(w, http.StatusForbidden, "Admins cannot kick other admins")
-		return
-	}
-
-	if err := h.q.DeleteMembership(r.Context(), db.DeleteMembershipParams{
-		UserID: req.UserID, GroupID: groupID,
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to remove member")
+	callerID := h.userID(r)
+	if err := h.groupSvc.RemoveMember(r.Context(), callerID, groupID, req.UserID); err != nil {
+		switch {
+		case errors.Is(err, service.ErrForbidden):
+			writeError(w, http.StatusForbidden, "Insufficient permissions")
+		case errors.Is(err, service.ErrNotFound):
+			writeError(w, http.StatusNotFound, "Not found")
+		default:
+			writeError(w, http.StatusInternalServerError, "Internal error")
+		}
 		return
 	}
 
@@ -518,11 +477,6 @@ func (h *Handler) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 	groupID, err := pathInt(r, "groupId")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid group ID")
-		return
-	}
-
-	_, ok := h.requireOwner(w, r, groupID)
-	if !ok {
 		return
 	}
 
@@ -540,23 +494,16 @@ func (h *Handler) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	targetMem, err := h.q.GetMembership(r.Context(), db.GetMembershipParams{
-		UserID: req.UserID, GroupID: groupID,
-	})
-	if err != nil {
-		writeError(w, http.StatusNotFound, "Member not found")
-		return
-	}
-
-	if targetMem.Role == "owner" {
-		writeError(w, http.StatusForbidden, "Cannot change the owner's role")
-		return
-	}
-
-	if err := h.q.UpdateMemberRole(r.Context(), db.UpdateMemberRoleParams{
-		UserID: req.UserID, GroupID: groupID, Role: req.Role,
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to update role")
+	callerID := h.userID(r)
+	if err := h.groupSvc.UpdateMemberRole(r.Context(), callerID, groupID, req.UserID, req.Role); err != nil {
+		switch {
+		case errors.Is(err, service.ErrForbidden):
+			writeError(w, http.StatusForbidden, "Insufficient permissions")
+		case errors.Is(err, service.ErrNotFound):
+			writeError(w, http.StatusNotFound, "Not found")
+		default:
+			writeError(w, http.StatusInternalServerError, "Internal error")
+		}
 		return
 	}
 
