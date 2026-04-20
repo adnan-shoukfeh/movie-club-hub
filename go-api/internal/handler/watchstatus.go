@@ -1,21 +1,16 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
-	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
+	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/service"
 )
 
 func (h *Handler) SetWatchStatus(w http.ResponseWriter, r *http.Request) {
 	groupID, err := pathInt(r, "groupId")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid group ID")
-		return
-	}
-
-	group, err := h.q.GetGroupByID(r.Context(), groupID)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "Group not found")
 		return
 	}
 
@@ -33,17 +28,21 @@ func (h *Handler) SetWatchStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	config, _ := h.buildTurnConfig(r.Context(), group)
-	weekOf := getCurrentTurnWeekOf(config)
+	weekOf := ""
 	if req.WeekOf != nil && isValidDateStr(*req.WeekOf) {
 		weekOf = *req.WeekOf
 	}
 
 	userID := h.userID(r)
-	if err := h.q.UpsertWatchStatus(r.Context(), db.UpsertWatchStatusParams{
-		UserID: userID, GroupID: groupID, WeekOf: weekOf, Watched: req.Watched,
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to update watch status")
+	if err := h.verdictSvc.MarkWatched(r.Context(), userID, groupID, weekOf, req.Watched); err != nil {
+		switch {
+		case errors.Is(err, service.ErrNotFound):
+			writeError(w, http.StatusNotFound, "Group not found")
+		case errors.Is(err, service.ErrForbidden):
+			writeError(w, http.StatusForbidden, "Not a member of this group")
+		default:
+			writeError(w, http.StatusInternalServerError, "Failed to update watch status")
+		}
 		return
 	}
 

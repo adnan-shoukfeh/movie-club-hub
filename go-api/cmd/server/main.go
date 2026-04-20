@@ -142,9 +142,14 @@ func main() {
 			r.With(middleware.RateLimit(searchLimiter, middleware.UserIDKeyFunc(sm))).Get("/movies/search", h.SearchMovies)
 			r.Post("/groups/{groupId}/movie", h.SetMovie)
 
-			r.Post("/groups/{groupId}/vote", h.SubmitVote)
-			r.Delete("/groups/{groupId}/vote", h.DeleteVote)
-			r.Get("/groups/{groupId}/results", h.GetResults)
+			r.Post("/groups/{groupId}/verdict", h.SubmitVerdict)
+			r.Delete("/groups/{groupId}/verdict", h.DeleteVerdict)
+			r.Get("/groups/{groupId}/verdicts", h.GetVerdicts)
+
+			// Legacy aliases for backward compatibility with existing frontend
+			r.Post("/groups/{groupId}/vote", h.SubmitVerdict)
+			r.Delete("/groups/{groupId}/vote", h.DeleteVerdict)
+			r.Get("/groups/{groupId}/results", h.GetVerdicts)
 
 			r.Get("/groups/{groupId}/nominations", h.ListNominations)
 			r.Post("/groups/{groupId}/nominations", h.CreateNomination)
