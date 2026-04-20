@@ -2,7 +2,7 @@ import {
   useGetGroup,
   useGetGroupStatus,
   useGetMe,
-  useSubmitVote,
+  useSubmitVerdict,
   useSetMovie,
   useAssignPicker,
   useUpdateMemberRole,
@@ -341,7 +341,7 @@ export default function GroupDetail() {
     queryClient.invalidateQueries({ queryKey: getListNominationsQueryKey(groupId) });
   }, [queryClient, groupId]);
 
-  const submitVote = useSubmitVote();
+  const submitVote = useSubmitVerdict();
   const setMovie = useSetMovie();
   const assignPicker = useAssignPicker();
   const updateRole = useUpdateMemberRole();
