@@ -156,21 +156,26 @@ func main() {
 
 			r.Post("/groups/{groupId}/watch-status", h.SetWatchStatus)
 
-			// Admin routes
-			r.Get("/admin/groups/{groupId}/schedule", h.AdminGetSchedule)
-			r.Post("/admin/groups/{groupId}/picker", h.AdminSetPicker)
-			r.Post("/admin/groups/{groupId}/extend-turn", h.AdminExtendTurn)
-			r.Post("/admin/groups/{groupId}/turn-start", h.AdminSetTurnStart)
-			r.Post("/admin/groups/{groupId}/unlock-movie", h.AdminUnlockMovie)
-			r.Post("/admin/groups/{groupId}/unlock-reviews", h.AdminUnlockReviews)
-			r.Get("/admin/groups/{groupId}/votes", h.AdminGetVotes)
-			r.Post("/admin/groups/{groupId}/vote-override", h.AdminVoteOverride)
-			r.Delete("/admin/groups/{groupId}/vote-override", h.AdminDeleteVoteOverride)
-			r.Post("/admin/groups/{groupId}/transfer-ownership", h.AdminTransferOwnership)
-			r.Delete("/admin/groups/{groupId}/nomination", h.AdminDeleteNomination)
-			r.Delete("/admin/groups/{groupId}/movie", h.AdminDeleteMovie)
-			r.Get("/admin/groups/{groupId}/turn-override", h.AdminGetTurnOverride)
-			r.Patch("/admin/groups/{groupId}/settings", h.AdminUpdateSettings)
+			// Admin routes — require admin role
+			r.Route("/admin/groups/{groupId}", func(r chi.Router) {
+				r.Use(middleware.RequireGroupAdmin(queries, sm))
+				r.Get("/schedule", h.AdminGetSchedule)
+				r.Post("/picker", h.AdminSetPicker)
+				r.Post("/extend-turn", h.AdminExtendTurn)
+				r.Post("/turn-start", h.AdminSetTurnStart)
+				r.Post("/unlock-movie", h.AdminUnlockMovie)
+				r.Post("/unlock-reviews", h.AdminUnlockReviews)
+				r.Get("/votes", h.AdminGetVotes)
+				r.Post("/vote-override", h.AdminVoteOverride)
+				r.Delete("/vote-override", h.AdminDeleteVoteOverride)
+				r.Get("/turn-override", h.AdminGetTurnOverride)
+				r.Patch("/settings", h.AdminUpdateSettings)
+			})
+
+			// Owner-only routes
+			r.With(middleware.RequireGroupOwner(queries, sm)).Post("/admin/groups/{groupId}/transfer-ownership", h.AdminTransferOwnership)
+			r.With(middleware.RequireGroupAdmin(queries, sm)).Delete("/admin/groups/{groupId}/nomination", h.AdminDeleteNomination)
+			r.With(middleware.RequireGroupAdmin(queries, sm)).Delete("/admin/groups/{groupId}/movie", h.AdminDeleteMovie)
 		})
 	})
 
