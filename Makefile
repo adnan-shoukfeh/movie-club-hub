@@ -1,7 +1,7 @@
 .PHONY: help \
         dev fe-dev fe-serve install \
         build frontend copy-frontend clean \
-        test test-verbose test-cover lint fe-typecheck typecheck sqlc \
+        check test test-verbose test-cover lint fe-typecheck typecheck sqlc \
         docker-up docker-down docker-logs \
         migrate-up migrate-down \
         seed \
@@ -181,6 +181,11 @@ gcp-url: ## Print the public URL of the deployed service
 		--format='value(status.url)'
 
 # ─── CI ───────────────────────────────────────────────────────────────────────
+
+check: ## Run all quality checks: test, lint, typecheck
+	cd go-api && go vet ./...
+	cd go-api && go test ./...
+	pnpm typecheck
 
 ci-test: ## Run the same test suite that the CI pipeline runs
 	cd go-api && go test ./...
