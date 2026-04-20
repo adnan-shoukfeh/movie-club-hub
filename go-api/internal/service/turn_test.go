@@ -245,6 +245,76 @@ func TestGetDeadlineMs(t *testing.T) {
 	}
 }
 
+// TestEffectiveDeadlineNoOverride verifies that getDeadlineMs with no overrides
+// returns the turn start date + turnLengthDays as the deadline.
+func TestEffectiveDeadlineNoOverride(t *testing.T) {
+	config := TurnConfig{
+		StartDate:      "2024-01-01",
+		TurnLengthDays: 7,
+		Extensions:     nil,
+	}
+	loc, _ := time.LoadLocation("America/New_York")
+	// Turn 0 starts 2024-01-01; deadline with no overrides = 2024-01-08 midnight ET.
+	want := time.Date(2024, 1, 8, 0, 0, 0, 0, loc).UnixMilli()
+	got := getDeadlineMs("2024-01-01", config, 0, 0)
+	if got != want {
+		t.Errorf("no-override deadline = %d, want %d", got, want)
+	}
+}
+
+// TestEffectiveDeadlineWithExtension verifies that adminExtendedDays pushes the
+// deadline forward by the specified number of days.
+func TestEffectiveDeadlineWithExtension(t *testing.T) {
+	config := TurnConfig{
+		StartDate:      "2024-01-01",
+		TurnLengthDays: 7,
+		Extensions:     nil,
+	}
+	loc, _ := time.LoadLocation("America/New_York")
+	// Turn 0 starts 2024-01-01; 5 extended days → deadline = 2024-01-13.
+	want := time.Date(2024, 1, 13, 0, 0, 0, 0, loc).UnixMilli()
+	got := getDeadlineMs("2024-01-01", config, 5, 0)
+	if got != want {
+		t.Errorf("extension deadline = %d, want %d", got, want)
+	}
+}
+
+// TestEffectiveDeadlineWithStartOffset verifies that startOffsetDays shifts both
+// the effective start and end of the turn, moving the deadline forward.
+func TestEffectiveDeadlineWithStartOffset(t *testing.T) {
+	config := TurnConfig{
+		StartDate:      "2024-01-01",
+		TurnLengthDays: 7,
+		Extensions:     nil,
+	}
+	loc, _ := time.LoadLocation("America/New_York")
+	// Turn 0 starts 2024-01-01; 3-day start offset → effective start 2024-01-04,
+	// effective end 2024-01-04 + 7 = 2024-01-11.
+	want := time.Date(2024, 1, 11, 0, 0, 0, 0, loc).UnixMilli()
+	got := getDeadlineMs("2024-01-01", config, 0, 3)
+	if got != want {
+		t.Errorf("start-offset deadline = %d, want %d", got, want)
+	}
+}
+
+// TestEffectiveDeadlineBothOverrides verifies that startOffsetDays and
+// adminExtendedDays combine additively to move the deadline.
+func TestEffectiveDeadlineBothOverrides(t *testing.T) {
+	config := TurnConfig{
+		StartDate:      "2024-01-01",
+		TurnLengthDays: 7,
+		Extensions:     nil,
+	}
+	loc, _ := time.LoadLocation("America/New_York")
+	// Turn 0: 2-day start offset + 3 admin-extended days → effective end =
+	// 2024-01-01 + 2 (offset) + 7 (length) + 3 (extension) = 2024-01-13.
+	want := time.Date(2024, 1, 13, 0, 0, 0, 0, loc).UnixMilli()
+	got := getDeadlineMs("2024-01-01", config, 3, 2)
+	if got != want {
+		t.Errorf("both-overrides deadline = %d, want %d", got, want)
+	}
+}
+
 // Stub tests for services that require a live DB.
 
 func TestAuthService_RequiresIntegrationDB(t *testing.T) {

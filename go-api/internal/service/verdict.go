@@ -88,17 +88,19 @@ func (s *VerdictService) SubmitVerdict(ctx context.Context, userID, groupID int3
 
 	// Check voting window
 	adminExt := 0
+	startOffset := 0
 	reviewUnlocked := false
 	if override, err := s.queries.GetTurnOverride(ctx, db.GetTurnOverrideParams{
 		GroupID: groupID,
 		WeekOf:  timeToPgDate(weekOf),
 	}); err == nil {
 		adminExt = int(override.ExtendedDays)
+		startOffset = int(override.StartOffsetDays)
 		reviewUnlocked = override.ReviewUnlockedByAdmin
 	}
 
 	isCurrentTurn := weekOf == currentWeekOf
-	if !((isVotingOpen(weekOf, config, adminExt) && isCurrentTurn) || reviewUnlocked) {
+	if !((isVotingOpen(weekOf, config, adminExt, startOffset) && isCurrentTurn) || reviewUnlocked) {
 		return errors.New("voting is closed for this week")
 	}
 
@@ -169,17 +171,19 @@ func (s *VerdictService) DeleteVerdict(ctx context.Context, userID, groupID int3
 	}
 
 	adminExt := 0
+	startOffset := 0
 	reviewUnlocked := false
 	if override, err := s.queries.GetTurnOverride(ctx, db.GetTurnOverrideParams{
 		GroupID: groupID,
 		WeekOf:  timeToPgDate(weekOf),
 	}); err == nil {
 		adminExt = int(override.ExtendedDays)
+		startOffset = int(override.StartOffsetDays)
 		reviewUnlocked = override.ReviewUnlockedByAdmin
 	}
 
 	isCurrentTurn := weekOf == currentWeekOf
-	if !((isVotingOpen(weekOf, config, adminExt) && isCurrentTurn) || reviewUnlocked) {
+	if !((isVotingOpen(weekOf, config, adminExt, startOffset) && isCurrentTurn) || reviewUnlocked) {
 		return errors.New("voting is closed for this week")
 	}
 
@@ -222,14 +226,16 @@ func (s *VerdictService) GetVerdicts(ctx context.Context, userID, groupID int32,
 	}
 
 	adminExt := 0
+	startOffset := 0
 	if override, err := s.queries.GetTurnOverride(ctx, db.GetTurnOverrideParams{
 		GroupID: groupID,
 		WeekOf:  timeToPgDate(weekOf),
 	}); err == nil {
 		adminExt = int(override.ExtendedDays)
+		startOffset = int(override.StartOffsetDays)
 	}
 
-	if !isResultsAvailable(weekOf, config, adminExt) {
+	if !isResultsAvailable(weekOf, config, adminExt, startOffset) {
 		return nil, errors.New("results are not available yet")
 	}
 
