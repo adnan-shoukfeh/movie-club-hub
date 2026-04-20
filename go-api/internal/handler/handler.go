@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
+	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/service"
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/session"
 )
 
@@ -19,10 +20,28 @@ type Handler struct {
 	pool      *pgxpool.Pool
 	sm        *session.Manager
 	omdbCache *omdbCache
+
+	authSvc        *service.AuthService
+	groupSvc       *service.GroupService
+	turnSvc        *service.TurnService
+	verdictSvc     *service.VerdictService
+	movieSvc       *service.MovieService
+	nominationSvc  *service.NominationService
 }
 
-func New(q *db.Queries, pool *pgxpool.Pool, sm *session.Manager) *Handler {
-	return &Handler{q: q, pool: pool, sm: sm, omdbCache: newOMDBCache()}
+func New(q *db.Queries, pool *pgxpool.Pool, sm *session.Manager, cfg service.Config) *Handler {
+	return &Handler{
+		q:              q,
+		pool:           pool,
+		sm:             sm,
+		omdbCache:      newOMDBCache(),
+		authSvc:        service.NewAuthService(q, cfg),
+		groupSvc:       service.NewGroupService(q, cfg),
+		turnSvc:        service.NewTurnService(q, cfg),
+		verdictSvc:     service.NewVerdictService(q, pool, cfg),
+		movieSvc:       service.NewMovieService(q, cfg),
+		nominationSvc:  service.NewNominationService(q, cfg),
+	}
 }
 
 // JSON helpers

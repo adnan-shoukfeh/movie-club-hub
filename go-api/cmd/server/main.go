@@ -25,6 +25,7 @@ import (
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/handler"
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/middleware"
+	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/service"
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/session"
 )
 
@@ -111,7 +112,11 @@ func main() {
 	r.Use(sm.LoadAndSave)
 
 	// API routes
-	h := handler.New(queries, pool, sm)
+	svcCfg := service.Config{
+		OmdbAPIKey: os.Getenv("OMDB_API_KEY"),
+		TimeZone:   "America/New_York",
+	}
+	h := handler.New(queries, pool, sm, svcCfg)
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", h.HealthCheck)
 
