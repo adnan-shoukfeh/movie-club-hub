@@ -141,7 +141,10 @@ func (s *MovieService) Search(ctx context.Context, query string) ([]MovieResult,
 	return movies, nil
 }
 
-// Select re-fetches OMDb data for the given imdbID and sets it as the group's movie for weekOf.
+// Select re-fetches OMDb data for the given imdbID and upserts it as the group's movie for weekOf.
+// OMDb is the single source of truth (SSOT): all persisted metadata (title, year, poster, director,
+// genre, runtime) originates here. Frontend search results are display-only and are never trusted
+// for the final DB write. If OMDb cannot be reached or returns no data, Select returns an error.
 func (s *MovieService) Select(ctx context.Context, groupID int32, weekOf string, imdbID string, nominatorUserID *int32) (db.Movie, error) {
 	title := ""
 	var poster, director, genre, runtime, year *string

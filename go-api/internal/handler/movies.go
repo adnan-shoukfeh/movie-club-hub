@@ -73,8 +73,9 @@ func (h *Handler) SetMovie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Title is intentionally excluded: all movie metadata comes from OMDb (SSOT).
+	// The frontend may display search results, but only the imdbId is trusted for storage.
 	var req struct {
-		Title  string  `json:"title"`
 		ImdbID *string `json:"imdbId"`
 		WeekOf *string `json:"weekOf"`
 	}
@@ -84,10 +85,8 @@ func (h *Handler) SetMovie(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.ImdbID == nil || sanitizeImdbID(*req.ImdbID) == "" {
-		if sanitizeMovieTitle(req.Title) == "" {
-			writeError(w, http.StatusBadRequest, "Movie title cannot be empty.")
-			return
-		}
+		writeError(w, http.StatusBadRequest, "imdbId is required.")
+		return
 	}
 
 	config, _ := h.buildTurnConfig(r.Context(), group)
