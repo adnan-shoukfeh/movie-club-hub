@@ -7,15 +7,20 @@ package db
 
 import (
 	"context"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const deleteMovieByGroupWeek = `-- name: DeleteMovieByGroupWeek :execrows
-DELETE FROM movies WHERE group_id = $1 AND week_of = $2
+DELETE FROM movies m
+USING turns t
+WHERE m.turn_id = t.id AND m.group_id = $1 AND t.week_of = $2
 `
 
 type DeleteMovieByGroupWeekParams struct {
-	GroupID int32  `json:"group_id"`
-	WeekOf  string `json:"week_of"`
+	GroupID int32       `json:"group_id"`
+	WeekOf  pgtype.Date `json:"week_of"`
 }
 
 func (q *Queries) DeleteMovieByGroupWeek(ctx context.Context, arg DeleteMovieByGroupWeekParams) (int64, error) {
@@ -27,47 +32,73 @@ func (q *Queries) DeleteMovieByGroupWeek(ctx context.Context, arg DeleteMovieByG
 }
 
 const getMovieByGroupWeek = `-- name: GetMovieByGroupWeek :one
-SELECT id, group_id, title, week_of, set_by_user_id, nominator_user_id, imdb_id, poster, director, genre, runtime, year, created_at
-FROM movies
-WHERE group_id = $1 AND week_of = $2
+SELECT m.id, m.group_id, m.turn_id, m.film_id, m.nominator_user_id, m.created_at,
+       t.week_of, t.picker_user_id AS set_by_user_id,
+       f.imdb_id, f.title, f.poster_url, f.director, f.genre, f.runtime_minutes, f.year
+FROM movies m
+JOIN turns t ON t.id = m.turn_id
+JOIN films f ON f.id = m.film_id
+WHERE m.group_id = $1 AND t.week_of = $2
 `
 
 type GetMovieByGroupWeekParams struct {
-	GroupID int32  `json:"group_id"`
-	WeekOf  string `json:"week_of"`
+	GroupID int32       `json:"group_id"`
+	WeekOf  pgtype.Date `json:"week_of"`
 }
 
-func (q *Queries) GetMovieByGroupWeek(ctx context.Context, arg GetMovieByGroupWeekParams) (Movie, error) {
+type GetMovieByGroupWeekRow struct {
+	ID              int32       `json:"id"`
+	GroupID         int32       `json:"group_id"`
+	TurnID          int64       `json:"turn_id"`
+	FilmID          int64       `json:"film_id"`
+	NominatorUserID *int32      `json:"nominator_user_id"`
+	CreatedAt       time.Time   `json:"created_at"`
+	WeekOf          pgtype.Date `json:"week_of"`
+	SetByUserID     int32       `json:"set_by_user_id"`
+	ImdbID          string      `json:"imdb_id"`
+	Title           string      `json:"title"`
+	PosterUrl       *string     `json:"poster_url"`
+	Director        *string     `json:"director"`
+	Genre           *string     `json:"genre"`
+	RuntimeMinutes  *int32      `json:"runtime_minutes"`
+	Year            *int32      `json:"year"`
+}
+
+func (q *Queries) GetMovieByGroupWeek(ctx context.Context, arg GetMovieByGroupWeekParams) (GetMovieByGroupWeekRow, error) {
 	row := q.db.QueryRow(ctx, getMovieByGroupWeek, arg.GroupID, arg.WeekOf)
-	var i Movie
+	var i GetMovieByGroupWeekRow
 	err := row.Scan(
 		&i.ID,
 		&i.GroupID,
-		&i.Title,
+		&i.TurnID,
+		&i.FilmID,
+		&i.NominatorUserID,
+		&i.CreatedAt,
 		&i.WeekOf,
 		&i.SetByUserID,
-		&i.NominatorUserID,
 		&i.ImdbID,
-		&i.Poster,
+		&i.Title,
+		&i.PosterUrl,
 		&i.Director,
 		&i.Genre,
-		&i.Runtime,
+		&i.RuntimeMinutes,
 		&i.Year,
-		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getRecentMoviesWithResults = `-- name: GetRecentMoviesWithResults :many
-SELECT m.group_id, g.name AS group_name, m.title AS movie, m.week_of,
+SELECT m.group_id, g.name AS group_name, f.title AS movie, t.week_of,
        COALESCE(AVG(v.rating), 0)::real AS average_rating,
        COUNT(v.id)::int AS total_votes
 FROM movies m
 JOIN groups g ON g.id = m.group_id
+JOIN turns t ON t.id = m.turn_id
+JOIN films f ON f.id = m.film_id
 JOIN memberships mem ON mem.group_id = m.group_id AND mem.user_id = $1
-LEFT JOIN _deprecated_votes v ON v.group_id = m.group_id AND v.week_of = m.week_of
-GROUP BY m.id, g.name
-ORDER BY m.week_of DESC
+LEFT JOIN _deprecated_votes v ON v.group_id = m.group_id AND v.week_of = t.week_of::text
+GROUP BY m.id, g.name, f.title, t.week_of
+ORDER BY t.week_of DESC
 LIMIT $2
 `
 
@@ -77,12 +108,12 @@ type GetRecentMoviesWithResultsParams struct {
 }
 
 type GetRecentMoviesWithResultsRow struct {
-	GroupID       int32   `json:"group_id"`
-	GroupName     string  `json:"group_name"`
-	Movie         string  `json:"movie"`
-	WeekOf        string  `json:"week_of"`
-	AverageRating float32 `json:"average_rating"`
-	TotalVotes    int32   `json:"total_votes"`
+	GroupID       int32       `json:"group_id"`
+	GroupName     string      `json:"group_name"`
+	Movie         string      `json:"movie"`
+	WeekOf        pgtype.Date `json:"week_of"`
+	AverageRating float32     `json:"average_rating"`
+	TotalVotes    int32       `json:"total_votes"`
 }
 
 func (q *Queries) GetRecentMoviesWithResults(ctx context.Context, arg GetRecentMoviesWithResultsParams) ([]GetRecentMoviesWithResultsRow, error) {
@@ -113,63 +144,44 @@ func (q *Queries) GetRecentMoviesWithResults(ctx context.Context, arg GetRecentM
 }
 
 const upsertMovie = `-- name: UpsertMovie :one
-INSERT INTO movies (group_id, title, week_of, set_by_user_id, nominator_user_id, imdb_id, poster, director, genre, runtime, year)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-ON CONFLICT ON CONSTRAINT movies_group_week_unique
-DO UPDATE SET title = EXCLUDED.title,
-             set_by_user_id = EXCLUDED.set_by_user_id,
-             nominator_user_id = EXCLUDED.nominator_user_id,
-             imdb_id = EXCLUDED.imdb_id,
-             poster = EXCLUDED.poster,
-             director = EXCLUDED.director,
-             genre = EXCLUDED.genre,
-             runtime = EXCLUDED.runtime,
-             year = EXCLUDED.year
-RETURNING id, group_id, title, week_of, set_by_user_id, nominator_user_id, imdb_id, poster, director, genre, runtime, year, created_at
+INSERT INTO movies (group_id, turn_id, film_id, nominator_user_id)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT ON CONSTRAINT movies_turn_unique
+DO UPDATE SET film_id = EXCLUDED.film_id,
+              nominator_user_id = EXCLUDED.nominator_user_id
+RETURNING id, group_id, turn_id, film_id, nominator_user_id, created_at
 `
 
 type UpsertMovieParams struct {
-	GroupID         int32   `json:"group_id"`
-	Title           string  `json:"title"`
-	WeekOf          string  `json:"week_of"`
-	SetByUserID     *int32  `json:"set_by_user_id"`
-	NominatorUserID *int32  `json:"nominator_user_id"`
-	ImdbID          *string `json:"imdb_id"`
-	Poster          *string `json:"poster"`
-	Director        *string `json:"director"`
-	Genre           *string `json:"genre"`
-	Runtime         *string `json:"runtime"`
-	Year            *string `json:"year"`
+	GroupID         int32  `json:"group_id"`
+	TurnID          int64  `json:"turn_id"`
+	FilmID          int64  `json:"film_id"`
+	NominatorUserID *int32 `json:"nominator_user_id"`
 }
 
-func (q *Queries) UpsertMovie(ctx context.Context, arg UpsertMovieParams) (Movie, error) {
+type UpsertMovieRow struct {
+	ID              int32     `json:"id"`
+	GroupID         int32     `json:"group_id"`
+	TurnID          int64     `json:"turn_id"`
+	FilmID          int64     `json:"film_id"`
+	NominatorUserID *int32    `json:"nominator_user_id"`
+	CreatedAt       time.Time `json:"created_at"`
+}
+
+func (q *Queries) UpsertMovie(ctx context.Context, arg UpsertMovieParams) (UpsertMovieRow, error) {
 	row := q.db.QueryRow(ctx, upsertMovie,
 		arg.GroupID,
-		arg.Title,
-		arg.WeekOf,
-		arg.SetByUserID,
+		arg.TurnID,
+		arg.FilmID,
 		arg.NominatorUserID,
-		arg.ImdbID,
-		arg.Poster,
-		arg.Director,
-		arg.Genre,
-		arg.Runtime,
-		arg.Year,
 	)
-	var i Movie
+	var i UpsertMovieRow
 	err := row.Scan(
 		&i.ID,
 		&i.GroupID,
-		&i.Title,
-		&i.WeekOf,
-		&i.SetByUserID,
+		&i.TurnID,
+		&i.FilmID,
 		&i.NominatorUserID,
-		&i.ImdbID,
-		&i.Poster,
-		&i.Director,
-		&i.Genre,
-		&i.Runtime,
-		&i.Year,
 		&i.CreatedAt,
 	)
 	return i, err

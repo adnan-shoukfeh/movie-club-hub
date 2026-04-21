@@ -57,6 +57,19 @@ type DeprecatedWatchStatus struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type Film struct {
+	ID             int64              `json:"id"`
+	ImdbID         string             `json:"imdb_id"`
+	Title          string             `json:"title"`
+	Year           *int32             `json:"year"`
+	PosterUrl      *string            `json:"poster_url"`
+	Director       *string            `json:"director"`
+	Genre          *string            `json:"genre"`
+	RuntimeMinutes *int32             `json:"runtime_minutes"`
+	OmdbFetchedAt  pgtype.Timestamptz `json:"omdb_fetched_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type Group struct {
 	ID             int32       `json:"id"`
 	Name           string      `json:"name"`
@@ -86,28 +99,18 @@ type Membership struct {
 type Movie struct {
 	ID              int32     `json:"id"`
 	GroupID         int32     `json:"group_id"`
-	Title           string    `json:"title"`
-	WeekOf          string    `json:"week_of"`
-	SetByUserID     *int32    `json:"set_by_user_id"`
 	NominatorUserID *int32    `json:"nominator_user_id"`
-	ImdbID          *string   `json:"imdb_id"`
-	Poster          *string   `json:"poster"`
-	Director        *string   `json:"director"`
-	Genre           *string   `json:"genre"`
-	Runtime         *string   `json:"runtime"`
-	Year            *string   `json:"year"`
 	CreatedAt       time.Time `json:"created_at"`
+	FilmID          int64     `json:"film_id"`
+	TurnID          int64     `json:"turn_id"`
 }
 
 type Nomination struct {
 	ID        int32     `json:"id"`
 	GroupID   int32     `json:"group_id"`
 	UserID    int32     `json:"user_id"`
-	ImdbID    string    `json:"imdb_id"`
-	Title     string    `json:"title"`
-	Year      *string   `json:"year"`
-	Poster    *string   `json:"poster"`
 	CreatedAt time.Time `json:"created_at"`
+	FilmID    int64     `json:"film_id"`
 }
 
 type Session struct {

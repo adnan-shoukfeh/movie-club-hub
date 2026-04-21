@@ -11,38 +11,33 @@ import (
 )
 
 const createNomination = `-- name: CreateNomination :one
-INSERT INTO nominations (group_id, user_id, imdb_id, title, year, poster)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, group_id, user_id, imdb_id, title, year, poster, created_at
+INSERT INTO nominations (group_id, user_id, film_id)
+VALUES ($1, $2, $3)
+RETURNING id, group_id, user_id, film_id, created_at
 `
 
 type CreateNominationParams struct {
-	GroupID int32   `json:"group_id"`
-	UserID  int32   `json:"user_id"`
-	ImdbID  string  `json:"imdb_id"`
-	Title   string  `json:"title"`
-	Year    *string `json:"year"`
-	Poster  *string `json:"poster"`
+	GroupID int32 `json:"group_id"`
+	UserID  int32 `json:"user_id"`
+	FilmID  int64 `json:"film_id"`
 }
 
-func (q *Queries) CreateNomination(ctx context.Context, arg CreateNominationParams) (Nomination, error) {
-	row := q.db.QueryRow(ctx, createNomination,
-		arg.GroupID,
-		arg.UserID,
-		arg.ImdbID,
-		arg.Title,
-		arg.Year,
-		arg.Poster,
-	)
-	var i Nomination
+type CreateNominationRow struct {
+	ID        int32     `json:"id"`
+	GroupID   int32     `json:"group_id"`
+	UserID    int32     `json:"user_id"`
+	FilmID    int64     `json:"film_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (q *Queries) CreateNomination(ctx context.Context, arg CreateNominationParams) (CreateNominationRow, error) {
+	row := q.db.QueryRow(ctx, createNomination, arg.GroupID, arg.UserID, arg.FilmID)
+	var i CreateNominationRow
 	err := row.Scan(
 		&i.ID,
 		&i.GroupID,
 		&i.UserID,
-		&i.ImdbID,
-		&i.Title,
-		&i.Year,
-		&i.Poster,
+		&i.FilmID,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -58,10 +53,13 @@ func (q *Queries) DeleteNomination(ctx context.Context, id int32) error {
 }
 
 const getNominationByGroupAndIMDB = `-- name: GetNominationByGroupAndIMDB :one
-SELECT n.id, n.group_id, n.user_id, n.imdb_id, n.title, n.year, n.poster, n.created_at, u.username AS nominator_username
+SELECT n.id, n.group_id, n.user_id, n.film_id, n.created_at,
+       f.imdb_id, f.title, f.year, f.poster_url,
+       u.username AS nominator_username
 FROM nominations n
+JOIN films f ON f.id = n.film_id
 JOIN users u ON u.id = n.user_id
-WHERE n.group_id = $1 AND n.imdb_id = $2
+WHERE n.group_id = $1 AND f.imdb_id = $2
 `
 
 type GetNominationByGroupAndIMDBParams struct {
@@ -73,11 +71,12 @@ type GetNominationByGroupAndIMDBRow struct {
 	ID                int32     `json:"id"`
 	GroupID           int32     `json:"group_id"`
 	UserID            int32     `json:"user_id"`
+	FilmID            int64     `json:"film_id"`
+	CreatedAt         time.Time `json:"created_at"`
 	ImdbID            string    `json:"imdb_id"`
 	Title             string    `json:"title"`
-	Year              *string   `json:"year"`
-	Poster            *string   `json:"poster"`
-	CreatedAt         time.Time `json:"created_at"`
+	Year              *int32    `json:"year"`
+	PosterUrl         *string   `json:"poster_url"`
 	NominatorUsername string    `json:"nominator_username"`
 }
 
@@ -88,41 +87,60 @@ func (q *Queries) GetNominationByGroupAndIMDB(ctx context.Context, arg GetNomina
 		&i.ID,
 		&i.GroupID,
 		&i.UserID,
+		&i.FilmID,
+		&i.CreatedAt,
 		&i.ImdbID,
 		&i.Title,
 		&i.Year,
-		&i.Poster,
-		&i.CreatedAt,
+		&i.PosterUrl,
 		&i.NominatorUsername,
 	)
 	return i, err
 }
 
 const getNominationByID = `-- name: GetNominationByID :one
-SELECT id, group_id, user_id, imdb_id, title, year, poster, created_at
-FROM nominations
-WHERE id = $1
+SELECT n.id, n.group_id, n.user_id, n.film_id, n.created_at,
+       f.imdb_id, f.title, f.year, f.poster_url
+FROM nominations n
+JOIN films f ON f.id = n.film_id
+WHERE n.id = $1
 `
 
-func (q *Queries) GetNominationByID(ctx context.Context, id int32) (Nomination, error) {
+type GetNominationByIDRow struct {
+	ID        int32     `json:"id"`
+	GroupID   int32     `json:"group_id"`
+	UserID    int32     `json:"user_id"`
+	FilmID    int64     `json:"film_id"`
+	CreatedAt time.Time `json:"created_at"`
+	ImdbID    string    `json:"imdb_id"`
+	Title     string    `json:"title"`
+	Year      *int32    `json:"year"`
+	PosterUrl *string   `json:"poster_url"`
+}
+
+func (q *Queries) GetNominationByID(ctx context.Context, id int32) (GetNominationByIDRow, error) {
 	row := q.db.QueryRow(ctx, getNominationByID, id)
-	var i Nomination
+	var i GetNominationByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.GroupID,
 		&i.UserID,
+		&i.FilmID,
+		&i.CreatedAt,
 		&i.ImdbID,
 		&i.Title,
 		&i.Year,
-		&i.Poster,
-		&i.CreatedAt,
+		&i.PosterUrl,
 	)
 	return i, err
 }
 
 const getNominationsByGroup = `-- name: GetNominationsByGroup :many
-SELECT n.id, n.group_id, n.user_id, n.imdb_id, n.title, n.year, n.poster, n.created_at, u.username AS nominator_username
+SELECT n.id, n.group_id, n.user_id, n.film_id, n.created_at,
+       f.imdb_id, f.title, f.year, f.poster_url,
+       u.username AS nominator_username
 FROM nominations n
+JOIN films f ON f.id = n.film_id
 JOIN users u ON u.id = n.user_id
 WHERE n.group_id = $1
 ORDER BY n.created_at DESC
@@ -132,11 +150,12 @@ type GetNominationsByGroupRow struct {
 	ID                int32     `json:"id"`
 	GroupID           int32     `json:"group_id"`
 	UserID            int32     `json:"user_id"`
+	FilmID            int64     `json:"film_id"`
+	CreatedAt         time.Time `json:"created_at"`
 	ImdbID            string    `json:"imdb_id"`
 	Title             string    `json:"title"`
-	Year              *string   `json:"year"`
-	Poster            *string   `json:"poster"`
-	CreatedAt         time.Time `json:"created_at"`
+	Year              *int32    `json:"year"`
+	PosterUrl         *string   `json:"poster_url"`
 	NominatorUsername string    `json:"nominator_username"`
 }
 
@@ -153,11 +172,12 @@ func (q *Queries) GetNominationsByGroup(ctx context.Context, groupID int32) ([]G
 			&i.ID,
 			&i.GroupID,
 			&i.UserID,
+			&i.FilmID,
+			&i.CreatedAt,
 			&i.ImdbID,
 			&i.Title,
 			&i.Year,
-			&i.Poster,
-			&i.CreatedAt,
+			&i.PosterUrl,
 			&i.NominatorUsername,
 		); err != nil {
 			return nil, err
