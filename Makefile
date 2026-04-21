@@ -3,7 +3,7 @@
         build frontend copy-frontend clean \
         check test test-verbose test-cover lint fe-typecheck typecheck sqlc \
         docker-up docker-down docker-logs \
-        migrate-up migrate-down \
+        migrate-up migrate-down migrate-down-all migrate-roundtrip \
         seed \
         db-proxy \
         docker-build docker-run \
@@ -107,6 +107,33 @@ migrate-up: ## Apply all pending database migrations
 
 migrate-down: ## Roll back the most recent database migration
 	cd go-api && go run -tags migrate cmd/migrate/main.go -dir migrations -db "$(DATABASE_URL)" down 1
+
+migrate-down-all: ## Roll back all database migrations
+	@count=$$(ls -1 go-api/migrations/*.up.sql 2>/dev/null | wc -l | tr -d ' '); \
+	if [ "$$count" -gt 0 ]; then \
+		cd go-api && go run -tags migrate cmd/migrate/main.go -dir migrations -db "$(DATABASE_URL)" down $$count; \
+	fi
+
+migrate-roundtrip: ## Verify migrations round-trip cleanly (up → down → up)
+	@echo "=== Migration round-trip test ==="
+	@echo "1. Applying all migrations..."
+	@cd go-api && go run -tags migrate cmd/migrate/main.go -dir migrations -db "$(DATABASE_URL)" up
+	@echo ""
+	@echo "2. Dumping schema (before)..."
+	@./scripts/compare-schema.sh before
+	@echo ""
+	@echo "3. Rolling back all migrations..."
+	@count=$$(ls -1 go-api/migrations/*.up.sql 2>/dev/null | wc -l | tr -d ' '); \
+	cd go-api && go run -tags migrate cmd/migrate/main.go -dir migrations -db "$(DATABASE_URL)" down $$count
+	@echo ""
+	@echo "4. Re-applying all migrations..."
+	@cd go-api && go run -tags migrate cmd/migrate/main.go -dir migrations -db "$(DATABASE_URL)" up
+	@echo ""
+	@echo "5. Dumping schema (after)..."
+	@./scripts/compare-schema.sh after
+	@echo ""
+	@echo "6. Comparing schemas..."
+	@./scripts/compare-schema.sh diff
 
 seed: ## Seed the database from embedded JSON fixtures (set DATABASE_URL first)
 	cd go-api && DATABASE_URL="$(DATABASE_URL)" go run ./cmd/seed
