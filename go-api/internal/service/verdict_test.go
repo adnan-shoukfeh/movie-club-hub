@@ -155,6 +155,8 @@ func TestVerdictService_GetVerdicts_ResultsAvailable(t *testing.T) {
 	}
 	weekOf := "2024-01-01"
 	t.Cleanup(func() {
+		testPool.Exec(ctx, "DELETE FROM verdicts WHERE turn_id IN (SELECT id FROM turns WHERE group_id = $1)", group.ID)
+		testPool.Exec(ctx, "DELETE FROM turns WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM watch_status WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM votes WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM movies WHERE group_id = $1", group.ID)
@@ -170,21 +172,30 @@ func TestVerdictService_GetVerdicts_ResultsAvailable(t *testing.T) {
 		t.Fatalf("insert movie: %v", err)
 	}
 
-	// Insert vote and watch status directly (voting is closed, can't use SubmitVerdict).
+	// Create a turn for the weekOf
+	_, err = testPool.Exec(ctx,
+		"INSERT INTO turns (group_id, turn_index, week_of, picker_user_id, start_date, end_date) VALUES ($1, 0, $2, $3, $2, $2::date + interval '6 days') ON CONFLICT DO NOTHING",
+		group.ID, weekOf, ownerUser.ID,
+	)
+	if err != nil {
+		t.Fatalf("insert turn: %v", err)
+	}
+
+	// Get the turn ID
+	var turnID int64
+	err = testPool.QueryRow(ctx, "SELECT id FROM turns WHERE group_id = $1 AND week_of = $2", group.ID, weekOf).Scan(&turnID)
+	if err != nil {
+		t.Fatalf("get turn id: %v", err)
+	}
+
+	// Insert verdict directly (voting is closed, can't use SubmitVerdict).
 	rating := float32(7.5)
 	_, err = testPool.Exec(ctx,
-		"INSERT INTO watch_status (user_id, group_id, week_of, watched) VALUES ($1,$2,$3,true) ON CONFLICT DO NOTHING",
-		ownerUser.ID, group.ID, weekOf,
+		"INSERT INTO verdicts (turn_id, user_id, watched, rating) VALUES ($1,$2,true,$3) ON CONFLICT DO NOTHING",
+		turnID, ownerUser.ID, rating,
 	)
 	if err != nil {
-		t.Fatalf("insert watch_status: %v", err)
-	}
-	_, err = testPool.Exec(ctx,
-		"INSERT INTO votes (user_id, group_id, rating, week_of) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING",
-		ownerUser.ID, group.ID, rating, weekOf,
-	)
-	if err != nil {
-		t.Fatalf("insert vote: %v", err)
+		t.Fatalf("insert verdict: %v", err)
 	}
 
 	verdicts, err := verdictSvc.GetVerdicts(ctx, ownerUser.ID, group.ID, weekOf)
