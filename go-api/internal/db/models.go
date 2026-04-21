@@ -10,6 +10,33 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type DeprecatedPickerAssignment struct {
+	ID        int32     `json:"id"`
+	GroupID   int32     `json:"group_id"`
+	UserID    int32     `json:"user_id"`
+	WeekOf    string    `json:"week_of"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type DeprecatedTurnExtension struct {
+	ID        int32     `json:"id"`
+	GroupID   int32     `json:"group_id"`
+	TurnIndex int32     `json:"turn_index"`
+	ExtraDays int32     `json:"extra_days"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type DeprecatedTurnOverride struct {
+	ID                    int32       `json:"id"`
+	GroupID               int32       `json:"group_id"`
+	WeekOf                pgtype.Date `json:"week_of"`
+	ReviewUnlockedByAdmin bool        `json:"review_unlocked_by_admin"`
+	MovieUnlockedByAdmin  bool        `json:"movie_unlocked_by_admin"`
+	ExtendedDays          int32       `json:"extended_days"`
+	UpdatedAt             time.Time   `json:"updated_at"`
+	StartOffsetDays       int32       `json:"start_offset_days"`
+}
+
 type Group struct {
 	ID             int32       `json:"id"`
 	Name           string      `json:"name"`
@@ -63,37 +90,24 @@ type Nomination struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-type PickerAssignment struct {
-	ID        int32     `json:"id"`
-	GroupID   int32     `json:"group_id"`
-	UserID    int32     `json:"user_id"`
-	WeekOf    string    `json:"week_of"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
 type Session struct {
 	Token  string             `json:"token"`
 	Data   []byte             `json:"data"`
 	Expiry pgtype.Timestamptz `json:"expiry"`
 }
 
-type TurnExtension struct {
-	ID        int32     `json:"id"`
-	GroupID   int32     `json:"group_id"`
-	TurnIndex int32     `json:"turn_index"`
-	ExtraDays int32     `json:"extra_days"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-type TurnOverride struct {
-	ID                    int32       `json:"id"`
-	GroupID               int32       `json:"group_id"`
-	WeekOf                pgtype.Date `json:"week_of"`
-	ReviewUnlockedByAdmin bool        `json:"review_unlocked_by_admin"`
-	MovieUnlockedByAdmin  bool        `json:"movie_unlocked_by_admin"`
-	ExtendedDays          int32       `json:"extended_days"`
-	UpdatedAt             time.Time   `json:"updated_at"`
-	StartOffsetDays       int32       `json:"start_offset_days"`
+type Turn struct {
+	ID              int64              `json:"id"`
+	GroupID         int32              `json:"group_id"`
+	TurnIndex       int32              `json:"turn_index"`
+	WeekOf          pgtype.Date        `json:"week_of"`
+	PickerUserID    int32              `json:"picker_user_id"`
+	StartDate       pgtype.Date        `json:"start_date"`
+	EndDate         pgtype.Date        `json:"end_date"`
+	MovieUnlocked   bool               `json:"movie_unlocked"`
+	ReviewsUnlocked bool               `json:"reviews_unlocked"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
 type User struct {
@@ -101,6 +115,7 @@ type User struct {
 	Username     string    `json:"username"`
 	PasswordHash *string   `json:"password_hash"`
 	CreatedAt    time.Time `json:"created_at"`
+	AvatarUrl    *string   `json:"avatar_url"`
 }
 
 type Vote struct {

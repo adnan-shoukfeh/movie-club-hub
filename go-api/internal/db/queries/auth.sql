@@ -1,10 +1,10 @@
 -- name: GetUserByID :one
-SELECT id, username, password_hash, created_at
+SELECT id, username, password_hash, created_at, avatar_url
 FROM users
 WHERE id = $1;
 
 -- name: GetUserByUsername :one
-SELECT id, username, password_hash, created_at
+SELECT id, username, password_hash, created_at, avatar_url
 FROM users
 WHERE username = $1;
 
