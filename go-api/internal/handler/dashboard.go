@@ -57,11 +57,11 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 
 		weekOf := getCurrentTurnWeekOf(config)
 		movie, err := h.q.GetMovieByGroupWeek(r.Context(), db.GetMovieByGroupWeekParams{
-			GroupID: g.ID, WeekOf: weekOf,
+			GroupID: g.ID, WeekOf: timeToPgDate(weekOf),
 		})
 		if err == nil {
 			item.CurrentMovie = &movie.Title
-			item.MoviePoster = movie.Poster
+			item.MoviePoster = movie.PosterUrl
 		}
 
 		adminExt := 0
@@ -110,13 +110,14 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	recentResults := make([]recentResult, 0, len(recentRows))
 	for _, row := range recentRows {
 		config, ok := groupConfigs[row.GroupID]
-		if !ok || !isResultsAvailable(row.WeekOf, config, 0) {
+		rowWeekOf := pgDateToString(row.WeekOf)
+		if !ok || !isResultsAvailable(rowWeekOf, config, 0) {
 			continue
 		}
 		recentResults = append(recentResults, recentResult{
 			GroupID: row.GroupID, GroupName: row.GroupName,
 			Movie: row.Movie, AverageRating: row.AverageRating,
-			TotalVotes: row.TotalVotes, WeekOf: row.WeekOf,
+			TotalVotes: row.TotalVotes, WeekOf: rowWeekOf,
 		})
 		if len(recentResults) == 5 {
 			break

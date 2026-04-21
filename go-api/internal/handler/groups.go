@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -55,11 +56,11 @@ func (h *Handler) ListGroups(w http.ResponseWriter, r *http.Request) {
 
 		weekOf := getCurrentTurnWeekOf(config)
 		movie, err := h.q.GetMovieByGroupWeek(r.Context(), db.GetMovieByGroupWeekParams{
-			GroupID: g.ID, WeekOf: weekOf,
+			GroupID: g.ID, WeekOf: timeToPgDate(weekOf),
 		})
 		if err == nil {
 			item.CurrentMovie = &movie.Title
-			item.MoviePoster = movie.Poster
+			item.MoviePoster = movie.PosterUrl
 		}
 
 		adminExt := int(0)
@@ -200,7 +201,7 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 	// Movie data
 	var movieData any
 	movie, movieErr := h.q.GetMovieByGroupWeek(r.Context(), db.GetMovieByGroupWeekParams{
-		GroupID: groupID, WeekOf: weekOf,
+		GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 	})
 	if movieErr == nil {
 		var nominatorUsername *string
@@ -210,16 +211,24 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		var setByUsername *string
-		if movie.SetByUserID != nil {
-			if u, err := h.q.GetUserByID(r.Context(), *movie.SetByUserID); err == nil {
-				setByUsername = &u.Username
-			}
+		if u, err := h.q.GetUserByID(r.Context(), movie.SetByUserID); err == nil {
+			setByUsername = &u.Username
+		}
+		var runtimeStr *string
+		if movie.RuntimeMinutes != nil {
+			s := fmt.Sprintf("%d min", *movie.RuntimeMinutes)
+			runtimeStr = &s
+		}
+		var yearStr *string
+		if movie.Year != nil {
+			s := fmt.Sprintf("%d", *movie.Year)
+			yearStr = &s
 		}
 		movieData = map[string]any{
-			"id": movie.ID, "title": movie.Title, "weekOf": movie.WeekOf,
-			"imdbId": movie.ImdbID, "poster": movie.Poster,
+			"id": movie.ID, "title": movie.Title, "weekOf": pgDateToString(movie.WeekOf),
+			"imdbId": movie.ImdbID, "poster": movie.PosterUrl,
 			"director": movie.Director, "genre": movie.Genre,
-			"runtime": movie.Runtime, "year": movie.Year,
+			"runtime": runtimeStr, "year": yearStr,
 			"nominatorUserId": movie.NominatorUserID, "nominatorUsername": nominatorUsername,
 			"setByUserId": movie.SetByUserID, "setByUsername": setByUsername,
 		}
@@ -362,14 +371,24 @@ func (h *Handler) GetGroupStatus(w http.ResponseWriter, r *http.Request) {
 
 	var movieData any
 	movie, movieErr := h.q.GetMovieByGroupWeek(r.Context(), db.GetMovieByGroupWeekParams{
-		GroupID: groupID, WeekOf: weekOf,
+		GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 	})
 	if movieErr == nil {
+		var runtimeStr *string
+		if movie.RuntimeMinutes != nil {
+			s := fmt.Sprintf("%d min", *movie.RuntimeMinutes)
+			runtimeStr = &s
+		}
+		var yearStr *string
+		if movie.Year != nil {
+			s := fmt.Sprintf("%d", *movie.Year)
+			yearStr = &s
+		}
 		movieData = map[string]any{
-			"id": movie.ID, "title": movie.Title, "weekOf": movie.WeekOf,
-			"imdbId": movie.ImdbID, "poster": movie.Poster,
+			"id": movie.ID, "title": movie.Title, "weekOf": pgDateToString(movie.WeekOf),
+			"imdbId": movie.ImdbID, "poster": movie.PosterUrl,
 			"director": movie.Director, "genre": movie.Genre,
-			"runtime": movie.Runtime, "year": movie.Year,
+			"runtime": runtimeStr, "year": yearStr,
 			"nominatorUserId": movie.NominatorUserID,
 		}
 	}

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
@@ -39,9 +40,14 @@ func (h *Handler) ListNominations(w http.ResponseWriter, r *http.Request) {
 
 	result := make([]nomResp, 0, len(noms))
 	for _, n := range noms {
+		var yearStr *string
+		if n.Year != nil {
+			s := fmt.Sprintf("%d", *n.Year)
+			yearStr = &s
+		}
 		result = append(result, nomResp{
 			ID: n.ID, ImdbID: n.ImdbID, Title: n.Title,
-			Year: n.Year, Poster: n.Poster,
+			Year: yearStr, Poster: n.PosterUrl,
 			NominatorUserID:   n.UserID,
 			NominatorUsername: n.NominatorUsername,
 			CreatedAt:         n.CreatedAt.Format("2006-01-02T15:04:05.000Z"),
@@ -106,18 +112,31 @@ func (h *Handler) CreateNomination(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fetch full nomination with film data
+	fullNom, err := h.q.GetNominationByID(r.Context(), nom.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to fetch nomination after create")
+		return
+	}
+
 	// Get nominator username
 	var nominatorUsername *string
 	if u, err := h.q.GetUserByID(r.Context(), userID); err == nil {
 		nominatorUsername = &u.Username
 	}
 
+	var yearStr *string
+	if fullNom.Year != nil {
+		s := fmt.Sprintf("%d", *fullNom.Year)
+		yearStr = &s
+	}
+
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"id": nom.ID, "imdbId": nom.ImdbID, "title": nom.Title,
-		"year": nom.Year, "poster": nom.Poster,
-		"nominatorUserId":   nom.UserID,
+		"id": fullNom.ID, "imdbId": fullNom.ImdbID, "title": fullNom.Title,
+		"year": yearStr, "poster": fullNom.PosterUrl,
+		"nominatorUserId":   fullNom.UserID,
 		"nominatorUsername": nominatorUsername,
-		"createdAt":         nom.CreatedAt.Format("2006-01-02T15:04:05.000Z"),
+		"createdAt":         fullNom.CreatedAt.Format("2006-01-02T15:04:05.000Z"),
 	})
 }
 

@@ -109,11 +109,11 @@ func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if movie, err := h.q.GetMovieByGroupWeek(r.Context(), db.GetMovieByGroupWeekParams{
-			GroupID: groupID, WeekOf: wof,
+			GroupID: groupID, WeekOf: timeToPgDate(wof),
 		}); err == nil {
 			entry.Movie = map[string]any{
 				"id": movie.ID, "title": movie.Title,
-				"weekOf": movie.WeekOf, "poster": movie.Poster,
+				"weekOf": pgDateToString(movie.WeekOf), "poster": movie.PosterUrl,
 			}
 		}
 
@@ -534,7 +534,7 @@ func (h *Handler) AdminVoteOverride(w http.ResponseWriter, r *http.Request) {
 
 	// Check movie exists
 	if _, err := h.q.GetMovieByGroupWeek(r.Context(), db.GetMovieByGroupWeekParams{
-		GroupID: groupID, WeekOf: req.WeekOf,
+		GroupID: groupID, WeekOf: timeToPgDate(req.WeekOf),
 	}); err != nil {
 		writeError(w, http.StatusBadRequest, "No movie set for this week")
 		return
@@ -766,7 +766,7 @@ func (h *Handler) AdminDeleteMovie(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := h.q.DeleteMovieByGroupWeek(r.Context(), db.DeleteMovieByGroupWeekParams{
-		GroupID: groupID, WeekOf: req.WeekOf,
+		GroupID: groupID, WeekOf: timeToPgDate(req.WeekOf),
 	})
 	if err != nil || rows == 0 {
 		writeError(w, http.StatusNotFound, "No movie found for this week")

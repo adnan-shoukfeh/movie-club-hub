@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
@@ -140,7 +141,7 @@ func (h *Handler) SetMovie(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	movie, err := h.movieSvc.Select(r.Context(), groupID, weekOf, imdbID, nominatorUserID)
+	_, err = h.movieSvc.Select(r.Context(), groupID, weekOf, imdbID, nominatorUserID)
 	if err != nil {
 		if errors.Is(err, service.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "Group not found")
@@ -150,11 +151,31 @@ func (h *Handler) SetMovie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fetch full movie data including film details
+	movie, err := h.q.GetMovieByGroupWeek(r.Context(), db.GetMovieByGroupWeekParams{
+		GroupID: groupID, WeekOf: timeToPgDate(weekOf),
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to fetch movie after insert")
+		return
+	}
+
+	var runtimeStr *string
+	if movie.RuntimeMinutes != nil {
+		s := fmt.Sprintf("%d min", *movie.RuntimeMinutes)
+		runtimeStr = &s
+	}
+	var yearStr *string
+	if movie.Year != nil {
+		s := fmt.Sprintf("%d", *movie.Year)
+		yearStr = &s
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"id": movie.ID, "title": movie.Title, "weekOf": movie.WeekOf,
-		"imdbId": movie.ImdbID, "poster": movie.Poster,
+		"id": movie.ID, "title": movie.Title, "weekOf": pgDateToString(movie.WeekOf),
+		"imdbId": movie.ImdbID, "poster": movie.PosterUrl,
 		"director": movie.Director, "genre": movie.Genre,
-		"runtime": movie.Runtime, "year": movie.Year,
+		"runtime": runtimeStr, "year": yearStr,
 		"nominatorUserId": movie.NominatorUserID,
 	})
 }
