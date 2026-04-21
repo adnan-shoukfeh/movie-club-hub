@@ -37,6 +37,26 @@ type DeprecatedTurnOverride struct {
 	StartOffsetDays       int32       `json:"start_offset_days"`
 }
 
+type DeprecatedVote struct {
+	ID        int32     `json:"id"`
+	UserID    int32     `json:"user_id"`
+	GroupID   int32     `json:"group_id"`
+	Rating    float32   `json:"rating"`
+	Review    *string   `json:"review"`
+	WeekOf    string    `json:"week_of"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type DeprecatedWatchStatus struct {
+	ID        int32     `json:"id"`
+	UserID    int32     `json:"user_id"`
+	GroupID   int32     `json:"group_id"`
+	WeekOf    string    `json:"week_of"`
+	Watched   bool      `json:"watched"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type Group struct {
 	ID             int32       `json:"id"`
 	Name           string      `json:"name"`
@@ -118,22 +138,13 @@ type User struct {
 	AvatarUrl    *string   `json:"avatar_url"`
 }
 
-type Vote struct {
-	ID        int32     `json:"id"`
-	UserID    int32     `json:"user_id"`
-	GroupID   int32     `json:"group_id"`
-	Rating    float32   `json:"rating"`
-	Review    *string   `json:"review"`
-	WeekOf    string    `json:"week_of"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-type WatchStatus struct {
-	ID        int32     `json:"id"`
-	UserID    int32     `json:"user_id"`
-	GroupID   int32     `json:"group_id"`
-	WeekOf    string    `json:"week_of"`
-	Watched   bool      `json:"watched"`
-	UpdatedAt time.Time `json:"updated_at"`
+type Verdict struct {
+	ID        int64              `json:"id"`
+	TurnID    int64              `json:"turn_id"`
+	UserID    int32              `json:"user_id"`
+	Watched   bool               `json:"watched"`
+	Rating    pgtype.Numeric     `json:"rating"`
+	Review    *string            `json:"review"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }

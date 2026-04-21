@@ -28,7 +28,7 @@ SELECT m.group_id, g.name AS group_name, m.title AS movie, m.week_of,
 FROM movies m
 JOIN groups g ON g.id = m.group_id
 JOIN memberships mem ON mem.group_id = m.group_id AND mem.user_id = $1
-LEFT JOIN votes v ON v.group_id = m.group_id AND v.week_of = m.week_of
+LEFT JOIN _deprecated_votes v ON v.group_id = m.group_id AND v.week_of = m.week_of
 GROUP BY m.id, g.name
 ORDER BY m.week_of DESC
 LIMIT $2;

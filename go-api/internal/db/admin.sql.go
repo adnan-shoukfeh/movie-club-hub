@@ -220,6 +220,7 @@ func (q *Queries) GetTurnOverridesForGroup(ctx context.Context, groupID int32) (
 }
 
 const upsertPickerAssignment = `-- name: UpsertPickerAssignment :exec
+
 INSERT INTO _deprecated_picker_assignments (group_id, user_id, week_of)
 VALUES ($1, $2, $3)
 ON CONFLICT ON CONSTRAINT picker_group_week_unique
@@ -232,6 +233,9 @@ type UpsertPickerAssignmentParams struct {
 	WeekOf  string `json:"week_of"`
 }
 
+// Queries for legacy turn management tables (deprecated).
+// These reference the renamed _deprecated_* tables.
+// TODO: Remove once handlers are fully migrated to turns table.
 func (q *Queries) UpsertPickerAssignment(ctx context.Context, arg UpsertPickerAssignmentParams) error {
 	_, err := q.db.Exec(ctx, upsertPickerAssignment, arg.GroupID, arg.UserID, arg.WeekOf)
 	return err
@@ -240,7 +244,7 @@ func (q *Queries) UpsertPickerAssignment(ctx context.Context, arg UpsertPickerAs
 const upsertTurnExtension = `-- name: UpsertTurnExtension :exec
 INSERT INTO _deprecated_turn_extensions (group_id, turn_index, extra_days)
 VALUES ($1, $2, $3)
-ON CONFLICT ON CONSTRAINT _deprecated_turn_extensions_group_turn_unique
+ON CONFLICT ON CONSTRAINT turn_extensions_group_turn_unique
 DO UPDATE SET extra_days = EXCLUDED.extra_days
 `
 
@@ -258,7 +262,7 @@ func (q *Queries) UpsertTurnExtension(ctx context.Context, arg UpsertTurnExtensi
 const upsertTurnOverride = `-- name: UpsertTurnOverride :exec
 INSERT INTO _deprecated_turn_overrides (group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days)
 VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT ON CONSTRAINT _deprecated_turn_overrides_group_week_unique
+ON CONFLICT ON CONSTRAINT turn_overrides_group_week_unique
 DO UPDATE SET review_unlocked_by_admin = EXCLUDED.review_unlocked_by_admin,
              movie_unlocked_by_admin = EXCLUDED.movie_unlocked_by_admin,
              extended_days = EXCLUDED.extended_days,
@@ -287,7 +291,7 @@ func (q *Queries) UpsertTurnOverride(ctx context.Context, arg UpsertTurnOverride
 const upsertTurnOverrideExtendedDays = `-- name: UpsertTurnOverrideExtendedDays :one
 INSERT INTO _deprecated_turn_overrides (group_id, week_of, extended_days)
 VALUES ($1, $2, $3)
-ON CONFLICT ON CONSTRAINT _deprecated_turn_overrides_group_week_unique
+ON CONFLICT ON CONSTRAINT turn_overrides_group_week_unique
 DO UPDATE SET extended_days = EXCLUDED.extended_days, updated_at = now()
 RETURNING id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, start_offset_days, updated_at
 `
@@ -328,7 +332,7 @@ func (q *Queries) UpsertTurnOverrideExtendedDays(ctx context.Context, arg Upsert
 const upsertTurnOverrideMovieUnlocked = `-- name: UpsertTurnOverrideMovieUnlocked :exec
 INSERT INTO _deprecated_turn_overrides (group_id, week_of, movie_unlocked_by_admin)
 VALUES ($1, $2, $3)
-ON CONFLICT ON CONSTRAINT _deprecated_turn_overrides_group_week_unique
+ON CONFLICT ON CONSTRAINT turn_overrides_group_week_unique
 DO UPDATE SET movie_unlocked_by_admin = EXCLUDED.movie_unlocked_by_admin, updated_at = now()
 `
 
@@ -346,7 +350,7 @@ func (q *Queries) UpsertTurnOverrideMovieUnlocked(ctx context.Context, arg Upser
 const upsertTurnOverrideReviewUnlocked = `-- name: UpsertTurnOverrideReviewUnlocked :exec
 INSERT INTO _deprecated_turn_overrides (group_id, week_of, review_unlocked_by_admin)
 VALUES ($1, $2, $3)
-ON CONFLICT ON CONSTRAINT _deprecated_turn_overrides_group_week_unique
+ON CONFLICT ON CONSTRAINT turn_overrides_group_week_unique
 DO UPDATE SET review_unlocked_by_admin = EXCLUDED.review_unlocked_by_admin, updated_at = now()
 `
 
@@ -364,7 +368,7 @@ func (q *Queries) UpsertTurnOverrideReviewUnlocked(ctx context.Context, arg Upse
 const upsertTurnOverrideStartOffset = `-- name: UpsertTurnOverrideStartOffset :one
 INSERT INTO _deprecated_turn_overrides (group_id, week_of, start_offset_days)
 VALUES ($1, $2, $3)
-ON CONFLICT ON CONSTRAINT _deprecated_turn_overrides_group_week_unique
+ON CONFLICT ON CONSTRAINT turn_overrides_group_week_unique
 DO UPDATE SET start_offset_days = EXCLUDED.start_offset_days, updated_at = now()
 RETURNING id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, start_offset_days, updated_at
 `
