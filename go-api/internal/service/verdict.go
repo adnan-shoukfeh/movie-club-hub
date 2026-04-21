@@ -91,7 +91,7 @@ func (s *VerdictService) SubmitVerdict(ctx context.Context, userID, groupID int3
 	// Check movie exists
 	if _, err := s.queries.GetMovieByGroupWeek(ctx, db.GetMovieByGroupWeekParams{
 		GroupID: groupID,
-		WeekOf:  weekOf,
+		WeekOf:  timeToPgDate(weekOf),
 	}); err != nil {
 		return errors.New("no movie set for this week")
 	}

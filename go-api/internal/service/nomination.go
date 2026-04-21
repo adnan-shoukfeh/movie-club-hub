@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -27,7 +28,8 @@ func (s *NominationService) List(ctx context.Context, groupID int32) ([]db.GetNo
 }
 
 // Create adds a nomination to the group on behalf of userID.
-func (s *NominationService) Create(ctx context.Context, userID, groupID int32, imdbID, title, year string, poster *string) (db.Nomination, error) {
+// First upserts the film into the canonical films table, then creates the nomination.
+func (s *NominationService) Create(ctx context.Context, userID, groupID int32, imdbID, title, year string, poster *string) (db.CreateNominationRow, error) {
 	imdbID = sanitizeImdbID(imdbID)
 	title = strings.TrimSpace(title)
 	if len(title) > 500 {
@@ -35,14 +37,16 @@ func (s *NominationService) Create(ctx context.Context, userID, groupID int32, i
 	}
 
 	if imdbID == "" || title == "" {
-		return db.Nomination{}, errors.New("imdbId and title are required")
+		return db.CreateNominationRow{}, errors.New("imdbId and title are required")
 	}
 
-	var yearPtr *string
+	// Parse year to int32
+	var yearInt *int32
 	if trimmed := strings.TrimSpace(year); trimmed != "" {
-		yearPtr = &trimmed
+		yearInt = parseYear(trimmed)
 	}
 
+	// Clean poster
 	var posterPtr *string
 	if poster != nil {
 		if trimmed := strings.TrimSpace(*poster); trimmed != "" {
@@ -50,16 +54,25 @@ func (s *NominationService) Create(ctx context.Context, userID, groupID int32, i
 		}
 	}
 
+	// Upsert into films table first
+	film, err := s.queries.UpsertFilm(ctx, db.UpsertFilmParams{
+		ImdbID:    imdbID,
+		Title:     title,
+		Year:      yearInt,
+		PosterUrl: posterPtr,
+	})
+	if err != nil {
+		return db.CreateNominationRow{}, fmt.Errorf("failed to upsert film: %w", err)
+	}
+
+	// Create nomination with film_id
 	nom, err := s.queries.CreateNomination(ctx, db.CreateNominationParams{
 		GroupID: groupID,
 		UserID:  userID,
-		ImdbID:  imdbID,
-		Title:   title,
-		Year:    yearPtr,
-		Poster:  posterPtr,
+		FilmID:  film.ID,
 	})
 	if err != nil {
-		return db.Nomination{}, err
+		return db.CreateNominationRow{}, err
 	}
 
 	return nom, nil

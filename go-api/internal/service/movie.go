@@ -9,8 +9,12 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 	"unicode"
+
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
 )
@@ -56,6 +60,37 @@ func filterNA(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// parseRuntimeMinutes extracts minutes from OMDb runtime string like "132 min".
+func parseRuntimeMinutes(runtime string) *int32 {
+	if runtime == "" || runtime == "N/A" {
+		return nil
+	}
+	re := regexp.MustCompile(`(\d+)`)
+	match := re.FindString(runtime)
+	if match == "" {
+		return nil
+	}
+	mins, err := strconv.Atoi(match)
+	if err != nil {
+		return nil
+	}
+	m := int32(mins)
+	return &m
+}
+
+// parseYear extracts year as int32 from string like "2024".
+func parseYear(year string) *int32 {
+	if year == "" || year == "N/A" {
+		return nil
+	}
+	y, err := strconv.Atoi(year)
+	if err != nil {
+		return nil
+	}
+	yi := int32(y)
+	return &yi
 }
 
 // MovieService handles movie search and selection.
@@ -142,12 +177,12 @@ func (s *MovieService) Search(ctx context.Context, query string) ([]MovieResult,
 }
 
 // Select re-fetches OMDb data for the given imdbID and upserts it as the group's movie for weekOf.
-// OMDb is the single source of truth (SSOT): all persisted metadata (title, year, poster, director,
-// genre, runtime) originates here. Frontend search results are display-only and are never trusted
-// for the final DB write. If OMDb cannot be reached or returns no data, Select returns an error.
-func (s *MovieService) Select(ctx context.Context, groupID int32, weekOf string, imdbID string, nominatorUserID *int32) (db.Movie, error) {
+// OMDb is the single source of truth (SSOT): all persisted metadata originates here.
+// The method upserts the film into the canonical films table, then links it to the turn.
+func (s *MovieService) Select(ctx context.Context, groupID int32, weekOf string, imdbID string, nominatorUserID *int32) (db.UpsertMovieRow, error) {
 	title := ""
-	var poster, director, genre, runtime, year *string
+	var poster, director, genre *string
+	var runtimeMinutes, year *int32
 
 	if imdbID != "" && s.config.OmdbAPIKey != "" {
 		detail, err := s.fetchOMDbDetail(imdbID)
@@ -156,34 +191,58 @@ func (s *MovieService) Select(ctx context.Context, groupID int32, weekOf string,
 			poster = filterNA(detail.Poster)
 			director = filterNA(detail.Director)
 			genre = filterNA(detail.Genre)
-			runtime = filterNA(detail.Runtime)
-			year = filterNA(detail.Year)
+			runtimeMinutes = parseRuntimeMinutes(detail.Runtime)
+			year = parseYear(detail.Year)
 		}
 	}
 
 	if title == "" {
-		return db.Movie{}, errors.New("could not fetch movie details from OMDb")
+		return db.UpsertMovieRow{}, errors.New("could not fetch movie details from OMDb")
 	}
 
 	title = sanitizeMovieTitle(title)
 	cleanedImdbID := sanitizeImdbID(imdbID)
-	var imdbIDPtr *string
-	if cleanedImdbID != "" {
-		imdbIDPtr = &cleanedImdbID
+	if cleanedImdbID == "" {
+		return db.UpsertMovieRow{}, errors.New("invalid imdb ID")
 	}
 
+	// Upsert into films table first
+	film, err := s.queries.UpsertFilm(ctx, db.UpsertFilmParams{
+		ImdbID:         cleanedImdbID,
+		Title:          title,
+		Year:           year,
+		PosterUrl:      poster,
+		Director:       director,
+		Genre:          genre,
+		RuntimeMinutes: runtimeMinutes,
+	})
+	if err != nil {
+		return db.UpsertMovieRow{}, fmt.Errorf("failed to upsert film: %w", err)
+	}
+
+	// Get the turn for this group/week
+	weekDate, err := time.Parse("2006-01-02", weekOf)
+	if err != nil {
+		return db.UpsertMovieRow{}, fmt.Errorf("invalid week_of format: %w", err)
+	}
+	var pgDate pgtype.Date
+	pgDate.Time = weekDate
+	pgDate.Valid = true
+
+	turn, err := s.queries.GetTurn(ctx, db.GetTurnParams{
+		GroupID: groupID,
+		WeekOf:  pgDate,
+	})
+	if err != nil {
+		return db.UpsertMovieRow{}, fmt.Errorf("failed to get turn for week %s: %w", weekOf, err)
+	}
+
+	// Upsert movie with film_id and turn_id
 	return s.queries.UpsertMovie(ctx, db.UpsertMovieParams{
 		GroupID:         groupID,
-		Title:           title,
-		WeekOf:          weekOf,
-		SetByUserID:     nil,
+		TurnID:          turn.ID,
+		FilmID:          film.ID,
 		NominatorUserID: nominatorUserID,
-		ImdbID:          imdbIDPtr,
-		Poster:          poster,
-		Director:        director,
-		Genre:           genre,
-		Runtime:         runtime,
-		Year:            year,
 	})
 }
 
