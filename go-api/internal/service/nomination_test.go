@@ -79,17 +79,20 @@ func TestNominationService_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create nomination: %v", err)
 	}
-	if nom.Title != "Test Movie" {
-		t.Errorf("got title %q, want %q", nom.Title, "Test Movie")
+	if nom.ID == 0 {
+		t.Error("nomination ID should be non-zero")
 	}
 
-	// List returns the nomination.
+	// List returns the nomination with film details.
 	noms, err := nomSvc.List(ctx, group.ID)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
 	if len(noms) != 1 {
 		t.Fatalf("got %d nominations, want 1", len(noms))
+	}
+	if noms[0].Title != "Test Movie" {
+		t.Errorf("got title %q, want %q", noms[0].Title, "Test Movie")
 	}
 
 	// Non-member cannot delete another user's nomination.

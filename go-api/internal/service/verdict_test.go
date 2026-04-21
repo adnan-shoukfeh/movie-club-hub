@@ -33,20 +33,42 @@ func TestVerdictService_Integration(t *testing.T) {
 	}
 	weekOf := group.StartDate.Time.Format("2006-01-02")
 	t.Cleanup(func() {
-		testPool.Exec(ctx, "DELETE FROM watch_status WHERE group_id = $1", group.ID)
-		testPool.Exec(ctx, "DELETE FROM votes WHERE group_id = $1", group.ID)
+		testPool.Exec(ctx, "DELETE FROM verdicts WHERE turn_id IN (SELECT id FROM turns WHERE group_id = $1)", group.ID)
+		testPool.Exec(ctx, "DELETE FROM turns WHERE group_id = $1", group.ID)
+		testPool.Exec(ctx, "DELETE FROM _deprecated_watch_status WHERE group_id = $1", group.ID)
+		testPool.Exec(ctx, "DELETE FROM _deprecated_votes WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM movies WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM memberships WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM groups WHERE id = $1", group.ID)
 	})
 
-	imdbID := "tt1234567"
+	// Create a film first
+	film, err := testQueries.UpsertFilm(ctx, db.UpsertFilmParams{
+		ImdbID: "tt1234567",
+		Title:  "Test Movie",
+	})
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+
+	// Create a turn for this week
+	turn, err := testQueries.UpsertTurn(ctx, db.UpsertTurnParams{
+		GroupID:      group.ID,
+		TurnIndex:    0,
+		WeekOf:       timeToPgDate(weekOf),
+		PickerUserID: ownerUser.ID,
+		StartDate:    timeToPgDate(weekOf),
+		EndDate:      timeToPgDate(weekOf), // Will be extended by turn_length_days
+	})
+	if err != nil {
+		t.Fatalf("create turn: %v", err)
+	}
+
+	// Create the movie with film_id and turn_id
 	_, err = testQueries.UpsertMovie(ctx, db.UpsertMovieParams{
-		GroupID:     group.ID,
-		Title:       "Test Movie",
-		WeekOf:      weekOf,
-		SetByUserID: &ownerUser.ID,
-		ImdbID:      &imdbID,
+		GroupID: group.ID,
+		TurnID:  turn.ID,
+		FilmID:  film.ID,
 	})
 	if err != nil {
 		t.Fatalf("insert movie: %v", err)
@@ -157,42 +179,50 @@ func TestVerdictService_GetVerdicts_ResultsAvailable(t *testing.T) {
 	t.Cleanup(func() {
 		testPool.Exec(ctx, "DELETE FROM verdicts WHERE turn_id IN (SELECT id FROM turns WHERE group_id = $1)", group.ID)
 		testPool.Exec(ctx, "DELETE FROM turns WHERE group_id = $1", group.ID)
-		testPool.Exec(ctx, "DELETE FROM watch_status WHERE group_id = $1", group.ID)
-		testPool.Exec(ctx, "DELETE FROM votes WHERE group_id = $1", group.ID)
+		testPool.Exec(ctx, "DELETE FROM _deprecated_watch_status WHERE group_id = $1", group.ID)
+		testPool.Exec(ctx, "DELETE FROM _deprecated_votes WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM movies WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM memberships WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM groups WHERE id = $1", group.ID)
 	})
 
-	imdbID := "tt9999999"
-	if _, err = testQueries.UpsertMovie(ctx, db.UpsertMovieParams{
-		GroupID: group.ID, Title: "Old Movie", WeekOf: weekOf,
-		SetByUserID: &ownerUser.ID, ImdbID: &imdbID,
-	}); err != nil {
-		t.Fatalf("insert movie: %v", err)
+	// Create a film
+	film, err := testQueries.UpsertFilm(ctx, db.UpsertFilmParams{
+		ImdbID: "tt9999999",
+		Title:  "Old Movie",
+	})
+	if err != nil {
+		t.Fatalf("create film: %v", err)
 	}
 
 	// Create a turn for the weekOf
-	_, err = testPool.Exec(ctx,
-		"INSERT INTO turns (group_id, turn_index, week_of, picker_user_id, start_date, end_date) VALUES ($1, 0, $2, $3, $2, $2::date + interval '6 days') ON CONFLICT DO NOTHING",
-		group.ID, weekOf, ownerUser.ID,
-	)
+	turn, err := testQueries.UpsertTurn(ctx, db.UpsertTurnParams{
+		GroupID:      group.ID,
+		TurnIndex:    0,
+		WeekOf:       timeToPgDate(weekOf),
+		PickerUserID: ownerUser.ID,
+		StartDate:    timeToPgDate(weekOf),
+		EndDate:      timeToPgDate("2024-01-07"),
+	})
 	if err != nil {
-		t.Fatalf("insert turn: %v", err)
+		t.Fatalf("create turn: %v", err)
 	}
 
-	// Get the turn ID
-	var turnID int64
-	err = testPool.QueryRow(ctx, "SELECT id FROM turns WHERE group_id = $1 AND week_of = $2", group.ID, weekOf).Scan(&turnID)
+	// Create the movie with film_id and turn_id
+	_, err = testQueries.UpsertMovie(ctx, db.UpsertMovieParams{
+		GroupID: group.ID,
+		TurnID:  turn.ID,
+		FilmID:  film.ID,
+	})
 	if err != nil {
-		t.Fatalf("get turn id: %v", err)
+		t.Fatalf("insert movie: %v", err)
 	}
 
 	// Insert verdict directly (voting is closed, can't use SubmitVerdict).
 	rating := float32(7.5)
 	_, err = testPool.Exec(ctx,
 		"INSERT INTO verdicts (turn_id, user_id, watched, rating) VALUES ($1,$2,true,$3) ON CONFLICT DO NOTHING",
-		turnID, ownerUser.ID, rating,
+		turn.ID, ownerUser.ID, rating,
 	)
 	if err != nil {
 		t.Fatalf("insert verdict: %v", err)
@@ -242,7 +272,9 @@ func TestVerdictService_MarkWatched(t *testing.T) {
 	}
 	weekOf := group.StartDate.Time.Format("2006-01-02")
 	t.Cleanup(func() {
-		testPool.Exec(ctx, "DELETE FROM watch_status WHERE group_id = $1", group.ID)
+		testPool.Exec(ctx, "DELETE FROM verdicts WHERE turn_id IN (SELECT id FROM turns WHERE group_id = $1)", group.ID)
+		testPool.Exec(ctx, "DELETE FROM turns WHERE group_id = $1", group.ID)
+		testPool.Exec(ctx, "DELETE FROM _deprecated_watch_status WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM memberships WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM groups WHERE id = $1", group.ID)
 	})
