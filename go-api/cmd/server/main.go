@@ -25,6 +25,7 @@ import (
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/handler"
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/middleware"
+	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/service"
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/session"
 )
 
@@ -111,7 +112,11 @@ func main() {
 	r.Use(sm.LoadAndSave)
 
 	// API routes
-	h := handler.New(queries, pool, sm)
+	svcCfg := service.Config{
+		OmdbAPIKey: os.Getenv("OMDB_API_KEY"),
+		TimeZone:   "America/New_York",
+	}
+	h := handler.New(queries, pool, sm, svcCfg)
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", h.HealthCheck)
 
@@ -137,9 +142,14 @@ func main() {
 			r.With(middleware.RateLimit(searchLimiter, middleware.UserIDKeyFunc(sm))).Get("/movies/search", h.SearchMovies)
 			r.Post("/groups/{groupId}/movie", h.SetMovie)
 
-			r.Post("/groups/{groupId}/vote", h.SubmitVote)
-			r.Delete("/groups/{groupId}/vote", h.DeleteVote)
-			r.Get("/groups/{groupId}/results", h.GetResults)
+			r.Post("/groups/{groupId}/verdict", h.SubmitVerdict)
+			r.Delete("/groups/{groupId}/verdict", h.DeleteVerdict)
+			r.Get("/groups/{groupId}/verdicts", h.GetVerdicts)
+
+			// Legacy aliases for backward compatibility with existing frontend
+			r.Post("/groups/{groupId}/vote", h.SubmitVerdict)
+			r.Delete("/groups/{groupId}/vote", h.DeleteVerdict)
+			r.Get("/groups/{groupId}/results", h.GetVerdicts)
 
 			r.Get("/groups/{groupId}/nominations", h.ListNominations)
 			r.Post("/groups/{groupId}/nominations", h.CreateNomination)
@@ -156,21 +166,26 @@ func main() {
 
 			r.Post("/groups/{groupId}/watch-status", h.SetWatchStatus)
 
-			// Admin routes
-			r.Get("/admin/groups/{groupId}/schedule", h.AdminGetSchedule)
-			r.Post("/admin/groups/{groupId}/picker", h.AdminSetPicker)
-			r.Post("/admin/groups/{groupId}/extend-turn", h.AdminExtendTurn)
-			r.Post("/admin/groups/{groupId}/turn-start", h.AdminSetTurnStart)
-			r.Post("/admin/groups/{groupId}/unlock-movie", h.AdminUnlockMovie)
-			r.Post("/admin/groups/{groupId}/unlock-reviews", h.AdminUnlockReviews)
-			r.Get("/admin/groups/{groupId}/votes", h.AdminGetVotes)
-			r.Post("/admin/groups/{groupId}/vote-override", h.AdminVoteOverride)
-			r.Delete("/admin/groups/{groupId}/vote-override", h.AdminDeleteVoteOverride)
-			r.Post("/admin/groups/{groupId}/transfer-ownership", h.AdminTransferOwnership)
-			r.Delete("/admin/groups/{groupId}/nomination", h.AdminDeleteNomination)
-			r.Delete("/admin/groups/{groupId}/movie", h.AdminDeleteMovie)
-			r.Get("/admin/groups/{groupId}/turn-override", h.AdminGetTurnOverride)
-			r.Patch("/admin/groups/{groupId}/settings", h.AdminUpdateSettings)
+			// Admin routes — require admin role
+			r.Route("/admin/groups/{groupId}", func(r chi.Router) {
+				r.Use(middleware.RequireGroupAdmin(queries, sm))
+				r.Get("/schedule", h.AdminGetSchedule)
+				r.Post("/picker", h.AdminSetPicker)
+				r.Post("/extend-turn", h.AdminExtendTurn)
+				r.Post("/turn-start", h.AdminSetTurnStart)
+				r.Post("/unlock-movie", h.AdminUnlockMovie)
+				r.Post("/unlock-reviews", h.AdminUnlockReviews)
+				r.Get("/votes", h.AdminGetVotes)
+				r.Post("/vote-override", h.AdminVoteOverride)
+				r.Delete("/vote-override", h.AdminDeleteVoteOverride)
+				r.Get("/turn-override", h.AdminGetTurnOverride)
+				r.Patch("/settings", h.AdminUpdateSettings)
+			})
+
+			// Owner-only routes
+			r.With(middleware.RequireGroupOwner(queries, sm)).Post("/admin/groups/{groupId}/transfer-ownership", h.AdminTransferOwnership)
+			r.With(middleware.RequireGroupAdmin(queries, sm)).Delete("/admin/groups/{groupId}/nomination", h.AdminDeleteNomination)
+			r.With(middleware.RequireGroupAdmin(queries, sm)).Delete("/admin/groups/{groupId}/movie", h.AdminDeleteMovie)
 		})
 	})
 

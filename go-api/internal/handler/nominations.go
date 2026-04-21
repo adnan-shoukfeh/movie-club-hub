@@ -3,11 +3,9 @@ package handler
 import (
 	"errors"
 	"net/http"
-	"strings"
-
-	"github.com/jackc/pgx/v5"
 
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
+	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/service"
 )
 
 func (h *Handler) ListNominations(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +20,7 @@ func (h *Handler) ListNominations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	noms, err := h.q.GetNominationsByGroup(r.Context(), groupID)
+	noms, err := h.nominationSvc.List(r.Context(), groupID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to fetch nominations")
 		return
@@ -76,39 +74,21 @@ func (h *Handler) CreateNomination(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	imdbID := sanitizeImdbID(req.ImdbID)
-	title := strings.TrimSpace(req.Title)
-	if len(title) > 500 {
-		title = title[:500]
-	}
-
-	if imdbID == "" || title == "" {
-		writeError(w, http.StatusBadRequest, "imdbId and title are required")
-		return
-	}
-
-	var year, poster *string
+	year := ""
 	if req.Year != nil {
-		trimmed := strings.TrimSpace(*req.Year)
-		if trimmed != "" {
-			year = &trimmed
-		}
-	}
-	if req.Poster != nil {
-		trimmed := strings.TrimSpace(*req.Poster)
-		if trimmed != "" {
-			poster = &trimmed
-		}
+		year = *req.Year
 	}
 
 	userID := h.userID(r)
 
-	nom, err := h.q.CreateNomination(r.Context(), db.CreateNominationParams{
-		GroupID: groupID, UserID: userID, ImdbID: imdbID,
-		Title: title, Year: year, Poster: poster,
-	})
+	nom, err := h.nominationSvc.Create(r.Context(), userID, groupID, req.ImdbID, req.Title, year, req.Poster)
 	if err != nil {
+		if errors.Is(err, service.ErrForbidden) {
+			writeError(w, http.StatusForbidden, "Not allowed to create nomination")
+			return
+		}
 		// Check for unique constraint violation (duplicate imdbId in group)
+		imdbID := sanitizeImdbID(req.ImdbID)
 		if existing, lookupErr := h.q.GetNominationByGroupAndIMDB(r.Context(), db.GetNominationByGroupAndIMDBParams{
 			GroupID: groupID, ImdbID: imdbID,
 		}); lookupErr == nil {
@@ -148,7 +128,7 @@ func (h *Handler) DeleteNomination(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mem, ok := h.requireMembership(w, r, groupID)
+	_, ok := h.requireMembership(w, r, groupID)
 	if !ok {
 		return
 	}
@@ -159,23 +139,17 @@ func (h *Handler) DeleteNomination(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nom, err := h.q.GetNominationByID(r.Context(), nomID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+	userID := h.userID(r)
+
+	if err := h.nominationSvc.Delete(r.Context(), userID, groupID, nomID); err != nil {
+		if errors.Is(err, service.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "Nomination not found")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "Failed to fetch nomination")
-		return
-	}
-
-	userID := h.userID(r)
-	if nom.UserID != userID && mem.Role != "owner" && mem.Role != "admin" {
-		writeError(w, http.StatusForbidden, "Cannot delete another member's nomination")
-		return
-	}
-
-	if err := h.q.DeleteNomination(r.Context(), nomID); err != nil {
+		if errors.Is(err, service.ErrForbidden) {
+			writeError(w, http.StatusForbidden, "Cannot delete another member's nomination")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "Failed to delete nomination")
 		return
 	}

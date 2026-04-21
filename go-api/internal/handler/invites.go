@@ -1,17 +1,15 @@
 package handler
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
+	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/service"
 )
 
 func (h *Handler) CreateInvite(w http.ResponseWriter, r *http.Request) {
@@ -21,43 +19,17 @@ func (h *Handler) CreateInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, ok := h.requireAdmin(w, r, groupID)
-	if !ok {
-		return
-	}
-
-	var req struct {
-		ExpiresInHours *int `json:"expiresInHours"`
-	}
-	_ = decodeBody(r, &req)
-
-	// Generate random code
-	bytes := make([]byte, 6)
-	if _, err := rand.Read(bytes); err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to generate invite code")
-		return
-	}
-	code := strings.ToUpper(hex.EncodeToString(bytes))
-
-	var expiresAt *time.Time
-	if req.ExpiresInHours != nil {
-		hours := *req.ExpiresInHours
-		if hours < 1 {
-			hours = 1
-		}
-		if hours > 168 {
-			hours = 168
-		}
-		t := time.Now().Add(time.Duration(hours) * time.Hour)
-		expiresAt = &t
-	}
-
 	userID := h.userID(r)
-	invite, err := h.q.CreateInvite(r.Context(), db.CreateInviteParams{
-		Code: code, GroupID: groupID, CreatedByUserID: userID, ExpiresAt: expiresAt,
-	})
+	invite, err := h.groupSvc.CreateInvite(r.Context(), userID, groupID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to create invite")
+		switch {
+		case errors.Is(err, service.ErrForbidden):
+			writeError(w, http.StatusForbidden, "Insufficient permissions")
+		case errors.Is(err, service.ErrNotFound):
+			writeError(w, http.StatusNotFound, "Not found")
+		default:
+			writeError(w, http.StatusInternalServerError, "Internal error")
+		}
 		return
 	}
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useGetResults, getGetResultsQueryKey } from "@workspace/api-client-react";
+import { useGetVerdicts, getGetResultsQueryKey } from "@workspace/api-client-react";
 import { useLocation, useParams, useSearch } from "wouter";
 import { ArrowLeft, Star, Trophy, Users, Clock, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,7 @@ export default function GroupResults() {
 
   const [selectedWeek, setSelectedWeek] = useState(initialWeek);
 
-  const { data: results, isLoading, error } = useGetResults(
+  const { data: results, isLoading, error } = useGetVerdicts(
     groupId,
     { weekOf: selectedWeek },
     { query: { queryKey: [...getGetResultsQueryKey(groupId), selectedWeek], enabled: !!groupId } }

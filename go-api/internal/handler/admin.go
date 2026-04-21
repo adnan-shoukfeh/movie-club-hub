@@ -10,7 +10,22 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
+	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/service"
 )
+
+// toTurnConfig converts a service.TurnConfig to the handler-local TurnConfig
+// so that the service result can be used with the existing handler helper functions.
+func toTurnConfig(sc service.TurnConfig) TurnConfig {
+	exts := make([]TurnExtension, len(sc.Extensions))
+	for i, e := range sc.Extensions {
+		exts[i] = TurnExtension{TurnIndex: e.TurnIndex, ExtraDays: e.ExtraDays}
+	}
+	return TurnConfig{
+		StartDate:      sc.StartDate,
+		TurnLengthDays: sc.TurnLengthDays,
+		Extensions:     exts,
+	}
+}
 
 func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 	groupID, err := pathInt(r, "groupId")
@@ -168,9 +183,7 @@ func (h *Handler) AdminSetPicker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.q.UpsertPickerAssignment(r.Context(), db.UpsertPickerAssignmentParams{
-		GroupID: groupID, UserID: *req.UserID, WeekOf: req.WeekOf,
-	}); err != nil {
+	if err := h.turnSvc.SetPicker(r.Context(), groupID, req.WeekOf, *req.UserID); err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to assign picker")
 		return
 	}
@@ -226,7 +239,8 @@ func (h *Handler) AdminExtendTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	config, _ := h.buildTurnConfig(r.Context(), group)
+	svcConfig, _ := h.turnSvc.BuildTurnConfig(r.Context(), group)
+	config := toTurnConfig(svcConfig)
 
 	weekOfPgDate := timeToPgDate(req.WeekOf)
 	h.q.UpsertTurnOverrideExtendedDays(r.Context(), db.UpsertTurnOverrideExtendedDaysParams{
@@ -304,7 +318,8 @@ func (h *Handler) AdminSetTurnStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Start must not overlap with the previous turn's active period.
-	config, _ := h.buildTurnConfig(r.Context(), group)
+	svcConfig, _ := h.turnSvc.BuildTurnConfig(r.Context(), group)
+	config := toTurnConfig(svcConfig)
 	turnIdx := getTurnIndexForDate(req.WeekOf, config)
 	if turnIdx > 0 {
 		prevWeekOf := getTurnStartDate(turnIdx-1, config)
@@ -783,7 +798,8 @@ func (h *Handler) AdminGetTurnOverride(w http.ResponseWriter, r *http.Request) {
 	}
 
 	group, _ := h.q.GetGroupByID(r.Context(), groupID)
-	config, _ := h.buildTurnConfig(r.Context(), group)
+	svcConfig, _ := h.turnSvc.BuildTurnConfig(r.Context(), group)
+	config := toTurnConfig(svcConfig)
 
 	reviewUnlocked := false
 	movieUnlocked := false
