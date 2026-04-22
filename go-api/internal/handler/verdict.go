@@ -2,9 +2,11 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"net/http"
 
+	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/service"
 )
 
@@ -128,26 +130,104 @@ func (h *Handler) GetVerdicts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type verdictEntry struct {
+	// Get the actual weekOf from the first verdict, or use provided/default
+	actualWeekOf := weekOf
+	if len(verdicts) > 0 {
+		actualWeekOf = verdicts[0].WeekOf
+	} else if weekOf == "" {
+		// Get current turn week
+		group, err := h.q.GetGroupByID(r.Context(), groupID)
+		if err == nil {
+			if config, err := h.buildTurnConfig(r.Context(), group); err == nil {
+				actualWeekOf = getCurrentTurnWeekOf(config)
+			}
+		}
+	}
+
+	// Build votes list
+	type voteEntry struct {
 		Username  string  `json:"username"`
 		Rating    float32 `json:"rating"`
 		Review    *string `json:"review"`
 		UpdatedAt string  `json:"updatedAt"`
 		Watched   bool    `json:"watched"`
 	}
-	list := make([]verdictEntry, 0, len(verdicts))
+	votes := make([]voteEntry, 0, len(verdicts))
+	var totalRating float64
+	ratingCount := 0
+
+	// Distribution: ratings 1-10
+	distribution := make([]struct {
+		Rating int `json:"rating"`
+		Count  int `json:"count"`
+	}, 10)
+	for i := range distribution {
+		distribution[i].Rating = i + 1
+	}
+
 	for _, v := range verdicts {
-		entry := verdictEntry{
+		entry := voteEntry{
 			Username:  v.Username,
 			Review:    v.Review,
 			UpdatedAt: v.UpdatedAt.Format("2006-01-02T15:04:05.000Z"),
 			Watched:   v.Watched,
 		}
 		if v.Rating != nil {
-			entry.Rating = float32(math.Round(float64(*v.Rating)*10) / 10)
+			rating := float32(math.Round(float64(*v.Rating)*10) / 10)
+			entry.Rating = rating
+			totalRating += float64(rating)
+			ratingCount++
+			// Add to distribution (round to nearest integer for bucket)
+			bucket := int(math.Round(float64(rating)))
+			if bucket >= 1 && bucket <= 10 {
+				distribution[bucket-1].Count++
+			}
 		}
-		list = append(list, entry)
+		votes = append(votes, entry)
 	}
 
-	writeJSON(w, http.StatusOK, list)
+	// Calculate average
+	var averageRating float64
+	if ratingCount > 0 {
+		averageRating = math.Round(totalRating/float64(ratingCount)*10) / 10
+	}
+
+	// Get movie data
+	var movieData any
+	movie, err := h.q.GetMovieByGroupWeek(r.Context(), db.GetMovieByGroupWeekParams{
+		GroupID: groupID,
+		WeekOf:  timeToPgDate(actualWeekOf),
+	})
+	if err == nil {
+		var runtimeStr *string
+		if movie.RuntimeMinutes != nil {
+			s := fmt.Sprintf("%d min", *movie.RuntimeMinutes)
+			runtimeStr = &s
+		}
+		var yearStr *string
+		if movie.Year != nil {
+			s := fmt.Sprintf("%d", *movie.Year)
+			yearStr = &s
+		}
+		movieData = map[string]any{
+			"id":      movie.ID,
+			"title":   movie.Title,
+			"weekOf":  pgDateToString(movie.WeekOf),
+			"imdbId":  movie.ImdbID,
+			"poster":  movie.PosterUrl,
+			"director": movie.Director,
+			"genre":   movie.Genre,
+			"runtime": runtimeStr,
+			"year":    yearStr,
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"weekOf":        actualWeekOf,
+		"movieData":     movieData,
+		"averageRating": averageRating,
+		"totalVotes":    ratingCount,
+		"distribution":  distribution,
+		"votes":         votes,
+	})
 }
