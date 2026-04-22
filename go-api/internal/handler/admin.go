@@ -50,7 +50,14 @@ func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	config, _ := h.buildTurnConfig(r.Context(), group)
-	currentWeekOf := getCurrentTurnWeekOf(config)
+
+	// Use turns table directly for current turn
+	var currentWeekOf string
+	if currentTurn, err := h.q.GetCurrentTurn(r.Context(), groupID); err == nil {
+		currentWeekOf = pgDateToString(currentTurn.WeekOf)
+	} else {
+		currentWeekOf = getCurrentTurnWeekOf(config)
+	}
 
 	centerWeekOf := queryString(r, "centerWeekOf")
 	if centerWeekOf == "" || !isValidDateStr(centerWeekOf) {

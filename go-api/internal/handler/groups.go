@@ -54,7 +54,13 @@ func (h *Handler) ListGroups(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		weekOf := getCurrentTurnWeekOf(config)
+		// Use turns table directly for current turn
+		var weekOf string
+		if currentTurn, err := h.q.GetCurrentTurn(r.Context(), g.ID); err == nil {
+			weekOf = pgDateToString(currentTurn.WeekOf)
+		} else {
+			weekOf = getCurrentTurnWeekOf(config)
+		}
 		movie, err := h.q.GetMovieByGroupWeek(r.Context(), db.GetMovieByGroupWeekParams{
 			GroupID: g.ID, WeekOf: timeToPgDate(weekOf),
 		})
@@ -151,7 +157,15 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentWeekOf := getCurrentTurnWeekOf(config)
+	// Use turns table directly for current turn
+	var currentWeekOf string
+	currentTurn, err := h.q.GetCurrentTurn(r.Context(), groupID)
+	if err == nil {
+		currentWeekOf = pgDateToString(currentTurn.WeekOf)
+	} else {
+		// Fallback to computed if no current turn in DB
+		currentWeekOf = getCurrentTurnWeekOf(config)
+	}
 	weekOf := queryString(r, "weekOf")
 	if weekOf == "" || !isValidDateStr(weekOf) {
 		weekOf = currentWeekOf
@@ -357,7 +371,15 @@ func (h *Handler) GetGroupStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentWeekOf := getCurrentTurnWeekOf(config)
+	// Use turns table directly for current turn
+	var currentWeekOf string
+	var currentTurnFromDB *db.Turn
+	if ct, err := h.q.GetCurrentTurn(r.Context(), groupID); err == nil {
+		currentWeekOf = pgDateToString(ct.WeekOf)
+		currentTurnFromDB = &ct
+	} else {
+		currentWeekOf = getCurrentTurnWeekOf(config)
+	}
 	weekOf := queryString(r, "weekOf")
 	if weekOf == "" || !isValidDateStr(weekOf) {
 		weekOf = currentWeekOf
@@ -393,25 +415,36 @@ func (h *Handler) GetGroupStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	adminExt := 0
+	// Use turn from DB for voting/results logic when available
 	reviewUnlocked := false
-	if override, err := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
+	var deadlineTime time.Time
+	if turn, err := h.q.GetTurn(r.Context(), db.GetTurnParams{
 		GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 	}); err == nil {
-		adminExt = int(override.ExtendedDays)
-		reviewUnlocked = override.ReviewUnlockedByAdmin
+		reviewUnlocked = turn.ReviewsUnlocked
+		deadlineTime = pgDateToTime(turn.EndDate).Add(24 * time.Hour) // End of end_date
+	} else {
+		// Fallback to computed deadline
+		adminExt := 0
+		if override, err := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
+			GroupID: groupID, WeekOf: timeToPgDate(weekOf),
+		}); err == nil {
+			adminExt = int(override.ExtendedDays)
+			reviewUnlocked = override.ReviewUnlockedByAdmin
+		}
+		deadlineTime = time.UnixMilli(getDeadlineMs(weekOf, config, adminExt))
 	}
 
 	votingOpen := false
 	if movieErr == nil {
 		isCurrentTurn := weekOf == currentWeekOf
-		votingOpen = (isVotingOpen(weekOf, config, adminExt) && isCurrentTurn) || reviewUnlocked
+		votingOpen = (time.Now().Before(deadlineTime) && isCurrentTurn) || reviewUnlocked
 	}
-	resultsAvail := movieErr == nil && isResultsAvailable(weekOf, config, adminExt)
+	resultsAvail := (movieErr == nil && time.Now().After(deadlineTime)) || (currentTurnFromDB != nil && currentTurnFromDB.ReviewsUnlocked)
 
 	var deadlineMs *int64
 	if movieErr == nil {
-		d := getDeadlineMs(weekOf, config, adminExt)
+		d := deadlineTime.UnixMilli()
 		deadlineMs = &d
 	}
 
