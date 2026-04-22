@@ -7,9 +7,16 @@ import {
   getGetGroupStatusQueryKey,
   getGetDashboardQueryKey,
 } from "@workspace/api-client-react";
-import { ArrowLeft, Shield } from "lucide-react";
+import { ArrowLeft, Shield, Menu, Clapperboard, BookOpen, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { PickerScheduleEditor } from "@/domains/admin/components/PickerScheduleEditor";
 import { VerdictOverridePanel } from "@/domains/admin/components/VerdictOverridePanel";
 import { MemberRoleManager } from "@/domains/admin/components/MemberRoleManager";
@@ -76,17 +83,50 @@ export default function GroupAdmin() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/40 bg-card/30 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-6 py-4 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => setLocation(`/groups/${groupId}`)}>
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div>
-            <h1 className="font-serif font-bold text-foreground flex items-center gap-2">
-              <Shield className="w-4 h-4 text-primary" />
-              Admin Panel
-            </h1>
-            <span className="text-xs text-muted-foreground">{group.name}</span>
+        <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setLocation(`/groups/${groupId}`)}>
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <div>
+              <h1 className="font-serif font-bold text-foreground flex items-center gap-2">
+                <Shield className="w-4 h-4 text-primary" />
+                Admin Panel
+              </h1>
+              <span className="text-xs text-muted-foreground">{group.name}</span>
+            </div>
           </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-muted-foreground"
+              >
+                <Menu className="w-4 h-4" />
+                Menu
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => setLocation(`/groups/${groupId}`)}>
+                <Clapperboard className="w-4 h-4 mr-2" />
+                Picker Schedule
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setLocation(`/groups/${groupId}`)}>
+                <BookOpen className="w-4 h-4 mr-2" />
+                Nominations Pool
+              </DropdownMenuItem>
+              {group.resultsAvailable && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setLocation(`/groups/${groupId}/results`)}>
+                    <Trophy className="w-4 h-4 mr-2" />
+                    Results
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 

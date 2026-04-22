@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, CalendarCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDateET } from "@/lib/utils";
-import { offsetWeekOf, getTurnIndexForDate, getTurnStartDate } from "../turnUtils";
+import { offsetWeekOf, getTurnIndexForDate, getTurnStartDate, normalizeWeekOf } from "../turnUtils";
 import type { GroupDetail, GroupStatus } from "@workspace/api-client-react";
 
 interface TurnStatusBannerProps {
@@ -12,8 +12,13 @@ interface TurnStatusBannerProps {
 
 export function TurnStatusBanner({ group, selectedWeek, onWeekChange }: TurnStatusBannerProps) {
   const currentTurnWeekOf = group.currentTurnWeekOf;
-  const isCurrentWeek = selectedWeek === currentTurnWeekOf;
-  const isPastWeek = selectedWeek < currentTurnWeekOf;
+
+  // Normalize both dates to YYYY-MM-DD format for reliable comparison
+  const selectedNorm = normalizeWeekOf(selectedWeek);
+  const currentNorm = normalizeWeekOf(currentTurnWeekOf);
+
+  const isCurrentWeek = selectedNorm === currentNorm;
+  const isPastWeek = selectedNorm < currentNorm;
   const isAdminOrOwner = group.myRole === "owner" || group.myRole === "admin";
 
   const config = group.turnConfig;

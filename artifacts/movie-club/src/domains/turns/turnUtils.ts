@@ -1,5 +1,12 @@
 import type { GroupDetailTurnConfig } from "@workspace/api-client-react";
 
+// Normalize date string to YYYY-MM-DD format for consistent comparisons
+export function normalizeWeekOf(dateStr: string): string {
+  if (!dateStr) return "";
+  // Handle both "YYYY-MM-DD" and "YYYY-MM-DDTHH:mm:ss" formats
+  return dateStr.slice(0, 10);
+}
+
 export function getTurnIndexForDate(dateStr: string, config: GroupDetailTurnConfig): number {
   const target = new Date(dateStr + "T00:00:00.000Z").getTime();
   const start = new Date(config.startDate + "T00:00:00.000Z").getTime();

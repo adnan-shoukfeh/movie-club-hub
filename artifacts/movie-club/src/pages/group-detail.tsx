@@ -47,7 +47,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { TurnStatusBanner } from "@/domains/turns/components/TurnStatusBanner";
-import { getTurnIndexForDate, getTurnStartDate } from "@/domains/turns/turnUtils";
+import { getTurnIndexForDate, getTurnStartDate, normalizeWeekOf } from "@/domains/turns/turnUtils";
 import { CurrentTurnMovie } from "@/domains/movies/components/CurrentTurnMovie";
 import { PickerMovieSelector } from "@/domains/movies/components/PickerMovieSelector";
 import { NominationSheet } from "@/domains/nominations/components/NominationSheet";
@@ -196,7 +196,7 @@ export default function GroupDetail() {
 
   const isAdminOrOwner = group.myRole === "owner" || group.myRole === "admin";
   const currentTurnWeekOf = group.currentTurnWeekOf as string;
-  const isCurrentWeek = selectedWeek === currentTurnWeekOf;
+  const isCurrentWeek = normalizeWeekOf(selectedWeek) === normalizeWeekOf(currentTurnWeekOf);
   const movie = group.movieData;
   const watchedCount = group.members.filter((m) => m.watched).length;
   const pickerSchedule = group.pickerSchedule;
@@ -207,7 +207,7 @@ export default function GroupDetail() {
   const isPickerForSelectedTurn = group.pickerUserId === me?.id;
   const canEditMovie = isAdminOrOwner
     || (!!group.movieUnlockedByAdmin && isPickerForSelectedTurn)
-    || (selectedWeek === nextTurnWeekOf && isPickerForSelectedTurn);
+    || (normalizeWeekOf(selectedWeek) === normalizeWeekOf(nextTurnWeekOf) && isPickerForSelectedTurn);
 
   return (
     <div className="min-h-screen bg-background">
@@ -480,7 +480,7 @@ export default function GroupDetail() {
           {pickerSchedule && pickerSchedule.length > 0 ? (
             <div className="space-y-1.5">
               {pickerSchedule.map((slot) => {
-                const isPast = slot.weekOf < currentTurnWeekOf;
+                const isPast = normalizeWeekOf(slot.weekOf) < normalizeWeekOf(currentTurnWeekOf);
                 return (
                   <div
                     key={slot.weekOf}
