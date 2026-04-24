@@ -96,7 +96,8 @@ JOIN groups g ON g.id = m.group_id
 JOIN turns t ON t.id = m.turn_id
 JOIN films f ON f.id = m.film_id
 JOIN memberships mem ON mem.group_id = m.group_id AND mem.user_id = $1
-LEFT JOIN _deprecated_votes v ON v.group_id = m.group_id AND v.week_of = t.week_of::text
+LEFT JOIN verdicts v ON v.turn_id = t.id
+WHERE t.end_date < CURRENT_DATE
 GROUP BY m.id, g.name, f.title, t.week_of
 ORDER BY t.week_of DESC
 LIMIT $2

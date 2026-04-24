@@ -109,11 +109,7 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 
 	recentResults := make([]recentResult, 0, len(recentRows))
 	for _, row := range recentRows {
-		config, ok := groupConfigs[row.GroupID]
 		rowWeekOf := pgDateToString(row.WeekOf)
-		if !ok || !isResultsAvailable(rowWeekOf, config, 0) {
-			continue
-		}
 		recentResults = append(recentResults, recentResult{
 			GroupID: row.GroupID, GroupName: row.GroupName,
 			Movie: row.Movie, AverageRating: row.AverageRating,

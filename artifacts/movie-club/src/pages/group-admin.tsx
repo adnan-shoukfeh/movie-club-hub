@@ -45,6 +45,11 @@ export default function GroupAdmin() {
     queryClient.invalidateQueries({ queryKey: getGetDashboardQueryKey() });
   }, [queryClient, groupId]);
 
+  const handleScheduleLoaded = useCallback((s: ScheduleEntry[], weekOf: string) => {
+    setSchedule(s);
+    setCurrentTurnWeekOf(weekOf);
+  }, []);
+
   useEffect(() => {
     if (group && group.myRole !== "owner" && group.myRole !== "admin") {
       setLocation(`/groups/${groupId}`);
@@ -137,10 +142,7 @@ export default function GroupAdmin() {
           isExpanded={activeSection === "schedule"}
           onToggle={() => sectionToggle("schedule")}
           reloadKey={scheduleReloadKey}
-          onScheduleLoaded={(s, weekOf) => {
-            setSchedule(s);
-            setCurrentTurnWeekOf(weekOf);
-          }}
+          onScheduleLoaded={handleScheduleLoaded}
         />
 
         <VerdictOverridePanel
