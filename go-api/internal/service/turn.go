@@ -22,8 +22,8 @@ type TurnConfig struct {
 // TurnExtension represents an extension applied to a specific turn index.
 // Deprecated: Extensions are now baked into turns.end_date.
 type TurnExtension struct {
-	TurnIndex int
-	ExtraDays int
+	TurnIndex int `json:"turnIndex"`
+	ExtraDays int `json:"extraDays"`
 }
 
 // cumulativeDaysUpToTurn calculates total days for turns 0..index-1 including extensions.

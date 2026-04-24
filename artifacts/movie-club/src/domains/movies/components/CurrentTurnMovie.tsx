@@ -2,6 +2,7 @@ import { Film, Clock, Clapperboard, BookOpen, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { GroupDetail, GroupStatus } from "@workspace/api-client-react";
+import { normalizeWeekOf } from "@/domains/turns/turnUtils";
 
 function CountdownTimer({ deadlineMs }: { deadlineMs: number }) {
   const now = Date.now();
@@ -33,8 +34,10 @@ export function CurrentTurnMovie({
   onEditMovie,
 }: CurrentTurnMovieProps) {
   const currentTurnWeekOf = group.currentTurnWeekOf;
-  const isCurrentWeek = selectedWeek === currentTurnWeekOf;
-  const isPastWeek = selectedWeek < currentTurnWeekOf;
+  const selectedNorm = normalizeWeekOf(selectedWeek);
+  const currentNorm = normalizeWeekOf(currentTurnWeekOf);
+  const isCurrentWeek = selectedNorm === currentNorm;
+  const isPastWeek = selectedNorm < currentNorm;
   const isAdminOrOwner = group.myRole === "owner" || group.myRole === "admin";
   const movie = group.movieData;
 

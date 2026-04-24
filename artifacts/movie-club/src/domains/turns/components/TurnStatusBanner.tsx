@@ -22,10 +22,12 @@ export function TurnStatusBanner({ group, selectedWeek, onWeekChange }: TurnStat
   const isAdminOrOwner = group.myRole === "owner" || group.myRole === "admin";
 
   const config = group.turnConfig;
+  const selectedIdx = getTurnIndexForDate(selectedWeek, config);
   const _currentIdx = getTurnIndexForDate(currentTurnWeekOf, config);
   const nextTurnWeekOf = getTurnStartDate(_currentIdx + 1, config);
   const _maxAllowedWeekOf = getTurnStartDate(_currentIdx + group.members.length, config);
-  const isAtFutureCap = selectedWeek >= _maxAllowedWeekOf;
+  const isAtFutureCap = normalizeWeekOf(selectedWeek) >= normalizeWeekOf(_maxAllowedWeekOf);
+  const isAtTurn0 = selectedIdx === 0;
 
   return (
     <div className="bg-card/30 border border-border/20 rounded-xl px-4 py-3 space-y-2">
@@ -35,6 +37,7 @@ export function TurnStatusBanner({ group, selectedWeek, onWeekChange }: TurnStat
           size="icon"
           className="h-8 w-8"
           onClick={() => onWeekChange(offsetWeekOf(selectedWeek, -1, config))}
+          disabled={isAtTurn0}
         >
           <ChevronLeft className="w-4 h-4" />
         </Button>
@@ -49,7 +52,7 @@ export function TurnStatusBanner({ group, selectedWeek, onWeekChange }: TurnStat
           size="icon"
           className="h-8 w-8"
           onClick={() => onWeekChange(offsetWeekOf(selectedWeek, 1, config))}
-          disabled={(!isAdminOrOwner && selectedWeek >= nextTurnWeekOf) || isAtFutureCap}
+          disabled={(!isAdminOrOwner && normalizeWeekOf(selectedWeek) >= normalizeWeekOf(nextTurnWeekOf)) || isAtFutureCap}
         >
           <ChevronRight className="w-4 h-4" />
         </Button>
