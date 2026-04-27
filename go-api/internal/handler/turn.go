@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"sort"
 	"time"
 
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
@@ -128,69 +127,27 @@ func isTurnWithinCap(weekOf string, config TurnConfig, memberCount int) bool {
 	return idx <= maxIdx
 }
 
-// buildTurnConfig constructs the full TurnConfig from DB, merging base extensions + admin overrides.
+// buildTurnConfig constructs the full TurnConfig from the turns table.
+// GetTurnExtensions already returns the effective per-turn extra days
+// (legacy turn_extensions and turn_overrides.extended_days are both encoded
+// in turns.start_date / turns.end_date).
 func (h *Handler) buildTurnConfig(ctx context.Context, group db.Group) (TurnConfig, error) {
 	startDate := pgDateToString(group.StartDate)
 
-	baseConfig := TurnConfig{
+	config := TurnConfig{
 		StartDate:      startDate,
 		TurnLengthDays: int(group.TurnLengthDays),
-		Extensions:     nil,
 	}
 
 	exts, err := h.q.GetTurnExtensions(ctx, group.ID)
 	if err != nil {
-		return baseConfig, err
+		return config, err
 	}
-
 	for _, e := range exts {
-		baseConfig.Extensions = append(baseConfig.Extensions, TurnExtension{
+		config.Extensions = append(config.Extensions, TurnExtension{
 			TurnIndex: int(e.TurnIndex),
 			ExtraDays: int(e.ExtraDays),
 		})
 	}
-
-	overrides, err := h.q.GetTurnOverridesForGroup(ctx, group.ID)
-	if err != nil {
-		return baseConfig, err
-	}
-
-	adminOverrides := make([]db.GetTurnOverridesForGroupRow, 0)
-	for _, o := range overrides {
-		if o.ExtendedDays > 0 {
-			adminOverrides = append(adminOverrides, o)
-		}
-	}
-
-	if len(adminOverrides) == 0 {
-		return baseConfig, nil
-	}
-
-	sort.Slice(adminOverrides, func(i, j int) bool {
-		return pgDateToTime(adminOverrides[i].WeekOf).Before(pgDateToTime(adminOverrides[j].WeekOf))
-	})
-
-	extMap := make(map[int]int)
-	for _, ext := range baseConfig.Extensions {
-		extMap[ext.TurnIndex] = ext.ExtraDays
-	}
-
-	currentConfig := baseConfig
-	for _, override := range adminOverrides {
-		weekOfStr := pgDateToString(override.WeekOf)
-		turnIdx := getTurnIndexForDate(weekOfStr, currentConfig)
-		extMap[turnIdx] = extMap[turnIdx] + int(override.ExtendedDays)
-
-		newExts := make([]TurnExtension, 0, len(extMap))
-		for idx, days := range extMap {
-			newExts = append(newExts, TurnExtension{TurnIndex: idx, ExtraDays: days})
-		}
-		currentConfig = TurnConfig{
-			StartDate:      baseConfig.StartDate,
-			TurnLengthDays: baseConfig.TurnLengthDays,
-			Extensions:     newExts,
-		}
-	}
-
-	return currentConfig, nil
+	return config, nil
 }

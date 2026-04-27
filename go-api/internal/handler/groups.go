@@ -80,7 +80,7 @@ func (h *Handler) ListGroups(w http.ResponseWriter, r *http.Request) {
 		item.ResultsAvailable = isResultsAvailable(weekOf, config, adminExt)
 
 		if voted, err := h.q.HasUserVoted(r.Context(), db.HasUserVotedParams{
-			UserID: userID, GroupID: g.ID, WeekOf: weekOf,
+			UserID: userID, GroupID: g.ID, WeekOf: timeToPgDate(weekOf),
 		}); err == nil {
 			item.HasVoted = voted
 		}
@@ -252,7 +252,7 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 	var pickerUserID *int32
 	var pickerUsername *string
 	if pa, err := h.q.GetPickerAssignment(r.Context(), db.GetPickerAssignmentParams{
-		GroupID: groupID, WeekOf: weekOf,
+		GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 	}); err == nil {
 		pickerUserID = &pa.UserID
 		if u, err := h.q.GetUserByID(r.Context(), pa.UserID); err == nil {
@@ -284,7 +284,7 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 	var myVote *float32
 	var myReview *string
 	if v, err := h.q.GetUserVote(r.Context(), db.GetUserVoteParams{
-		UserID: userID, GroupID: groupID, WeekOf: weekOf,
+		UserID: userID, GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 	}); err == nil {
 		myVote = &v.Rating
 		myReview = v.Review
@@ -453,7 +453,7 @@ func (h *Handler) GetGroupStatus(w http.ResponseWriter, r *http.Request) {
 	var myVote *float32
 	var myReview *string
 	if v, err := h.q.GetUserVote(r.Context(), db.GetUserVoteParams{
-		UserID: userID, GroupID: groupID, WeekOf: weekOf,
+		UserID: userID, GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 	}); err == nil {
 		hasVoted = true
 		myVote = &v.Rating
@@ -475,7 +475,7 @@ func (h *Handler) GetGroupStatus(w http.ResponseWriter, r *http.Request) {
 	var pickerUserID *int32
 	var pickerUsername *string
 	if pa, err := h.q.GetPickerAssignment(r.Context(), db.GetPickerAssignmentParams{
-		GroupID: groupID, WeekOf: weekOf,
+		GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 	}); err == nil {
 		pickerUserID = &pa.UserID
 		if u, err := h.q.GetUserByID(r.Context(), pa.UserID); err == nil {
@@ -599,9 +599,7 @@ func (h *Handler) AssignPicker(w http.ResponseWriter, r *http.Request) {
 	config, _ := h.buildTurnConfig(r.Context(), group)
 	weekOf := getCurrentTurnWeekOf(config)
 
-	if err := h.q.UpsertPickerAssignment(r.Context(), db.UpsertPickerAssignmentParams{
-		GroupID: groupID, UserID: req.UserID, WeekOf: weekOf,
-	}); err != nil {
+	if err := h.turnSvc.SetPicker(r.Context(), groupID, weekOf, req.UserID); err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to assign picker")
 		return
 	}

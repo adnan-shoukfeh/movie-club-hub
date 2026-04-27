@@ -81,7 +81,7 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		item.ResultsAvailable = movie.Title != "" && isResultsAvailable(weekOf, config, adminExt)
 
 		if voted, err := h.q.HasUserVoted(r.Context(), db.HasUserVotedParams{
-			UserID: userID, GroupID: g.ID, WeekOf: weekOf,
+			UserID: userID, GroupID: g.ID, WeekOf: timeToPgDate(weekOf),
 		}); err == nil {
 			item.HasVoted = voted
 		}

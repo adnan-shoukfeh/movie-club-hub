@@ -3,11 +3,13 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/service"
@@ -172,9 +174,7 @@ func (h *Handler) AdminSetPicker(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.UserID == nil {
-		if err := h.q.DeletePickerAssignment(r.Context(), db.DeletePickerAssignmentParams{
-			GroupID: groupID, WeekOf: req.WeekOf,
-		}); err != nil {
+		if err := h.turnSvc.ClearPicker(r.Context(), groupID, req.WeekOf); err != nil {
 			writeError(w, http.StatusInternalServerError, "Failed to clear picker")
 			return
 		}
@@ -465,7 +465,7 @@ func (h *Handler) AdminGetVotes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	votes, err := h.q.GetVotesForGroupWeek(r.Context(), db.GetVotesForGroupWeekParams{
-		GroupID: groupID, WeekOf: weekOf,
+		GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to fetch votes")
@@ -547,21 +547,28 @@ func (h *Handler) AdminVoteOverride(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rating := float32(math.Round(req.Rating*10) / 10)
+	rounded := math.Round(req.Rating*10) / 10
+	var ratingNumeric pgtype.Numeric
+	if err := ratingNumeric.Scan(fmt.Sprintf("%.1f", rounded)); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid rating")
+		return
+	}
 	var review *string
 	if req.Review != nil {
 		s := sanitizeReview(*req.Review)
 		review = &s
 	}
 
+	weekOfDate := timeToPgDate(req.WeekOf)
+
 	// Check if already voted
 	alreadyVoted, _ := h.q.HasUserVoted(r.Context(), db.HasUserVotedParams{
-		UserID: req.TargetUserID, GroupID: groupID, WeekOf: req.WeekOf,
+		UserID: req.TargetUserID, GroupID: groupID, WeekOf: weekOfDate,
 	})
 
 	if err := h.q.UpsertVote(r.Context(), db.UpsertVoteParams{
 		UserID: req.TargetUserID, GroupID: groupID,
-		Rating: rating, Review: review, WeekOf: req.WeekOf,
+		Rating: ratingNumeric, Review: review, WeekOf: weekOfDate,
 	}); err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to override vote")
 		return
@@ -606,7 +613,7 @@ func (h *Handler) AdminDeleteVoteOverride(w http.ResponseWriter, r *http.Request
 	}
 
 	if err := h.q.DeleteVote(r.Context(), db.DeleteVoteParams{
-		UserID: req.TargetUserID, GroupID: groupID, WeekOf: req.WeekOf,
+		UserID: req.TargetUserID, GroupID: groupID, WeekOf: timeToPgDate(req.WeekOf),
 	}); err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to remove vote")
 		return

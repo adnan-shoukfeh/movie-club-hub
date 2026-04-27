@@ -10,53 +10,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type DeprecatedPickerAssignment struct {
-	ID        int32     `json:"id"`
-	GroupID   int32     `json:"group_id"`
-	UserID    int32     `json:"user_id"`
-	WeekOf    string    `json:"week_of"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-type DeprecatedTurnExtension struct {
-	ID        int32     `json:"id"`
-	GroupID   int32     `json:"group_id"`
-	TurnIndex int32     `json:"turn_index"`
-	ExtraDays int32     `json:"extra_days"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-type DeprecatedTurnOverride struct {
-	ID                    int32       `json:"id"`
-	GroupID               int32       `json:"group_id"`
-	WeekOf                pgtype.Date `json:"week_of"`
-	ReviewUnlockedByAdmin bool        `json:"review_unlocked_by_admin"`
-	MovieUnlockedByAdmin  bool        `json:"movie_unlocked_by_admin"`
-	ExtendedDays          int32       `json:"extended_days"`
-	UpdatedAt             time.Time   `json:"updated_at"`
-	StartOffsetDays       int32       `json:"start_offset_days"`
-}
-
-type DeprecatedVote struct {
-	ID        int32     `json:"id"`
-	UserID    int32     `json:"user_id"`
-	GroupID   int32     `json:"group_id"`
-	Rating    float32   `json:"rating"`
-	Review    *string   `json:"review"`
-	WeekOf    string    `json:"week_of"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-type DeprecatedWatchStatus struct {
-	ID        int32     `json:"id"`
-	UserID    int32     `json:"user_id"`
-	GroupID   int32     `json:"group_id"`
-	WeekOf    string    `json:"week_of"`
-	Watched   bool      `json:"watched"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
 type Film struct {
 	ID             int64              `json:"id"`
 	ImdbID         string             `json:"imdb_id"`

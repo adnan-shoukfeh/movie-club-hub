@@ -105,7 +105,7 @@ func (h *Handler) SetMovie(w http.ResponseWriter, r *http.Request) {
 		nextWeekOf := getTurnStartDate(currentIdx+1, config)
 
 		pa, paErr := h.q.GetPickerAssignment(r.Context(), db.GetPickerAssignmentParams{
-			GroupID: groupID, WeekOf: weekOf,
+			GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 		})
 		isAssignedPicker := paErr == nil && pa.UserID == userID
 

@@ -72,17 +72,15 @@ func cleanUsers(t *testing.T, usernames ...string) {
 	for _, u := range usernames {
 		// Delete in FK dependency order: leaf tables first, then users.
 		stmts := []string{
-			`DELETE FROM picker_assignments WHERE group_id IN (SELECT id FROM groups WHERE owner_id = (SELECT id FROM users WHERE username = $1))`,
+			`DELETE FROM verdicts WHERE turn_id IN (SELECT id FROM turns WHERE group_id IN (SELECT id FROM groups WHERE owner_id = (SELECT id FROM users WHERE username = $1)))`,
+			`DELETE FROM verdicts WHERE user_id = (SELECT id FROM users WHERE username = $1)`,
+			`DELETE FROM turns WHERE group_id IN (SELECT id FROM groups WHERE owner_id = (SELECT id FROM users WHERE username = $1))`,
 			`DELETE FROM nominations WHERE group_id IN (SELECT id FROM groups WHERE owner_id = (SELECT id FROM users WHERE username = $1))`,
 			`DELETE FROM movies WHERE group_id IN (SELECT id FROM groups WHERE owner_id = (SELECT id FROM users WHERE username = $1))`,
-			`DELETE FROM votes WHERE group_id IN (SELECT id FROM groups WHERE owner_id = (SELECT id FROM users WHERE username = $1))`,
-			`DELETE FROM watch_status WHERE group_id IN (SELECT id FROM groups WHERE owner_id = (SELECT id FROM users WHERE username = $1))`,
 			`DELETE FROM invites WHERE group_id IN (SELECT id FROM groups WHERE owner_id = (SELECT id FROM users WHERE username = $1))`,
 			`DELETE FROM memberships WHERE group_id IN (SELECT id FROM groups WHERE owner_id = (SELECT id FROM users WHERE username = $1))`,
 			`DELETE FROM groups WHERE owner_id = (SELECT id FROM users WHERE username = $1)`,
 			`DELETE FROM memberships WHERE user_id = (SELECT id FROM users WHERE username = $1)`,
-			`DELETE FROM votes WHERE user_id = (SELECT id FROM users WHERE username = $1)`,
-			`DELETE FROM watch_status WHERE user_id = (SELECT id FROM users WHERE username = $1)`,
 			`DELETE FROM nominations WHERE user_id = (SELECT id FROM users WHERE username = $1)`,
 			`DELETE FROM users WHERE username = $1`,
 		}

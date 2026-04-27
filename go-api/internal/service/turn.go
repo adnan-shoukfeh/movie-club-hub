@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -194,223 +193,99 @@ func (s *TurnService) GetCurrentTurn(ctx context.Context, groupID int32) (db.Tur
 func (s *TurnService) BuildTurnConfig(ctx context.Context, group db.Group) (TurnConfig, error) {
 	startDate := pgDateToString(group.StartDate)
 
-	baseConfig := TurnConfig{
+	config := TurnConfig{
 		StartDate:      startDate,
 		TurnLengthDays: int(group.TurnLengthDays),
-		Extensions:     nil,
 	}
 
-	// Read extensions from legacy tables for backwards compat.
-	// TODO: Remove this once admin handlers migrate to turns table.
 	exts, err := s.queries.GetTurnExtensions(ctx, group.ID)
 	if err != nil {
-		return baseConfig, err
+		return config, err
 	}
-
 	for _, e := range exts {
-		baseConfig.Extensions = append(baseConfig.Extensions, TurnExtension{
+		config.Extensions = append(config.Extensions, TurnExtension{
 			TurnIndex: int(e.TurnIndex),
 			ExtraDays: int(e.ExtraDays),
 		})
 	}
-
-	overrides, err := s.queries.GetTurnOverridesForGroup(ctx, group.ID)
-	if err != nil {
-		return baseConfig, err
-	}
-
-	adminOverrides := make([]db.GetTurnOverridesForGroupRow, 0)
-	for _, o := range overrides {
-		if o.ExtendedDays > 0 {
-			adminOverrides = append(adminOverrides, o)
-		}
-	}
-
-	if len(adminOverrides) == 0 {
-		return baseConfig, nil
-	}
-
-	sort.Slice(adminOverrides, func(i, j int) bool {
-		return pgDateToTime(adminOverrides[i].WeekOf).Before(pgDateToTime(adminOverrides[j].WeekOf))
-	})
-
-	extMap := make(map[int]int)
-	for _, ext := range baseConfig.Extensions {
-		extMap[ext.TurnIndex] = ext.ExtraDays
-	}
-
-	currentConfig := baseConfig
-	for _, override := range adminOverrides {
-		weekOfStr := pgDateToString(override.WeekOf)
-		turnIdx := getTurnIndexForDate(weekOfStr, currentConfig)
-		extMap[turnIdx] = extMap[turnIdx] + int(override.ExtendedDays)
-
-		newExts := make([]TurnExtension, 0, len(extMap))
-		for idx, days := range extMap {
-			newExts = append(newExts, TurnExtension{TurnIndex: idx, ExtraDays: days})
-		}
-		currentConfig = TurnConfig{
-			StartDate:      baseConfig.StartDate,
-			TurnLengthDays: baseConfig.TurnLengthDays,
-			Extensions:     newExts,
-		}
-	}
-
-	return currentConfig, nil
+	return config, nil
 }
 
 // GetEffectiveDeadline returns the deadline for a turn.
-// This is now simply the end_date from the turns table.
+// GetEffectiveDeadline returns midnight at the end of the turn's end_date in
+// the configured timezone. The turn is created on-demand if it does not exist.
 func (s *TurnService) GetEffectiveDeadline(ctx context.Context, groupID int32, weekOf string) (time.Time, error) {
-	turn, err := s.queries.GetTurn(ctx, db.GetTurnParams{
-		GroupID: groupID,
-		WeekOf:  timeToPgDate(weekOf),
-	})
+	turn, err := s.EnsureTurnExists(ctx, groupID, weekOf)
 	if err != nil {
-		// Fallback to legacy calculation if turn doesn't exist.
-		return s.getEffectiveDeadlineLegacy(ctx, groupID, weekOf)
+		return time.Time{}, err
 	}
 
-	// Return end of day (midnight) on the end_date in the configured timezone.
 	loc, _ := time.LoadLocation(s.config.TimeZone)
 	if loc == nil {
 		loc, _ = time.LoadLocation("America/New_York")
 	}
 	endDate := pgDateToTime(turn.EndDate)
-	deadline := time.Date(endDate.Year(), endDate.Month(), endDate.Day()+1, 0, 0, 0, 0, loc)
-	return deadline, nil
-}
-
-// getEffectiveDeadlineLegacy is the old implementation for backwards compat.
-func (s *TurnService) getEffectiveDeadlineLegacy(ctx context.Context, groupID int32, weekOf string) (time.Time, error) {
-	group, err := s.queries.GetGroupByID(ctx, groupID)
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	config, err := s.BuildTurnConfig(ctx, group)
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	adminExt := 0
-	startOffset := 0
-	if override, err := s.queries.GetTurnOverride(ctx, db.GetTurnOverrideParams{
-		GroupID: groupID,
-		WeekOf:  timeToPgDate(weekOf),
-	}); err == nil {
-		adminExt = int(override.ExtendedDays)
-		startOffset = int(override.StartOffsetDays)
-	}
-
-	ms := getDeadlineMs(weekOf, config, adminExt, startOffset)
-	return time.UnixMilli(ms), nil
+	return time.Date(endDate.Year(), endDate.Month(), endDate.Day()+1, 0, 0, 0, 0, loc), nil
 }
 
 // GetCurrentWeekOf returns the weekOf string for the current turn.
+// Falls back to computing from the group's start date if no turn row exists yet.
 func (s *TurnService) GetCurrentWeekOf(ctx context.Context, groupID int32) (string, error) {
 	turn, err := s.queries.GetCurrentTurn(ctx, groupID)
-	if err != nil {
-		// Fallback to legacy calculation if no current turn.
-		return s.getCurrentWeekOfLegacy(ctx, groupID)
+	if err == nil {
+		return pgDateToString(turn.WeekOf), nil
 	}
-	return pgDateToString(turn.WeekOf), nil
-}
-
-// getCurrentWeekOfLegacy is the old implementation for backwards compat.
-func (s *TurnService) getCurrentWeekOfLegacy(ctx context.Context, groupID int32) (string, error) {
 	group, err := s.queries.GetGroupByID(ctx, groupID)
 	if err != nil {
 		return "", err
 	}
-
 	config, err := s.BuildTurnConfig(ctx, group)
 	if err != nil {
 		return "", err
 	}
-
 	return getCurrentTurnWeekOf(config), nil
 }
 
 // GetPicker returns the user assigned to pick for the given weekOf.
-// Now reads from the turns table directly.
+// If the turn does not yet exist it is created via EnsureTurnExists.
 func (s *TurnService) GetPicker(ctx context.Context, groupID int32, weekOf string) (db.User, error) {
-	turn, err := s.queries.GetTurn(ctx, db.GetTurnParams{
-		GroupID: groupID,
-		WeekOf:  timeToPgDate(weekOf),
-	})
+	turn, err := s.EnsureTurnExists(ctx, groupID, weekOf)
 	if err != nil {
-		// Fallback to legacy if turn doesn't exist.
-		return s.getPickerLegacy(ctx, groupID, weekOf)
+		return db.User{}, err
 	}
 	return s.queries.GetUserByID(ctx, turn.PickerUserID)
 }
 
-// getPickerLegacy is the old implementation for backwards compat.
-func (s *TurnService) getPickerLegacy(ctx context.Context, groupID int32, weekOf string) (db.User, error) {
-	assignment, err := s.queries.GetPickerAssignment(ctx, db.GetPickerAssignmentParams{
-		GroupID: groupID,
-		WeekOf:  weekOf,
+// SetPicker overrides the picker for a turn, ensuring the turn exists first.
+func (s *TurnService) SetPicker(ctx context.Context, groupID int32, weekOf string, userID int32) error {
+	turn, err := s.EnsureTurnExists(ctx, groupID, weekOf)
+	if err != nil {
+		return err
+	}
+	return s.queries.UpdateTurnPicker(ctx, db.UpdateTurnPickerParams{
+		ID:           turn.ID,
+		PickerUserID: userID,
 	})
-	if err == nil {
-		return s.queries.GetUserByID(ctx, assignment.UserID)
-	}
-
-	group, err := s.queries.GetGroupByID(ctx, groupID)
-	if err != nil {
-		return db.User{}, err
-	}
-
-	config, err := s.BuildTurnConfig(ctx, group)
-	if err != nil {
-		return db.User{}, err
-	}
-
-	members, err := s.queries.GetGroupMembers(ctx, groupID)
-	if err != nil {
-		return db.User{}, err
-	}
-	if len(members) == 0 {
-		return db.User{}, fmt.Errorf("group %d has no members", groupID)
-	}
-
-	turnIndex := getTurnIndexForDate(weekOf, config)
-	pickerIndex := turnIndex % len(members)
-	pickerMember := members[pickerIndex]
-
-	if err := s.queries.UpsertPickerAssignment(ctx, db.UpsertPickerAssignmentParams{
-		GroupID: groupID,
-		UserID:  pickerMember.UserID,
-		WeekOf:  weekOf,
-	}); err != nil {
-		return db.User{}, err
-	}
-
-	return s.queries.GetUserByID(ctx, pickerMember.UserID)
 }
 
-// SetPicker overrides the picker for a turn.
-// Updates both the turns table and legacy picker_assignments for backwards compat.
-func (s *TurnService) SetPicker(ctx context.Context, groupID int32, weekOf string, userID int32) error {
-	// Update turns table.
-	turn, err := s.queries.GetTurn(ctx, db.GetTurnParams{
-		GroupID: groupID,
-		WeekOf:  timeToPgDate(weekOf),
-	})
-	if err == nil {
-		if err := s.queries.UpdateTurnPicker(ctx, db.UpdateTurnPickerParams{
-			ID:           turn.ID,
-			PickerUserID: userID,
-		}); err != nil {
-			return err
-		}
+// ClearPicker reverts the picker for a turn back to the round-robin default
+// (turn_index % member_count, ordered by joined_at).
+func (s *TurnService) ClearPicker(ctx context.Context, groupID int32, weekOf string) error {
+	turn, err := s.EnsureTurnExists(ctx, groupID, weekOf)
+	if err != nil {
+		return err
 	}
-
-	// Also update legacy table for backwards compat.
-	return s.queries.UpsertPickerAssignment(ctx, db.UpsertPickerAssignmentParams{
-		GroupID: groupID,
-		UserID:  userID,
-		WeekOf:  weekOf,
+	members, err := s.queries.GetGroupMembers(ctx, groupID)
+	if err != nil {
+		return err
+	}
+	if len(members) == 0 {
+		return fmt.Errorf("group %d has no members", groupID)
+	}
+	defaultPicker := members[int(turn.TurnIndex)%len(members)].UserID
+	return s.queries.UpdateTurnPicker(ctx, db.UpdateTurnPickerParams{
+		ID:           turn.ID,
+		PickerUserID: defaultPicker,
 	})
 }
 

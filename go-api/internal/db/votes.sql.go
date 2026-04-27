@@ -7,17 +7,24 @@ package db
 
 import (
 	"context"
-	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const deleteVote = `-- name: DeleteVote :exec
-DELETE FROM _deprecated_votes WHERE user_id = $1 AND group_id = $2 AND week_of = $3
+UPDATE verdicts
+SET rating = NULL, review = NULL, updated_at = now()
+WHERE user_id = $1
+  AND turn_id = (
+    SELECT id FROM turns
+    WHERE group_id = $2 AND week_of = $3::date
+  )
 `
 
 type DeleteVoteParams struct {
-	UserID  int32  `json:"user_id"`
-	GroupID int32  `json:"group_id"`
-	WeekOf  string `json:"week_of"`
+	UserID  int32       `json:"user_id"`
+	GroupID int32       `json:"group_id"`
+	WeekOf  pgtype.Date `json:"week_of"`
 }
 
 func (q *Queries) DeleteVote(ctx context.Context, arg DeleteVoteParams) error {
@@ -25,116 +32,62 @@ func (q *Queries) DeleteVote(ctx context.Context, arg DeleteVoteParams) error {
 	return err
 }
 
-const getAverageRating = `-- name: GetAverageRating :one
-SELECT COALESCE(AVG(rating), 0)::real AS average, COUNT(*)::int AS total
-FROM _deprecated_votes
-WHERE group_id = $1 AND week_of = $2
-`
-
-type GetAverageRatingParams struct {
-	GroupID int32  `json:"group_id"`
-	WeekOf  string `json:"week_of"`
-}
-
-type GetAverageRatingRow struct {
-	Average float32 `json:"average"`
-	Total   int32   `json:"total"`
-}
-
-func (q *Queries) GetAverageRating(ctx context.Context, arg GetAverageRatingParams) (GetAverageRatingRow, error) {
-	row := q.db.QueryRow(ctx, getAverageRating, arg.GroupID, arg.WeekOf)
-	var i GetAverageRatingRow
-	err := row.Scan(&i.Average, &i.Total)
-	return i, err
-}
-
 const getUserVote = `-- name: GetUserVote :one
-SELECT id, user_id, group_id, rating, review, week_of, created_at, updated_at
-FROM _deprecated_votes
-WHERE user_id = $1 AND group_id = $2 AND week_of = $3
+SELECT v.rating::real AS rating, v.review
+FROM verdicts v
+JOIN turns t ON t.id = v.turn_id
+WHERE v.user_id = $1
+  AND t.group_id = $2
+  AND t.week_of = $3::date
+  AND v.rating IS NOT NULL
 `
 
 type GetUserVoteParams struct {
-	UserID  int32  `json:"user_id"`
-	GroupID int32  `json:"group_id"`
-	WeekOf  string `json:"week_of"`
+	UserID  int32       `json:"user_id"`
+	GroupID int32       `json:"group_id"`
+	WeekOf  pgtype.Date `json:"week_of"`
 }
 
-func (q *Queries) GetUserVote(ctx context.Context, arg GetUserVoteParams) (DeprecatedVote, error) {
+type GetUserVoteRow struct {
+	Rating float32 `json:"rating"`
+	Review *string `json:"review"`
+}
+
+func (q *Queries) GetUserVote(ctx context.Context, arg GetUserVoteParams) (GetUserVoteRow, error) {
 	row := q.db.QueryRow(ctx, getUserVote, arg.UserID, arg.GroupID, arg.WeekOf)
-	var i DeprecatedVote
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.GroupID,
-		&i.Rating,
-		&i.Review,
-		&i.WeekOf,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
+	var i GetUserVoteRow
+	err := row.Scan(&i.Rating, &i.Review)
 	return i, err
 }
 
-const getVoteDistribution = `-- name: GetVoteDistribution :many
-SELECT ROUND(rating)::int AS rating, COUNT(*)::int AS count
-FROM _deprecated_votes
-WHERE group_id = $1 AND week_of = $2
-GROUP BY ROUND(rating)
-ORDER BY ROUND(rating)
-`
-
-type GetVoteDistributionParams struct {
-	GroupID int32  `json:"group_id"`
-	WeekOf  string `json:"week_of"`
-}
-
-type GetVoteDistributionRow struct {
-	Rating int32 `json:"rating"`
-	Count  int32 `json:"count"`
-}
-
-func (q *Queries) GetVoteDistribution(ctx context.Context, arg GetVoteDistributionParams) ([]GetVoteDistributionRow, error) {
-	rows, err := q.db.Query(ctx, getVoteDistribution, arg.GroupID, arg.WeekOf)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetVoteDistributionRow{}
-	for rows.Next() {
-		var i GetVoteDistributionRow
-		if err := rows.Scan(&i.Rating, &i.Count); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getVotesForGroupWeek = `-- name: GetVotesForGroupWeek :many
-SELECT v.id, v.user_id, u.username, v.rating, v.review, v.week_of, v.updated_at
-FROM _deprecated_votes v
+SELECT v.user_id,
+       u.username,
+       v.rating::real AS rating,
+       v.review,
+       to_char(t.week_of, 'YYYY-MM-DD') AS week_of,
+       v.updated_at
+FROM verdicts v
+JOIN turns t ON t.id = v.turn_id
 JOIN users u ON u.id = v.user_id
-WHERE v.group_id = $1 AND v.week_of = $2
+WHERE t.group_id = $1
+  AND t.week_of = $2::date
+  AND v.rating IS NOT NULL
 ORDER BY v.created_at
 `
 
 type GetVotesForGroupWeekParams struct {
-	GroupID int32  `json:"group_id"`
-	WeekOf  string `json:"week_of"`
+	GroupID int32       `json:"group_id"`
+	WeekOf  pgtype.Date `json:"week_of"`
 }
 
 type GetVotesForGroupWeekRow struct {
-	ID        int32     `json:"id"`
-	UserID    int32     `json:"user_id"`
-	Username  string    `json:"username"`
-	Rating    float32   `json:"rating"`
-	Review    *string   `json:"review"`
-	WeekOf    string    `json:"week_of"`
-	UpdatedAt time.Time `json:"updated_at"`
+	UserID    int32              `json:"user_id"`
+	Username  string             `json:"username"`
+	Rating    float32            `json:"rating"`
+	Review    *string            `json:"review"`
+	WeekOf    string             `json:"week_of"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) GetVotesForGroupWeek(ctx context.Context, arg GetVotesForGroupWeekParams) ([]GetVotesForGroupWeekRow, error) {
@@ -147,7 +100,6 @@ func (q *Queries) GetVotesForGroupWeek(ctx context.Context, arg GetVotesForGroup
 	for rows.Next() {
 		var i GetVotesForGroupWeekRow
 		if err := rows.Scan(
-			&i.ID,
 			&i.UserID,
 			&i.Username,
 			&i.Rating,
@@ -167,14 +119,19 @@ func (q *Queries) GetVotesForGroupWeek(ctx context.Context, arg GetVotesForGroup
 
 const hasUserVoted = `-- name: HasUserVoted :one
 SELECT EXISTS(
-    SELECT 1 FROM _deprecated_votes WHERE user_id = $1 AND group_id = $2 AND week_of = $3
+    SELECT 1 FROM verdicts v
+    JOIN turns t ON t.id = v.turn_id
+    WHERE v.user_id = $1
+      AND t.group_id = $2
+      AND t.week_of = $3::date
+      AND v.rating IS NOT NULL
 ) AS has_voted
 `
 
 type HasUserVotedParams struct {
-	UserID  int32  `json:"user_id"`
-	GroupID int32  `json:"group_id"`
-	WeekOf  string `json:"week_of"`
+	UserID  int32       `json:"user_id"`
+	GroupID int32       `json:"group_id"`
+	WeekOf  pgtype.Date `json:"week_of"`
 }
 
 func (q *Queries) HasUserVoted(ctx context.Context, arg HasUserVotedParams) (bool, error) {
@@ -185,26 +142,39 @@ func (q *Queries) HasUserVoted(ctx context.Context, arg HasUserVotedParams) (boo
 }
 
 const upsertVote = `-- name: UpsertVote :exec
-INSERT INTO _deprecated_votes (user_id, group_id, rating, review, week_of)
-VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT ON CONSTRAINT _deprecated_votes_user_group_week_unique
-DO UPDATE SET rating = EXCLUDED.rating, review = EXCLUDED.review, updated_at = now()
+
+INSERT INTO verdicts (turn_id, user_id, watched, rating, review)
+SELECT t.id,
+       $1::int,
+       true,
+       $2::numeric,
+       $3
+FROM turns t
+WHERE t.group_id = $4 AND t.week_of = $5::date
+ON CONFLICT ON CONSTRAINT verdicts_turn_user_unique
+DO UPDATE SET rating = EXCLUDED.rating,
+              review = EXCLUDED.review,
+              watched = true,
+              updated_at = now()
 `
 
 type UpsertVoteParams struct {
-	UserID  int32   `json:"user_id"`
-	GroupID int32   `json:"group_id"`
-	Rating  float32 `json:"rating"`
-	Review  *string `json:"review"`
-	WeekOf  string  `json:"week_of"`
+	UserID  int32          `json:"user_id"`
+	Rating  pgtype.Numeric `json:"rating"`
+	Review  *string        `json:"review"`
+	GroupID int32          `json:"group_id"`
+	WeekOf  pgtype.Date    `json:"week_of"`
 }
 
+// Vote queries are thin views over the canonical verdicts table.
+// A "vote" is a verdict with a non-null rating; the deprecated votes
+// table no longer exists.
 func (q *Queries) UpsertVote(ctx context.Context, arg UpsertVoteParams) error {
 	_, err := q.db.Exec(ctx, upsertVote,
 		arg.UserID,
-		arg.GroupID,
 		arg.Rating,
 		arg.Review,
+		arg.GroupID,
 		arg.WeekOf,
 	)
 	return err

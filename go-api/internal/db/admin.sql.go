@@ -7,43 +7,36 @@ package db
 
 import (
 	"context"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const deletePickerAssignment = `-- name: DeletePickerAssignment :exec
-DELETE FROM _deprecated_picker_assignments WHERE group_id = $1 AND week_of = $2
-`
-
-type DeletePickerAssignmentParams struct {
-	GroupID int32  `json:"group_id"`
-	WeekOf  string `json:"week_of"`
-}
-
-func (q *Queries) DeletePickerAssignment(ctx context.Context, arg DeletePickerAssignmentParams) error {
-	_, err := q.db.Exec(ctx, deletePickerAssignment, arg.GroupID, arg.WeekOf)
-	return err
-}
-
 const getPickerAssignment = `-- name: GetPickerAssignment :one
-SELECT id, group_id, user_id, week_of
-FROM _deprecated_picker_assignments
-WHERE group_id = $1 AND week_of = $2
+
+SELECT t.id, t.group_id, t.picker_user_id AS user_id,
+       to_char(t.week_of, 'YYYY-MM-DD') AS week_of
+FROM turns t
+WHERE t.group_id = $1
+  AND t.week_of = $2::date
 `
 
 type GetPickerAssignmentParams struct {
-	GroupID int32  `json:"group_id"`
-	WeekOf  string `json:"week_of"`
+	GroupID int32       `json:"group_id"`
+	WeekOf  pgtype.Date `json:"week_of"`
 }
 
 type GetPickerAssignmentRow struct {
-	ID      int32  `json:"id"`
+	ID      int64  `json:"id"`
 	GroupID int32  `json:"group_id"`
 	UserID  int32  `json:"user_id"`
 	WeekOf  string `json:"week_of"`
 }
 
+// Picker assignment, turn override, and turn extension queries are thin views
+// over the canonical turns table. Each turn owns its own picker, schedule
+// (start_date / end_date), and admin unlocks (movie_unlocked / reviews_unlocked).
+// Legacy concepts (`extended_days`, `start_offset_days`, per-index extra_days)
+// are derived on read and translated into direct turn updates on write.
 func (q *Queries) GetPickerAssignment(ctx context.Context, arg GetPickerAssignmentParams) (GetPickerAssignmentRow, error) {
 	row := q.db.QueryRow(ctx, getPickerAssignment, arg.GroupID, arg.WeekOf)
 	var i GetPickerAssignmentRow
@@ -57,11 +50,14 @@ func (q *Queries) GetPickerAssignment(ctx context.Context, arg GetPickerAssignme
 }
 
 const getPickerAssignmentsForGroup = `-- name: GetPickerAssignmentsForGroup :many
-SELECT pa.group_id, pa.user_id, pa.week_of, u.username AS picker_username
-FROM _deprecated_picker_assignments pa
-JOIN users u ON u.id = pa.user_id
-WHERE pa.group_id = $1
-ORDER BY pa.week_of
+SELECT t.group_id,
+       t.picker_user_id AS user_id,
+       to_char(t.week_of, 'YYYY-MM-DD') AS week_of,
+       u.username AS picker_username
+FROM turns t
+JOIN users u ON u.id = t.picker_user_id
+WHERE t.group_id = $1
+ORDER BY t.week_of
 `
 
 type GetPickerAssignmentsForGroupRow struct {
@@ -97,18 +93,26 @@ func (q *Queries) GetPickerAssignmentsForGroup(ctx context.Context, groupID int3
 }
 
 const getTurnExtensions = `-- name: GetTurnExtensions :many
-SELECT id, group_id, turn_index, extra_days
-FROM _deprecated_turn_extensions
-WHERE group_id = $1
+SELECT t.id,
+       t.group_id,
+       t.turn_index,
+       (t.end_date - t.start_date + 1 - g.turn_length_days)::int AS extra_days
+FROM turns t
+JOIN groups g ON g.id = t.group_id
+WHERE t.group_id = $1
+  AND (t.end_date - t.start_date + 1 - g.turn_length_days) > 0
+ORDER BY t.turn_index
 `
 
 type GetTurnExtensionsRow struct {
-	ID        int32 `json:"id"`
+	ID        int64 `json:"id"`
 	GroupID   int32 `json:"group_id"`
 	TurnIndex int32 `json:"turn_index"`
 	ExtraDays int32 `json:"extra_days"`
 }
 
+// Returns combined per-turn extra days (turn-extension + override-extended) for
+// each turn whose effective length exceeds the group's base turn_length_days.
 func (q *Queries) GetTurnExtensions(ctx context.Context, groupID int32) ([]GetTurnExtensionsRow, error) {
 	rows, err := q.db.Query(ctx, getTurnExtensions, groupID)
 	if err != nil {
@@ -135,9 +139,18 @@ func (q *Queries) GetTurnExtensions(ctx context.Context, groupID int32) ([]GetTu
 }
 
 const getTurnOverride = `-- name: GetTurnOverride :one
-SELECT id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, start_offset_days, updated_at
-FROM _deprecated_turn_overrides
-WHERE group_id = $1 AND week_of = $2
+SELECT t.id,
+       t.group_id,
+       t.week_of,
+       t.reviews_unlocked AS review_unlocked_by_admin,
+       t.movie_unlocked   AS movie_unlocked_by_admin,
+       (t.end_date - t.start_date + 1 - g.turn_length_days)::int AS extended_days,
+       (t.start_date - t.week_of)::int                            AS start_offset_days,
+       t.updated_at
+FROM turns t
+JOIN groups g ON g.id = t.group_id
+WHERE t.group_id = $1
+  AND t.week_of = $2::date
 `
 
 type GetTurnOverrideParams struct {
@@ -146,14 +159,14 @@ type GetTurnOverrideParams struct {
 }
 
 type GetTurnOverrideRow struct {
-	ID                    int32       `json:"id"`
-	GroupID               int32       `json:"group_id"`
-	WeekOf                pgtype.Date `json:"week_of"`
-	ReviewUnlockedByAdmin bool        `json:"review_unlocked_by_admin"`
-	MovieUnlockedByAdmin  bool        `json:"movie_unlocked_by_admin"`
-	ExtendedDays          int32       `json:"extended_days"`
-	StartOffsetDays       int32       `json:"start_offset_days"`
-	UpdatedAt             time.Time   `json:"updated_at"`
+	ID                    int64              `json:"id"`
+	GroupID               int32              `json:"group_id"`
+	WeekOf                pgtype.Date        `json:"week_of"`
+	ReviewUnlockedByAdmin bool               `json:"review_unlocked_by_admin"`
+	MovieUnlockedByAdmin  bool               `json:"movie_unlocked_by_admin"`
+	ExtendedDays          int32              `json:"extended_days"`
+	StartOffsetDays       int32              `json:"start_offset_days"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) GetTurnOverride(ctx context.Context, arg GetTurnOverrideParams) (GetTurnOverrideRow, error) {
@@ -173,21 +186,29 @@ func (q *Queries) GetTurnOverride(ctx context.Context, arg GetTurnOverrideParams
 }
 
 const getTurnOverridesForGroup = `-- name: GetTurnOverridesForGroup :many
-SELECT id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, start_offset_days, updated_at
-FROM _deprecated_turn_overrides
-WHERE group_id = $1
-ORDER BY week_of
+SELECT t.id,
+       t.group_id,
+       t.week_of,
+       t.reviews_unlocked AS review_unlocked_by_admin,
+       t.movie_unlocked   AS movie_unlocked_by_admin,
+       (t.end_date - t.start_date + 1 - g.turn_length_days)::int AS extended_days,
+       (t.start_date - t.week_of)::int                            AS start_offset_days,
+       t.updated_at
+FROM turns t
+JOIN groups g ON g.id = t.group_id
+WHERE t.group_id = $1
+ORDER BY t.week_of
 `
 
 type GetTurnOverridesForGroupRow struct {
-	ID                    int32       `json:"id"`
-	GroupID               int32       `json:"group_id"`
-	WeekOf                pgtype.Date `json:"week_of"`
-	ReviewUnlockedByAdmin bool        `json:"review_unlocked_by_admin"`
-	MovieUnlockedByAdmin  bool        `json:"movie_unlocked_by_admin"`
-	ExtendedDays          int32       `json:"extended_days"`
-	StartOffsetDays       int32       `json:"start_offset_days"`
-	UpdatedAt             time.Time   `json:"updated_at"`
+	ID                    int64              `json:"id"`
+	GroupID               int32              `json:"group_id"`
+	WeekOf                pgtype.Date        `json:"week_of"`
+	ReviewUnlockedByAdmin bool               `json:"review_unlocked_by_admin"`
+	MovieUnlockedByAdmin  bool               `json:"movie_unlocked_by_admin"`
+	ExtendedDays          int32              `json:"extended_days"`
+	StartOffsetDays       int32              `json:"start_offset_days"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) GetTurnOverridesForGroup(ctx context.Context, groupID int32) ([]GetTurnOverridesForGroupRow, error) {
@@ -219,189 +240,102 @@ func (q *Queries) GetTurnOverridesForGroup(ctx context.Context, groupID int32) (
 	return items, nil
 }
 
-const upsertPickerAssignment = `-- name: UpsertPickerAssignment :exec
-
-INSERT INTO _deprecated_picker_assignments (group_id, user_id, week_of)
-VALUES ($1, $2, $3)
-ON CONFLICT ON CONSTRAINT picker_group_week_unique
-DO UPDATE SET user_id = EXCLUDED.user_id
-`
-
-type UpsertPickerAssignmentParams struct {
-	GroupID int32  `json:"group_id"`
-	UserID  int32  `json:"user_id"`
-	WeekOf  string `json:"week_of"`
-}
-
-// Queries for legacy turn management tables (deprecated).
-// These reference the renamed _deprecated_* tables.
-// TODO: Remove once handlers are fully migrated to turns table.
-func (q *Queries) UpsertPickerAssignment(ctx context.Context, arg UpsertPickerAssignmentParams) error {
-	_, err := q.db.Exec(ctx, upsertPickerAssignment, arg.GroupID, arg.UserID, arg.WeekOf)
-	return err
-}
-
 const upsertTurnExtension = `-- name: UpsertTurnExtension :exec
-INSERT INTO _deprecated_turn_extensions (group_id, turn_index, extra_days)
-VALUES ($1, $2, $3)
-ON CONFLICT ON CONSTRAINT turn_extensions_group_turn_unique
-DO UPDATE SET extra_days = EXCLUDED.extra_days
+UPDATE turns t
+SET end_date = t.start_date + (g.turn_length_days - 1 + $1::int),
+    updated_at = now()
+FROM groups g
+WHERE g.id = t.group_id
+  AND t.group_id = $2
+  AND t.turn_index = $3
 `
 
 type UpsertTurnExtensionParams struct {
+	ExtraDays int32 `json:"extra_days"`
 	GroupID   int32 `json:"group_id"`
 	TurnIndex int32 `json:"turn_index"`
-	ExtraDays int32 `json:"extra_days"`
 }
 
 func (q *Queries) UpsertTurnExtension(ctx context.Context, arg UpsertTurnExtensionParams) error {
-	_, err := q.db.Exec(ctx, upsertTurnExtension, arg.GroupID, arg.TurnIndex, arg.ExtraDays)
+	_, err := q.db.Exec(ctx, upsertTurnExtension, arg.ExtraDays, arg.GroupID, arg.TurnIndex)
 	return err
 }
 
-const upsertTurnOverride = `-- name: UpsertTurnOverride :exec
-INSERT INTO _deprecated_turn_overrides (group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days)
-VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT ON CONSTRAINT turn_overrides_group_week_unique
-DO UPDATE SET review_unlocked_by_admin = EXCLUDED.review_unlocked_by_admin,
-             movie_unlocked_by_admin = EXCLUDED.movie_unlocked_by_admin,
-             extended_days = EXCLUDED.extended_days,
-             updated_at = now()
-`
-
-type UpsertTurnOverrideParams struct {
-	GroupID               int32       `json:"group_id"`
-	WeekOf                pgtype.Date `json:"week_of"`
-	ReviewUnlockedByAdmin bool        `json:"review_unlocked_by_admin"`
-	MovieUnlockedByAdmin  bool        `json:"movie_unlocked_by_admin"`
-	ExtendedDays          int32       `json:"extended_days"`
-}
-
-func (q *Queries) UpsertTurnOverride(ctx context.Context, arg UpsertTurnOverrideParams) error {
-	_, err := q.db.Exec(ctx, upsertTurnOverride,
-		arg.GroupID,
-		arg.WeekOf,
-		arg.ReviewUnlockedByAdmin,
-		arg.MovieUnlockedByAdmin,
-		arg.ExtendedDays,
-	)
-	return err
-}
-
-const upsertTurnOverrideExtendedDays = `-- name: UpsertTurnOverrideExtendedDays :one
-INSERT INTO _deprecated_turn_overrides (group_id, week_of, extended_days)
-VALUES ($1, $2, $3)
-ON CONFLICT ON CONSTRAINT turn_overrides_group_week_unique
-DO UPDATE SET extended_days = EXCLUDED.extended_days, updated_at = now()
-RETURNING id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, start_offset_days, updated_at
+const upsertTurnOverrideExtendedDays = `-- name: UpsertTurnOverrideExtendedDays :exec
+UPDATE turns t
+SET end_date = t.start_date + (g.turn_length_days - 1 + $1::int),
+    updated_at = now()
+FROM groups g
+WHERE g.id = t.group_id
+  AND t.group_id = $2
+  AND t.week_of = $3::date
 `
 
 type UpsertTurnOverrideExtendedDaysParams struct {
+	ExtendedDays int32       `json:"extended_days"`
 	GroupID      int32       `json:"group_id"`
 	WeekOf       pgtype.Date `json:"week_of"`
-	ExtendedDays int32       `json:"extended_days"`
 }
 
-type UpsertTurnOverrideExtendedDaysRow struct {
-	ID                    int32       `json:"id"`
-	GroupID               int32       `json:"group_id"`
-	WeekOf                pgtype.Date `json:"week_of"`
-	ReviewUnlockedByAdmin bool        `json:"review_unlocked_by_admin"`
-	MovieUnlockedByAdmin  bool        `json:"movie_unlocked_by_admin"`
-	ExtendedDays          int32       `json:"extended_days"`
-	StartOffsetDays       int32       `json:"start_offset_days"`
-	UpdatedAt             time.Time   `json:"updated_at"`
-}
-
-func (q *Queries) UpsertTurnOverrideExtendedDays(ctx context.Context, arg UpsertTurnOverrideExtendedDaysParams) (UpsertTurnOverrideExtendedDaysRow, error) {
-	row := q.db.QueryRow(ctx, upsertTurnOverrideExtendedDays, arg.GroupID, arg.WeekOf, arg.ExtendedDays)
-	var i UpsertTurnOverrideExtendedDaysRow
-	err := row.Scan(
-		&i.ID,
-		&i.GroupID,
-		&i.WeekOf,
-		&i.ReviewUnlockedByAdmin,
-		&i.MovieUnlockedByAdmin,
-		&i.ExtendedDays,
-		&i.StartOffsetDays,
-		&i.UpdatedAt,
-	)
-	return i, err
+func (q *Queries) UpsertTurnOverrideExtendedDays(ctx context.Context, arg UpsertTurnOverrideExtendedDaysParams) error {
+	_, err := q.db.Exec(ctx, upsertTurnOverrideExtendedDays, arg.ExtendedDays, arg.GroupID, arg.WeekOf)
+	return err
 }
 
 const upsertTurnOverrideMovieUnlocked = `-- name: UpsertTurnOverrideMovieUnlocked :exec
-INSERT INTO _deprecated_turn_overrides (group_id, week_of, movie_unlocked_by_admin)
-VALUES ($1, $2, $3)
-ON CONFLICT ON CONSTRAINT turn_overrides_group_week_unique
-DO UPDATE SET movie_unlocked_by_admin = EXCLUDED.movie_unlocked_by_admin, updated_at = now()
+UPDATE turns
+SET movie_unlocked = $1, updated_at = now()
+WHERE group_id = $2
+  AND week_of = $3::date
 `
 
 type UpsertTurnOverrideMovieUnlockedParams struct {
+	MovieUnlockedByAdmin bool        `json:"movie_unlocked_by_admin"`
 	GroupID              int32       `json:"group_id"`
 	WeekOf               pgtype.Date `json:"week_of"`
-	MovieUnlockedByAdmin bool        `json:"movie_unlocked_by_admin"`
 }
 
 func (q *Queries) UpsertTurnOverrideMovieUnlocked(ctx context.Context, arg UpsertTurnOverrideMovieUnlockedParams) error {
-	_, err := q.db.Exec(ctx, upsertTurnOverrideMovieUnlocked, arg.GroupID, arg.WeekOf, arg.MovieUnlockedByAdmin)
+	_, err := q.db.Exec(ctx, upsertTurnOverrideMovieUnlocked, arg.MovieUnlockedByAdmin, arg.GroupID, arg.WeekOf)
 	return err
 }
 
 const upsertTurnOverrideReviewUnlocked = `-- name: UpsertTurnOverrideReviewUnlocked :exec
-INSERT INTO _deprecated_turn_overrides (group_id, week_of, review_unlocked_by_admin)
-VALUES ($1, $2, $3)
-ON CONFLICT ON CONSTRAINT turn_overrides_group_week_unique
-DO UPDATE SET review_unlocked_by_admin = EXCLUDED.review_unlocked_by_admin, updated_at = now()
+UPDATE turns
+SET reviews_unlocked = $1, updated_at = now()
+WHERE group_id = $2
+  AND week_of = $3::date
 `
 
 type UpsertTurnOverrideReviewUnlockedParams struct {
+	ReviewUnlockedByAdmin bool        `json:"review_unlocked_by_admin"`
 	GroupID               int32       `json:"group_id"`
 	WeekOf                pgtype.Date `json:"week_of"`
-	ReviewUnlockedByAdmin bool        `json:"review_unlocked_by_admin"`
 }
 
 func (q *Queries) UpsertTurnOverrideReviewUnlocked(ctx context.Context, arg UpsertTurnOverrideReviewUnlockedParams) error {
-	_, err := q.db.Exec(ctx, upsertTurnOverrideReviewUnlocked, arg.GroupID, arg.WeekOf, arg.ReviewUnlockedByAdmin)
+	_, err := q.db.Exec(ctx, upsertTurnOverrideReviewUnlocked, arg.ReviewUnlockedByAdmin, arg.GroupID, arg.WeekOf)
 	return err
 }
 
-const upsertTurnOverrideStartOffset = `-- name: UpsertTurnOverrideStartOffset :one
-INSERT INTO _deprecated_turn_overrides (group_id, week_of, start_offset_days)
-VALUES ($1, $2, $3)
-ON CONFLICT ON CONSTRAINT turn_overrides_group_week_unique
-DO UPDATE SET start_offset_days = EXCLUDED.start_offset_days, updated_at = now()
-RETURNING id, group_id, week_of, review_unlocked_by_admin, movie_unlocked_by_admin, extended_days, start_offset_days, updated_at
+const upsertTurnOverrideStartOffset = `-- name: UpsertTurnOverrideStartOffset :exec
+UPDATE turns
+SET start_date = week_of + $1::int,
+    end_date   = (week_of + $1::int) + (end_date - start_date),
+    updated_at = now()
+WHERE group_id = $2
+  AND week_of = $3::date
 `
 
 type UpsertTurnOverrideStartOffsetParams struct {
+	StartOffsetDays int32       `json:"start_offset_days"`
 	GroupID         int32       `json:"group_id"`
 	WeekOf          pgtype.Date `json:"week_of"`
-	StartOffsetDays int32       `json:"start_offset_days"`
 }
 
-type UpsertTurnOverrideStartOffsetRow struct {
-	ID                    int32       `json:"id"`
-	GroupID               int32       `json:"group_id"`
-	WeekOf                pgtype.Date `json:"week_of"`
-	ReviewUnlockedByAdmin bool        `json:"review_unlocked_by_admin"`
-	MovieUnlockedByAdmin  bool        `json:"movie_unlocked_by_admin"`
-	ExtendedDays          int32       `json:"extended_days"`
-	StartOffsetDays       int32       `json:"start_offset_days"`
-	UpdatedAt             time.Time   `json:"updated_at"`
-}
-
-func (q *Queries) UpsertTurnOverrideStartOffset(ctx context.Context, arg UpsertTurnOverrideStartOffsetParams) (UpsertTurnOverrideStartOffsetRow, error) {
-	row := q.db.QueryRow(ctx, upsertTurnOverrideStartOffset, arg.GroupID, arg.WeekOf, arg.StartOffsetDays)
-	var i UpsertTurnOverrideStartOffsetRow
-	err := row.Scan(
-		&i.ID,
-		&i.GroupID,
-		&i.WeekOf,
-		&i.ReviewUnlockedByAdmin,
-		&i.MovieUnlockedByAdmin,
-		&i.ExtendedDays,
-		&i.StartOffsetDays,
-		&i.UpdatedAt,
-	)
-	return i, err
+// Shifts the turn's start_date to (week_of + start_offset_days) while preserving
+// the existing turn length (end_date - start_date stays constant).
+func (q *Queries) UpsertTurnOverrideStartOffset(ctx context.Context, arg UpsertTurnOverrideStartOffsetParams) error {
+	_, err := q.db.Exec(ctx, upsertTurnOverrideStartOffset, arg.StartOffsetDays, arg.GroupID, arg.WeekOf)
+	return err
 }

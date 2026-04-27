@@ -35,8 +35,6 @@ func TestVerdictService_Integration(t *testing.T) {
 	t.Cleanup(func() {
 		testPool.Exec(ctx, "DELETE FROM verdicts WHERE turn_id IN (SELECT id FROM turns WHERE group_id = $1)", group.ID)
 		testPool.Exec(ctx, "DELETE FROM turns WHERE group_id = $1", group.ID)
-		testPool.Exec(ctx, "DELETE FROM _deprecated_watch_status WHERE group_id = $1", group.ID)
-		testPool.Exec(ctx, "DELETE FROM _deprecated_votes WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM movies WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM memberships WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM groups WHERE id = $1", group.ID)
@@ -179,8 +177,6 @@ func TestVerdictService_GetVerdicts_ResultsAvailable(t *testing.T) {
 	t.Cleanup(func() {
 		testPool.Exec(ctx, "DELETE FROM verdicts WHERE turn_id IN (SELECT id FROM turns WHERE group_id = $1)", group.ID)
 		testPool.Exec(ctx, "DELETE FROM turns WHERE group_id = $1", group.ID)
-		testPool.Exec(ctx, "DELETE FROM _deprecated_watch_status WHERE group_id = $1", group.ID)
-		testPool.Exec(ctx, "DELETE FROM _deprecated_votes WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM movies WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM memberships WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM groups WHERE id = $1", group.ID)
@@ -274,7 +270,6 @@ func TestVerdictService_MarkWatched(t *testing.T) {
 	t.Cleanup(func() {
 		testPool.Exec(ctx, "DELETE FROM verdicts WHERE turn_id IN (SELECT id FROM turns WHERE group_id = $1)", group.ID)
 		testPool.Exec(ctx, "DELETE FROM turns WHERE group_id = $1", group.ID)
-		testPool.Exec(ctx, "DELETE FROM _deprecated_watch_status WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM memberships WHERE group_id = $1", group.ID)
 		testPool.Exec(ctx, "DELETE FROM groups WHERE id = $1", group.ID)
 	})
@@ -284,8 +279,8 @@ func TestVerdictService_MarkWatched(t *testing.T) {
 	}
 
 	// GetWatchStatuses (read path used by group detail / status handlers) must
-	// reflect the write. Regression guard for the bug where the read path still
-	// pointed at _deprecated_watch_status while writes went to verdicts.
+	// reflect the write. Regression guard for the bug where the read path used
+	// a deprecated watch_status table while writes went to verdicts.
 	statuses, err := testQueries.GetWatchStatuses(ctx, db.GetWatchStatusesParams{
 		GroupID: group.ID, WeekOf: timeToPgDate(weekOf),
 	})
