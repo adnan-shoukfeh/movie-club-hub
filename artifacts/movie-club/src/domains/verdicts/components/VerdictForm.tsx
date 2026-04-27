@@ -119,6 +119,13 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
   const [showVoteSuccess, setShowVoteSuccess] = useState(false);
   const [pendingVote, setPendingVote] = useState<{ rating: number; review?: string } | null>(null);
 
+  // Clear pendingVote once server confirms the vote
+  useEffect(() => {
+    if (pendingVote && status.hasVoted) {
+      setPendingVote(null);
+    }
+  }, [pendingVote, status.hasVoted]);
+
   useEffect(() => {
     if (intIdx === 9) setDecIdx(0);
   }, [intIdx]);
@@ -187,17 +194,9 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
           setEditingVote(false);
           setShowVoteSuccess(true);
           setTimeout(() => setShowVoteSuccess(false), 3000);
-          if (!group.myWatched) {
-            setWatchStatus.mutate({ groupId, data: { watched: true, weekOf: selectedWeek } }, {
-              onSuccess: () => {
-                invalidate();
-                setPendingVote(null);
-              },
-            });
-          } else {
-            invalidate();
-            setPendingVote(null);
-          }
+          // Backend automatically sets watched=true when rating is provided
+          // Effect will clear pendingVote once server confirms the vote
+          invalidate();
         },
         onError: (e: any) => {
           setPendingVote(null);

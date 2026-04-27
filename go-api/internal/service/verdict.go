@@ -42,6 +42,7 @@ func NewVerdictService(q *db.Queries, pool *pgxpool.Pool, cfg Config) *VerdictSe
 // SubmitVerdict writes a verdict atomically.
 //
 // Rules:
+//   - If rating is provided, watched is automatically set to true
 //   - watched=false: upsert verdict with watched=false, clear rating/review
 //   - watched=true, rating provided: upsert verdict with rating
 //   - watched=true, no rating: upsert verdict with watched=true only
@@ -52,6 +53,8 @@ func (s *VerdictService) SubmitVerdict(ctx context.Context, userID, groupID int3
 		if *rating < 1 || *rating > 10 {
 			return errors.New("rating must be between 1 and 10")
 		}
+		// If a rating is provided, the user has obviously watched the movie
+		watched = true
 	}
 
 	group, err := s.queries.GetGroupByID(ctx, groupID)
