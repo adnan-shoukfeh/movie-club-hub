@@ -1,10 +1,9 @@
--- name: UpsertWatchStatus :exec
-INSERT INTO _deprecated_watch_status (user_id, group_id, week_of, watched)
-VALUES ($1, $2, $3, $4)
-ON CONFLICT ON CONSTRAINT _deprecated_watch_status_user_group_week
-DO UPDATE SET watched = EXCLUDED.watched, updated_at = now();
-
 -- name: GetWatchStatuses :many
-SELECT user_id, group_id, week_of, watched
-FROM _deprecated_watch_status
-WHERE group_id = $1 AND week_of = $2;
+SELECT v.user_id,
+       t.group_id,
+       to_char(t.week_of, 'YYYY-MM-DD') AS week_of,
+       v.watched
+FROM verdicts v
+JOIN turns t ON t.id = v.turn_id
+WHERE t.group_id = sqlc.arg(group_id)
+  AND t.week_of = sqlc.arg(week_of)::date;

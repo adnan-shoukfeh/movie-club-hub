@@ -135,8 +135,8 @@ migrate-roundtrip: ## Verify migrations round-trip cleanly (up → down → up)
 	@echo "6. Comparing schemas..."
 	@./scripts/compare-schema.sh diff
 
-seed: ## Seed the database from embedded JSON fixtures (set DATABASE_URL first)
-	cd go-api && DATABASE_URL="$(DATABASE_URL)" go run ./cmd/seed
+seed: ## Seed the database from embedded JSON fixtures
+	cd go-api && DATABASE_URL="$(DEV_DB_URL)" go run ./cmd/seed
 
 seed-fresh: ## Wipe the database and re-seed from scratch
 	cd go-api && DATABASE_URL="$(DEV_DB_URL)" go run ./cmd/seed -reset

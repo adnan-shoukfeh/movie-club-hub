@@ -189,7 +189,7 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	watchStatuses, _ := h.q.GetWatchStatuses(r.Context(), db.GetWatchStatusesParams{
-		GroupID: groupID, WeekOf: weekOf,
+		GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 	})
 	watchMap := make(map[int32]bool)
 	for _, ws := range watchStatuses {
@@ -462,7 +462,7 @@ func (h *Handler) GetGroupStatus(w http.ResponseWriter, r *http.Request) {
 
 	myWatched := false
 	if ws, err := h.q.GetWatchStatuses(r.Context(), db.GetWatchStatusesParams{
-		GroupID: groupID, WeekOf: weekOf,
+		GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 	}); err == nil {
 		for _, s := range ws {
 			if s.UserID == userID {

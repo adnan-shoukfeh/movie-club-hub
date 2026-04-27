@@ -283,6 +283,43 @@ func TestVerdictService_MarkWatched(t *testing.T) {
 		t.Fatalf("MarkWatched: %v", err)
 	}
 
+	// GetWatchStatuses (read path used by group detail / status handlers) must
+	// reflect the write. Regression guard for the bug where the read path still
+	// pointed at _deprecated_watch_status while writes went to verdicts.
+	statuses, err := testQueries.GetWatchStatuses(ctx, db.GetWatchStatusesParams{
+		GroupID: group.ID, WeekOf: timeToPgDate(weekOf),
+	})
+	if err != nil {
+		t.Fatalf("GetWatchStatuses: %v", err)
+	}
+	var got *bool
+	for _, s := range statuses {
+		if s.UserID == ownerUser.ID {
+			v := s.Watched
+			got = &v
+			break
+		}
+	}
+	if got == nil || !*got {
+		t.Fatalf("GetWatchStatuses after MarkWatched(true): want watched=true, got %v", got)
+	}
+
+	// Toggling back to false must also be observable via the read path.
+	if err := verdictSvc.MarkWatched(ctx, ownerUser.ID, group.ID, weekOf, false); err != nil {
+		t.Fatalf("MarkWatched(false): %v", err)
+	}
+	statuses, err = testQueries.GetWatchStatuses(ctx, db.GetWatchStatusesParams{
+		GroupID: group.ID, WeekOf: timeToPgDate(weekOf),
+	})
+	if err != nil {
+		t.Fatalf("GetWatchStatuses: %v", err)
+	}
+	for _, s := range statuses {
+		if s.UserID == ownerUser.ID && s.Watched {
+			t.Fatalf("GetWatchStatuses after MarkWatched(false): expected watched=false")
+		}
+	}
+
 	// Empty weekOf uses current week via BuildTurnConfig.
 	if err := verdictSvc.MarkWatched(ctx, ownerUser.ID, group.ID, "", false); err != nil {
 		t.Fatalf("MarkWatched (empty weekOf): %v", err)

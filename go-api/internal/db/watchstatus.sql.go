@@ -7,17 +7,24 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getWatchStatuses = `-- name: GetWatchStatuses :many
-SELECT user_id, group_id, week_of, watched
-FROM _deprecated_watch_status
-WHERE group_id = $1 AND week_of = $2
+SELECT v.user_id,
+       t.group_id,
+       to_char(t.week_of, 'YYYY-MM-DD') AS week_of,
+       v.watched
+FROM verdicts v
+JOIN turns t ON t.id = v.turn_id
+WHERE t.group_id = $1
+  AND t.week_of = $2::date
 `
 
 type GetWatchStatusesParams struct {
-	GroupID int32  `json:"group_id"`
-	WeekOf  string `json:"week_of"`
+	GroupID int32       `json:"group_id"`
+	WeekOf  pgtype.Date `json:"week_of"`
 }
 
 type GetWatchStatusesRow struct {
@@ -50,28 +57,4 @@ func (q *Queries) GetWatchStatuses(ctx context.Context, arg GetWatchStatusesPara
 		return nil, err
 	}
 	return items, nil
-}
-
-const upsertWatchStatus = `-- name: UpsertWatchStatus :exec
-INSERT INTO _deprecated_watch_status (user_id, group_id, week_of, watched)
-VALUES ($1, $2, $3, $4)
-ON CONFLICT ON CONSTRAINT _deprecated_watch_status_user_group_week
-DO UPDATE SET watched = EXCLUDED.watched, updated_at = now()
-`
-
-type UpsertWatchStatusParams struct {
-	UserID  int32  `json:"user_id"`
-	GroupID int32  `json:"group_id"`
-	WeekOf  string `json:"week_of"`
-	Watched bool   `json:"watched"`
-}
-
-func (q *Queries) UpsertWatchStatus(ctx context.Context, arg UpsertWatchStatusParams) error {
-	_, err := q.db.Exec(ctx, upsertWatchStatus,
-		arg.UserID,
-		arg.GroupID,
-		arg.WeekOf,
-		arg.Watched,
-	)
-	return err
 }
