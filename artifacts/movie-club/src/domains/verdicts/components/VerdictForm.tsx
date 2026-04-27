@@ -117,6 +117,7 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
   const [reviewText, setReviewText] = useState("");
   const [editingVote, setEditingVote] = useState(false);
   const [showVoteSuccess, setShowVoteSuccess] = useState(false);
+  const [pendingVote, setPendingVote] = useState<{ rating: number; review?: string } | null>(null);
 
   useEffect(() => {
     if (intIdx === 9) setDecIdx(0);
@@ -177,8 +178,10 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
 
   const handleVote = () => {
     const rounded = Math.round(effectiveRating * 10) / 10;
+    const submittedReview = reviewText.trim() || undefined;
+    setPendingVote({ rating: rounded, review: submittedReview });
     submitVote.mutate(
-      { groupId, data: { rating: rounded, review: reviewText.trim() || undefined, weekOf: selectedWeek } },
+      { groupId, data: { rating: rounded, review: submittedReview, weekOf: selectedWeek } },
       {
         onSuccess: () => {
           setEditingVote(false);
@@ -186,12 +189,18 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
           setTimeout(() => setShowVoteSuccess(false), 3000);
           if (!group.myWatched) {
             setWatchStatus.mutate({ groupId, data: { watched: true, weekOf: selectedWeek } }, {
-              onSuccess: () => invalidate(),
+              onSuccess: () => {
+                invalidate();
+                setPendingVote(null);
+              },
             });
+          } else {
+            invalidate();
+            setPendingVote(null);
           }
-          invalidate();
         },
         onError: (e: any) => {
+          setPendingVote(null);
           toast({ title: "Error", description: e.data?.error ?? "Could not submit vote", variant: "destructive" });
         },
       }
@@ -223,13 +232,18 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
     );
   };
 
+  const hasVotedOrPending = status.hasVoted || !!pendingVote;
+  const isWatchedOrPending = group.myWatched || !!pendingVote;
+  const displayRating = status.myVote ?? pendingVote?.rating;
+  const displayReview = status.myReview ?? pendingVote?.review;
+
   return (
     <div className="bg-card/50 border border-border/30 rounded-xl p-5">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-serif text-lg font-semibold">
-          {status.hasVoted && !editingVote ? "Your Rating" : "Rate this Film"}
+          {hasVotedOrPending && !editingVote ? "Your Rating" : "Rate this Film"}
         </h2>
-        {status.hasVoted && !editingVote && (
+        {hasVotedOrPending && !editingVote && !pendingVote && (
           <Button size="sm" variant="ghost" className="text-xs text-muted-foreground" onClick={handleStartEdit}>
             <Pencil className="w-3 h-3 mr-1.5" />
             Edit
@@ -242,25 +256,25 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
         <span className="text-xs text-muted-foreground mr-1">Watched?</span>
         <Button
           size="sm"
-          variant={group.myWatched ? "default" : "outline"}
-          className={`h-7 text-xs ${group.myWatched ? "bg-green-600 hover:bg-green-700 text-white border-green-600" : ""}`}
+          variant={isWatchedOrPending ? "default" : "outline"}
+          className={`h-7 text-xs ${isWatchedOrPending ? "bg-green-600 hover:bg-green-700 text-white border-green-600" : ""}`}
           onClick={() => handleWatchedToggle(true)}
-          disabled={setWatchStatus.isPending}
+          disabled={setWatchStatus.isPending || !!pendingVote}
         >
           <Check className="w-3 h-3 mr-1" />
           Watched
         </Button>
         <Button
           size="sm"
-          variant={!group.myWatched ? "default" : "outline"}
-          className={`h-7 text-xs ${!group.myWatched ? "bg-muted hover:bg-muted/80 text-foreground" : ""}`}
+          variant={!isWatchedOrPending ? "default" : "outline"}
+          className={`h-7 text-xs ${!isWatchedOrPending ? "bg-muted hover:bg-muted/80 text-foreground" : ""}`}
           onClick={handleNotYet}
-          disabled={setWatchStatus.isPending || !!status.hasVoted}
-          title={status.hasVoted ? "Clear your rating first" : undefined}
+          disabled={setWatchStatus.isPending || hasVotedOrPending}
+          title={hasVotedOrPending ? "Clear your rating first" : undefined}
         >
           Not Yet
         </Button>
-        {status.hasVoted && (
+        {hasVotedOrPending && (
           <span className="text-xs text-muted-foreground/60 italic">Clear your rating to change this</span>
         )}
       </div>
@@ -273,19 +287,19 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
         </div>
       )}
 
-      {group.myWatched && (
-        status.hasVoted && !editingVote ? (
+      {isWatchedOrPending && (
+        hasVotedOrPending && !editingVote ? (
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5 bg-background/60 border border-border/40 rounded-lg px-4 py-2">
                 <Star className="w-4 h-4 text-secondary fill-secondary/60" />
-                <span className="text-secondary font-bold text-lg tabular-nums">{status.myVote}</span>
+                <span className="text-secondary font-bold text-lg tabular-nums">{displayRating}</span>
                 <span className="text-muted-foreground text-sm">/ 10</span>
               </div>
             </div>
-            {status.myReview && (
+            {displayReview && (
               <div className="bg-muted/20 rounded-lg px-4 py-3 text-sm text-foreground/80 italic border border-border/20">
-                "{status.myReview}"
+                "{displayReview}"
               </div>
             )}
           </div>
