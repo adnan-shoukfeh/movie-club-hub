@@ -65,20 +65,22 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		}
 
 		adminExt := 0
+		startOffset := 0
 		reviewUnlocked := false
 		if override, err := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
 			GroupID: g.ID, WeekOf: timeToPgDate(weekOf),
 		}); err == nil {
 			adminExt = int(override.ExtendedDays)
+			startOffset = int(override.StartOffsetDays)
 			reviewUnlocked = override.ReviewUnlockedByAdmin
 		}
 
 		votingOpen := false
 		if movie.Title != "" {
-			votingOpen = isVotingOpen(weekOf, config, adminExt) || reviewUnlocked
+			votingOpen = isVotingOpen(weekOf, config, adminExt, startOffset) || reviewUnlocked
 		}
 		item.VotingOpen = votingOpen
-		item.ResultsAvailable = movie.Title != "" && isResultsAvailable(weekOf, config, adminExt)
+		item.ResultsAvailable = movie.Title != "" && isResultsAvailable(weekOf, config, adminExt, startOffset)
 
 		if voted, err := h.q.HasUserVoted(r.Context(), db.HasUserVotedParams{
 			UserID: userID, GroupID: g.ID, WeekOf: timeToPgDate(weekOf),

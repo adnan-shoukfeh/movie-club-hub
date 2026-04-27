@@ -70,14 +70,16 @@ func (h *Handler) ListGroups(w http.ResponseWriter, r *http.Request) {
 		}
 
 		adminExt := int(0)
+		startOffset := int(0)
 		if override, err := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
 			GroupID: g.ID, WeekOf: timeToPgDate(weekOf),
 		}); err == nil {
 			adminExt = int(override.ExtendedDays)
+			startOffset = int(override.StartOffsetDays)
 		}
 
-		item.VotingOpen = isVotingOpen(weekOf, config, adminExt)
-		item.ResultsAvailable = isResultsAvailable(weekOf, config, adminExt)
+		item.VotingOpen = isVotingOpen(weekOf, config, adminExt, startOffset)
+		item.ResultsAvailable = isResultsAvailable(weekOf, config, adminExt, startOffset)
 
 		if voted, err := h.q.HasUserVoted(r.Context(), db.HasUserVotedParams{
 			UserID: userID, GroupID: g.ID, WeekOf: timeToPgDate(weekOf),
@@ -262,12 +264,14 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 
 	// Turn override
 	adminExt := 0
+	startOffset := 0
 	movieUnlocked := false
 	reviewUnlocked := false
 	if override, err := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
 		GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 	}); err == nil {
 		adminExt = int(override.ExtendedDays)
+		startOffset = int(override.StartOffsetDays)
 		movieUnlocked = override.MovieUnlockedByAdmin
 		reviewUnlocked = override.ReviewUnlockedByAdmin
 	}
@@ -275,9 +279,9 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 	votingOpen := false
 	if movieErr == nil {
 		isCurrentTurn := weekOf == currentWeekOf
-		votingOpen = (isVotingOpen(weekOf, config, adminExt) && isCurrentTurn) || reviewUnlocked
+		votingOpen = (isVotingOpen(weekOf, config, adminExt, startOffset) && isCurrentTurn) || reviewUnlocked
 	}
-	resultsAvail := movieErr == nil && isResultsAvailable(weekOf, config, adminExt)
+	resultsAvail := movieErr == nil && isResultsAvailable(weekOf, config, adminExt, startOffset)
 
 	// My vote
 	userID := h.userID(r)
@@ -306,13 +310,29 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 		paMap[pa.WeekOf] = pa
 	}
 
+	// Get turn overrides to calculate actual dates
+	scheduleOverrides, _ := h.q.GetTurnOverridesForGroup(r.Context(), groupID)
+	overrideMap := make(map[string]db.GetTurnOverridesForGroupRow)
+	for _, o := range scheduleOverrides {
+		overrideMap[pgDateToString(o.WeekOf)] = o
+	}
+
 	currentIdx := getTurnIndexForDate(currentWeekOf, config)
 	scheduleCount := int(memberCount)
 	schedule := make([]scheduleEntry, 0, scheduleCount)
 	for i := 0; i < scheduleCount; i++ {
 		idx := currentIdx + i
 		wof := getTurnStartDate(idx, config)
-		endDate := getTurnStartDate(idx+1, config)
+
+		// Calculate actual end date including overrides
+		extDays := 0
+		startOff := 0
+		if o, ok := overrideMap[wof]; ok {
+			extDays = int(o.ExtendedDays)
+			startOff = int(o.StartOffsetDays)
+		}
+		deadlineMs := getDeadlineMs(wof, config, extDays, startOff)
+		endDate := time.UnixMilli(deadlineMs).UTC().Format("2006-01-02")
 
 		entry := scheduleEntry{
 			WeekOf:    wof,
@@ -426,13 +446,15 @@ func (h *Handler) GetGroupStatus(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Fallback to computed deadline
 		adminExt := 0
+		startOffset := 0
 		if override, err := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
 			GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 		}); err == nil {
 			adminExt = int(override.ExtendedDays)
+			startOffset = int(override.StartOffsetDays)
 			reviewUnlocked = override.ReviewUnlockedByAdmin
 		}
-		deadlineTime = time.UnixMilli(getDeadlineMs(weekOf, config, adminExt))
+		deadlineTime = time.UnixMilli(getDeadlineMs(weekOf, config, adminExt, startOffset))
 	}
 
 	votingOpen := false

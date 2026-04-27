@@ -87,7 +87,8 @@ func getCurrentTurnWeekOf(config TurnConfig) string {
 }
 
 // getDeadlineMs returns the deadline (Unix millis) for a given weekOf.
-func getDeadlineMs(weekOf string, config TurnConfig, adminExtendedDays int) int64 {
+// startOffsetDays shifts when the turn actually starts (and thus when it ends).
+func getDeadlineMs(weekOf string, config TurnConfig, adminExtendedDays int, startOffsetDays int) int64 {
 	idx := getTurnIndexForDate(weekOf, config)
 	extra := 0
 	for _, ext := range config.Extensions {
@@ -99,18 +100,18 @@ func getDeadlineMs(weekOf string, config TurnConfig, adminExtendedDays int) int6
 	turnDays := config.TurnLengthDays + extra + adminExtendedDays
 	loc, _ := time.LoadLocation("America/New_York")
 	turnStart, _ := time.ParseInLocation("2006-01-02", getTurnStartDate(idx, config), loc)
-	turnStart = turnStart.AddDate(0, 0, turnDays)
+	turnStart = turnStart.AddDate(0, 0, startOffsetDays+turnDays)
 	return turnStart.UnixMilli()
 }
 
 // isVotingOpen returns true if current time < deadline.
-func isVotingOpen(weekOf string, config TurnConfig, adminExtendedDays int) bool {
-	return time.Now().UnixMilli() < getDeadlineMs(weekOf, config, adminExtendedDays)
+func isVotingOpen(weekOf string, config TurnConfig, adminExtendedDays int, startOffsetDays int) bool {
+	return time.Now().UnixMilli() < getDeadlineMs(weekOf, config, adminExtendedDays, startOffsetDays)
 }
 
 // isResultsAvailable returns true if current time >= deadline.
-func isResultsAvailable(weekOf string, config TurnConfig, adminExtendedDays int) bool {
-	return time.Now().UnixMilli() >= getDeadlineMs(weekOf, config, adminExtendedDays)
+func isResultsAvailable(weekOf string, config TurnConfig, adminExtendedDays int, startOffsetDays int) bool {
+	return time.Now().UnixMilli() >= getDeadlineMs(weekOf, config, adminExtendedDays, startOffsetDays)
 }
 
 // getMaxFutureTurnIndex returns current turn index + memberCount.

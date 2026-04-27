@@ -127,15 +127,17 @@ func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 		}
 
 		adminExt := 0
+		startOffset := 0
 		if o, ok := overrideMap[wof]; ok {
 			entry.ReviewUnlockedByAdmin = o.ReviewUnlockedByAdmin
 			entry.MovieUnlockedByAdmin = o.MovieUnlockedByAdmin
 			entry.ExtendedDays = o.ExtendedDays
 			entry.StartOffsetDays = o.StartOffsetDays
 			adminExt = int(o.ExtendedDays)
+			startOffset = int(o.StartOffsetDays)
 		}
 
-		entry.DeadlineMs = getDeadlineMs(wof, config, adminExt)
+		entry.DeadlineMs = getDeadlineMs(wof, config, adminExt, startOffset)
 		schedule = append(schedule, entry)
 	}
 
@@ -254,7 +256,7 @@ func (h *Handler) AdminExtendTurn(w http.ResponseWriter, r *http.Request) {
 		GroupID: groupID, WeekOf: weekOfPgDate, ExtendedDays: req.ExtendedDays,
 	})
 
-	deadlineMs := getDeadlineMs(req.WeekOf, config, int(req.ExtendedDays))
+	deadlineMs := getDeadlineMs(req.WeekOf, config, int(req.ExtendedDays), int(existing.StartOffsetDays))
 
 	// Cascade: the next turn's start adjusts to match this turn's new deadline.
 	loc, _ := time.LoadLocation("America/New_York")
@@ -333,7 +335,7 @@ func (h *Handler) AdminSetTurnStart(w http.ResponseWriter, r *http.Request) {
 		prevOverride, _ := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
 			GroupID: groupID, WeekOf: timeToPgDate(prevWeekOf),
 		})
-		prevDeadlineMs := getDeadlineMs(prevWeekOf, config, int(prevOverride.ExtendedDays))
+		prevDeadlineMs := getDeadlineMs(prevWeekOf, config, int(prevOverride.ExtendedDays), int(prevOverride.StartOffsetDays))
 		loc, _ := time.LoadLocation("America/New_York")
 		thisStart, _ := time.ParseInLocation("2006-01-02", req.WeekOf, loc)
 		thisEffectiveStartMs := thisStart.AddDate(0, 0, int(req.StartOffsetDays)).UnixMilli()
@@ -818,6 +820,7 @@ func (h *Handler) AdminGetTurnOverride(w http.ResponseWriter, r *http.Request) {
 	reviewUnlocked := false
 	movieUnlocked := false
 	extDays := int32(0)
+	startOffset := int32(0)
 
 	if override, err := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
 		GroupID: groupID, WeekOf: timeToPgDate(weekOf),
@@ -825,9 +828,10 @@ func (h *Handler) AdminGetTurnOverride(w http.ResponseWriter, r *http.Request) {
 		reviewUnlocked = override.ReviewUnlockedByAdmin
 		movieUnlocked = override.MovieUnlockedByAdmin
 		extDays = override.ExtendedDays
+		startOffset = override.StartOffsetDays
 	}
 
-	deadlineMs := getDeadlineMs(weekOf, config, int(extDays))
+	deadlineMs := getDeadlineMs(weekOf, config, int(extDays), int(startOffset))
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"weekOf":                 weekOf,
