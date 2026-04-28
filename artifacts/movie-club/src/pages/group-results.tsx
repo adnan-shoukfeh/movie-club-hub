@@ -1,16 +1,9 @@
 import { useState } from "react";
 import { useGetVerdicts, useGetGroup, getGetResultsQueryKey } from "@workspace/api-client-react";
 import { useLocation, useParams, useSearch } from "wouter";
-import { ArrowLeft, Star, Trophy, Users, Clock, ChevronLeft, ChevronRight, MessageSquare, Menu, Clapperboard, BookOpen, Shield } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft, Star, Award, Users, Clock, ChevronLeft, ChevronRight, Film, User, TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+import { VHSNoise } from "@/components/ui/vhs-noise";
 import {
   BarChart,
   Bar,
@@ -59,314 +52,291 @@ export default function GroupResults() {
   );
 
   const { data: group } = useGetGroup(groupId, {}, { query: { enabled: !!groupId } });
-  const isAdminOrOwner = group?.myRole === "owner" || group?.myRole === "admin";
 
   const movie = results?.movieData;
   const maxCount = results ? Math.max(...results.distribution.map((d) => d.count), 1) : 1;
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-2xl mx-auto space-y-4">
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-40 rounded-xl" />
-          <Skeleton className="h-60 rounded-xl" />
+      <div className="min-h-screen bg-background p-6 relative">
+        <VHSNoise />
+        <div className="max-w-5xl mx-auto space-y-4">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-96 w-full" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border/40 bg-card/30 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => setLocation(`/groups/${groupId}`)}>
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <div className="flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-secondary" />
-              <span className="font-serif font-semibold">Results</span>
+    <div className="min-h-screen bg-background relative">
+      <VHSNoise />
+
+      <header className="border-b-4 border-primary sticky top-0 z-10 bg-secondary">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setLocation(`/groups/${groupId}`)}
+              className="text-white hover:text-primary transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary flex items-center justify-center">
+                <Award className="w-6 h-6 text-secondary" />
+              </div>
+              <div>
+                <h1 className="font-black text-primary uppercase">Final Results</h1>
+                <p className="text-sm text-white/80">{group?.name}</p>
+              </div>
             </div>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-muted-foreground"
-              >
-                <Menu className="w-4 h-4" />
-                Menu
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => setLocation(`/groups/${groupId}`)}>
-                <Clapperboard className="w-4 h-4 mr-2" />
-                Picker Schedule
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setLocation(`/groups/${groupId}`)}>
-                <BookOpen className="w-4 h-4 mr-2" />
-                Nominations Pool
-              </DropdownMenuItem>
-              {isAdminOrOwner && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setLocation(`/groups/${groupId}/admin`)}>
-                    <Shield className="w-4 h-4 mr-2" />
-                    Admin Panel
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-6 space-y-5">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Week navigation */}
-        <div className="flex items-center justify-between bg-card/30 border border-border/20 rounded-xl px-4 py-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
+        <div className="flex items-center justify-between mb-8">
+          <button
             onClick={() => setSelectedWeek(offsetWeekOf(selectedWeek, -1))}
+            className="p-3 bg-card border-4 border-secondary hover:border-primary transition-all"
           >
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <div className="text-center">
-            <p className="text-sm font-medium text-foreground">
-              {selectedWeek === currentWeek ? "This Week" : "Week of"}
+            <ChevronLeft className="w-6 h-6 text-primary" />
+          </button>
+
+          <div className="text-center bg-primary px-6 py-3 border-4 border-secondary">
+            <p className="text-sm text-secondary font-bold mb-1">
+              {formatWeekLabel(selectedWeek)}
             </p>
-            <p className="text-xs text-muted-foreground">{formatWeekLabel(selectedWeek)}</p>
+            <span className="inline-block px-4 py-1 bg-secondary text-primary text-xs font-black uppercase tracking-wider">
+              {selectedWeek === currentWeek ? "This Week" : "Past Week"}
+            </span>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
+
+          <button
             onClick={() => setSelectedWeek(offsetWeekOf(selectedWeek, 1))}
             disabled={selectedWeek >= currentWeek}
+            className="p-3 bg-card border-4 border-secondary disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-all"
           >
-            <ChevronRight className="w-4 h-4" />
-          </Button>
+            <ChevronRight className="w-6 h-6 text-primary" />
+          </button>
         </div>
 
         {error || !results ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Trophy className="w-10 h-10 text-muted-foreground/40 mb-4" />
-            <p className="text-foreground font-medium mb-2">Results not available</p>
-            <p className="text-muted-foreground/60 text-sm">
+          <div className="border-4 border-secondary bg-card p-12 text-center">
+            <Award className="w-16 h-16 text-secondary/50 mx-auto mb-4" />
+            <p className="text-white font-bold uppercase mb-2">Results not available</p>
+            <p className="text-white/60 text-sm mb-6">
               Results unlock Monday at midnight after everyone has had a chance to rate.
             </p>
-            <Button variant="outline" className="mt-6" onClick={() => setLocation(`/groups/${groupId}`)}>
+            <button
+              onClick={() => setLocation(`/groups/${groupId}`)}
+              className="px-6 py-3 bg-primary text-secondary border-4 border-secondary hover:bg-secondary hover:text-primary hover:border-primary transition-all font-black uppercase"
+            >
               Back to Group
-            </Button>
+            </button>
           </div>
         ) : (
-          <>
-            {/* Movie header with poster */}
-            {movie?.poster ? (
-              <div className="rounded-xl overflow-hidden border border-border/20">
-                {movie.imdbId ? (
-                  <a
-                    href={`https://www.imdb.com/title/${movie.imdbId}/`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="relative h-52 block hover:opacity-90 transition-opacity"
-                  >
-                    <img
-                      src={movie.poster}
-                      alt={movie.title}
-                      className="w-full h-full object-cover opacity-50"
-                      style={{ objectPosition: "center 20%" }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/95" />
-                    <div className="absolute bottom-0 left-0 right-0 p-5">
-                      <p className="text-muted-foreground text-xs mb-1">This week's film</p>
-                      <h1 className="font-serif text-2xl font-bold text-foreground">{movie.title}</h1>
-                      {movie.year && <p className="text-xs text-white/60 mt-0.5">{movie.year}</p>}
+          <div className="space-y-6">
+            {/* Movie header */}
+            <div className="border-8 border-primary bg-card overflow-hidden">
+              <div className="md:flex">
+                <div className="md:w-1/3 p-8 flex items-center justify-center bg-black">
+                  {movie?.poster ? (
+                    movie.imdbId ? (
+                      <a
+                        href={`https://www.imdb.com/title/${movie.imdbId}/`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <img
+                          src={movie.poster}
+                          alt={movie.title}
+                          className="max-w-full h-auto border-8 border-secondary hover:border-primary transition-colors"
+                        />
+                      </a>
+                    ) : (
+                      <img
+                        src={movie.poster}
+                        alt={movie.title}
+                        className="max-w-full h-auto border-8 border-secondary"
+                      />
+                    )
+                  ) : (
+                    <div className="w-48 h-72 bg-card border-8 border-secondary flex items-center justify-center">
+                      <Film className="w-16 h-16 text-secondary/50" />
                     </div>
-                  </a>
-                ) : (
-                  <div className="relative h-52">
-                    <img
-                      src={movie.poster}
-                      alt={movie.title}
-                      className="w-full h-full object-cover opacity-50"
-                      style={{ objectPosition: "center 20%" }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/95" />
-                    <div className="absolute bottom-0 left-0 right-0 p-5">
-                      <p className="text-muted-foreground text-xs mb-1">This week's film</p>
-                      <h1 className="font-serif text-2xl font-bold text-foreground">{movie.title}</h1>
-                      {movie.year && <p className="text-xs text-white/60 mt-0.5">{movie.year}</p>}
-                    </div>
-                  </div>
-                )}
-                {(movie.genre || movie.runtime || movie.director) && (
-                  <div className="bg-card/60 border-t border-border/20 px-5 py-3 flex flex-wrap gap-3">
-                    {movie.genre && (
-                      <span className="text-xs text-muted-foreground bg-muted/40 rounded-full px-2.5 py-1">
-                        {movie.genre}
-                      </span>
-                    )}
-                    {movie.runtime && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {movie.runtime}
-                      </span>
-                    )}
-                    {movie.director && (
-                      <span className="text-xs text-muted-foreground">Dir. {movie.director}</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div>
-                <p className="text-muted-foreground text-sm mb-1">This week's film</p>
-                <h1 className="font-serif text-3xl font-bold text-foreground">
-                  {movie?.title ?? `Week of ${formatWeekLabel(results.weekOf)}`}
-                </h1>
-                {movie && (movie.genre || movie.runtime || movie.director) && (
-                  <div className="flex flex-wrap gap-3 mt-3">
-                    {movie.genre && (
-                      <span className="text-xs text-muted-foreground bg-muted/40 rounded-full px-2.5 py-1">
-                        {movie.genre}
-                      </span>
-                    )}
-                    {movie.runtime && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {movie.runtime}
-                      </span>
-                    )}
-                    {movie.director && (
-                      <span className="text-xs text-muted-foreground">Dir. {movie.director}</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Score card */}
-            <div className="bg-card/50 border border-border/30 rounded-xl p-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1.5 mb-1">
-                    <Star className="w-5 h-5 text-secondary fill-secondary/60" />
-                  </div>
-                  <div className="text-4xl font-serif font-bold text-foreground">{results.averageRating}</div>
-                  <div className="text-xs text-muted-foreground mt-1">Average rating</div>
+                  )}
                 </div>
-                <div className="text-center border-l border-border/30">
-                  <div className="flex items-center justify-center gap-1.5 mb-1">
-                    <Users className="w-5 h-5 text-primary/60" />
+                <div className="p-8 md:w-2/3 flex flex-col justify-center">
+                  <h2 className="text-4xl font-black text-primary mb-4 uppercase tracking-tight">
+                    {movie?.title ?? "Unknown Film"}
+                  </h2>
+                  {movie && (
+                    <div className="flex flex-wrap gap-3 text-sm text-white mb-6">
+                      {movie.year && (
+                        <span className="px-4 py-2 bg-secondary border-2 border-primary font-bold">
+                          {movie.year}
+                        </span>
+                      )}
+                      {movie.runtime && (
+                        <span className="px-4 py-2 bg-secondary border-2 border-white/30 font-bold flex items-center gap-2">
+                          <Clock className="w-4 h-4" />
+                          {movie.runtime}
+                        </span>
+                      )}
+                      {movie.director && (
+                        <span className="px-4 py-2 bg-secondary border-2 border-white/30 font-bold">
+                          {movie.director}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Score cards */}
+            <div className="border-8 border-primary bg-secondary p-8">
+              <div className="flex items-center gap-3 mb-8 pb-4 border-b-4 border-primary">
+                <div className="w-12 h-12 bg-primary flex items-center justify-center">
+                  <Award className="w-7 h-7 text-secondary" />
+                </div>
+                <h3 className="text-3xl font-black text-primary uppercase">Final Results</h3>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="p-8 bg-card border-4 border-primary">
+                  <p className="text-sm font-black text-primary mb-4 uppercase tracking-widest">
+                    Average Rating
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <Star className="w-10 h-10 fill-primary text-primary" />
+                    <span className="text-6xl font-black text-white">
+                      {results.averageRating}
+                    </span>
+                    <span className="text-2xl text-white/60 mt-4 font-bold">/10</span>
                   </div>
-                  <div className="text-4xl font-serif font-bold text-foreground">{results.totalVotes}</div>
-                  <div className="text-xs text-muted-foreground mt-1">Total ratings</div>
+                </div>
+
+                <div className="p-8 bg-card border-4 border-white/30">
+                  <p className="text-sm font-black text-white mb-4 uppercase tracking-widest">
+                    Participation
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <Users className="w-10 h-10 text-primary" />
+                    <span className="text-6xl font-black text-white">
+                      {results.totalVotes}
+                    </span>
+                    <span className="text-2xl text-white/60 mt-4 font-bold">votes</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Distribution chart */}
-            <div className="bg-card/50 border border-border/30 rounded-xl p-5">
-              <h2 className="font-serif text-lg font-semibold mb-4">Rating Distribution</h2>
+            <div className="border-4 border-secondary bg-card p-6">
+              <h3 className="font-black text-primary mb-6 text-xl flex items-center gap-2 uppercase">
+                <TrendingUp className="w-6 h-6" />
+                Rating Distribution
+              </h3>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={results.distribution} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                   <XAxis
                     dataKey="rating"
-                    tick={{ fontSize: 12, fill: "hsl(0 0% 65%)" }}
+                    tick={{ fontSize: 12, fill: "#94a3b8" }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
                     allowDecimals={false}
-                    tick={{ fontSize: 11, fill: "hsl(0 0% 65%)" }}
+                    tick={{ fontSize: 11, fill: "#94a3b8" }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <Tooltip
-                    cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                    cursor={{ fill: "rgba(0,48,135,0.3)" }}
                     contentStyle={{
-                      background: "hsl(0 0% 6%)",
-                      border: "1px solid hsl(0 0% 14%)",
-                      borderRadius: "8px",
+                      background: "#001d3d",
+                      border: "4px solid #003087",
+                      borderRadius: "0",
                       fontSize: "12px",
-                      color: "hsl(0 0% 98%)",
+                      color: "#ffffff",
                     }}
                     formatter={(value: any) => [`${value} rating${value !== 1 ? "s" : ""}`, ""]}
                     labelFormatter={(label) => `Rating: ${label}/10`}
                   />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                  <Bar dataKey="count" radius={0}>
                     {results.distribution.map((entry, index) => (
                       <Cell
                         key={index}
                         fill={
                           entry.count === maxCount && entry.count > 0
-                            ? "hsl(43 96% 58%)"
+                            ? "#FDB913"
                             : entry.count > 0
-                            ? "hsl(346 84% 45% / 0.7)"
-                            : "hsl(0 0% 16%)"
+                            ? "#003087"
+                            : "#001d3d"
                         }
                       />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-
-              {/* Rating breakdown */}
-              <div className="mt-4 space-y-1.5">
-                {results.distribution
-                  .filter((d) => d.count > 0)
-                  .sort((a, b) => b.rating - a.rating)
-                  .map((d) => (
-                    <div key={d.rating} className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground w-8 text-right">{d.rating}/10</span>
-                      <div className="flex-1 bg-muted/30 rounded-full h-1.5">
-                        <div
-                          className="h-1.5 rounded-full bg-primary/70 transition-all"
-                          style={{ width: `${(d.count / maxCount) * 100}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-muted-foreground w-8">{d.count}x</span>
-                    </div>
-                  ))}
-              </div>
             </div>
 
             {/* Member reviews */}
             {results.votes.length > 0 && (
-              <div className="bg-card/50 border border-border/30 rounded-xl p-5">
-                <h2 className="font-serif text-lg font-semibold mb-4 flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-primary" />
+              <div className="border-4 border-secondary bg-card p-6">
+                <h4 className="font-black text-primary mb-6 text-2xl flex items-center gap-3 uppercase pb-4 border-b-4 border-secondary">
+                  <Star className="w-7 h-7 fill-primary" />
                   Member Reviews
-                </h2>
+                </h4>
+
                 <div className="space-y-4">
                   {results.votes
                     .sort((a, b) => b.rating - a.rating)
                     .map((vote, i) => (
-                      <div key={i} className="border-b border-border/10 last:border-0 pb-4 last:pb-0">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-sm font-medium text-foreground">{vote.username}</span>
-                          <div className="flex items-center gap-1 bg-secondary/10 border border-secondary/20 rounded-full px-2.5 py-0.5">
-                            <Star className="w-3 h-3 text-secondary fill-secondary/60" />
-                            <span className="text-secondary text-sm font-bold">{vote.rating}</span>
-                            <span className="text-muted-foreground text-xs">/10</span>
+                      <div
+                        key={i}
+                        className="p-5 bg-secondary border-l-8 border-primary"
+                      >
+                        <div className="flex items-start gap-4 mb-3">
+                          <div className="w-14 h-14 bg-primary flex items-center justify-center">
+                            <User className="w-7 h-7 text-secondary" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-black text-white mb-2 text-lg">{vote.username}</p>
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="flex items-center gap-0.5">
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
+                                  <Star
+                                    key={star}
+                                    className={`w-4 h-4 ${
+                                      star <= vote.rating
+                                        ? "fill-primary text-primary"
+                                        : "text-white/20"
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                              <span className="px-3 py-1 bg-primary border-2 border-card font-black text-secondary text-sm">
+                                {vote.rating.toFixed(1)}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                        {vote.review ? (
-                          <p className="text-sm text-foreground/70 italic">"{vote.review}"</p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground/50">No review left</p>
+                        {vote.review && (
+                          <p className="text-sm text-white leading-relaxed pl-16 mt-2 border-t-2 border-white/20 pt-3 italic">
+                            "{vote.review}"
+                          </p>
                         )}
                       </div>
                     ))}
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
       </main>
     </div>

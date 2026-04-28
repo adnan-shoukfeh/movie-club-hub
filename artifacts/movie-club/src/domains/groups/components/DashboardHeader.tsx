@@ -1,5 +1,4 @@
 import { Film, LogOut, Settings } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 interface DashboardHeaderProps {
   username?: string;
@@ -9,38 +8,38 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ username, onProfile, onLogout }: DashboardHeaderProps) {
   return (
-    <header className="border-b border-border/40 bg-card/30 backdrop-blur-sm sticky top-0 z-10">
-      <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-            <Film className="w-4 h-4 text-primary" />
+    <header className="border-b-4 border-primary sticky top-0 z-10 bg-secondary">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-primary flex items-center justify-center">
+              <Film className="w-7 h-7 text-secondary" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-primary tracking-tight">
+                MOVIE CLUBS
+              </h1>
+              <p className="text-sm text-white/80">
+                {username ? `Welcome back, ${username}` : "Your cinematic journey"}
+              </p>
+            </div>
           </div>
-          <div>
-            <span className="font-serif font-semibold text-foreground">Movie Club</span>
-            {username && (
-              <span className="text-muted-foreground text-sm ml-2">· {username}</span>
-            )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onProfile}
+              className="p-2.5 border-2 border-white/30 hover:border-primary bg-secondary text-white hover:text-primary transition-all"
+              title="Profile settings"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+            <button
+              onClick={onLogout}
+              className="px-4 py-2 border-2 border-white/30 hover:border-primary bg-secondary text-white hover:text-primary transition-all font-bold uppercase text-sm flex items-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
           </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onProfile}
-            className="text-muted-foreground hover:text-foreground"
-            title="Profile settings"
-          >
-            <Settings className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onLogout}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <LogOut className="w-4 h-4 mr-1.5" />
-            Out
-          </Button>
         </div>
       </div>
     </header>

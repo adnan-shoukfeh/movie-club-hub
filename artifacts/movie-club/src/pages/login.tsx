@@ -6,8 +6,8 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Film, Popcorn, Eye, EyeOff } from "lucide-react";
+import { Film, Eye, EyeOff } from "lucide-react";
+import { VHSNoise } from "@/components/ui/vhs-noise";
 
 const authSchema = z.object({
   username: z
@@ -77,42 +77,52 @@ export default function Login() {
 
   if (isUserLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Film className="w-8 h-8 text-primary animate-pulse" />
+      <div className="min-h-screen flex items-center justify-center bg-background relative">
+        <VHSNoise />
+        <Film className="w-12 h-12 text-primary animate-pulse" />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background pointer-events-none" />
-      <div className="absolute -left-40 -top-40 w-96 h-96 bg-primary/10 blur-[100px] rounded-full pointer-events-none" />
-      <div className="absolute -right-40 -bottom-40 w-96 h-96 bg-secondary/10 blur-[100px] rounded-full pointer-events-none" />
+      <VHSNoise />
 
       <div className="relative z-10 w-full max-w-md px-6">
+        {/* Logo */}
         <div className="flex flex-col items-center mb-10 text-center">
-          <div className="w-16 h-16 bg-card border border-border rounded-2xl flex items-center justify-center mb-6 shadow-2xl shadow-primary/20">
-            <Popcorn className="w-8 h-8 text-primary" />
+          <div className="w-20 h-20 bg-primary border-4 border-secondary flex items-center justify-center mb-6">
+            <Film className="w-10 h-10 text-secondary" />
           </div>
-          <h1 className="text-4xl font-serif font-bold text-foreground mb-3 tracking-tight">Movie Club</h1>
-          <p className="text-muted-foreground text-lg">A quiet weekly ritual for film fans.</p>
+          <h1 className="text-4xl font-black text-primary uppercase tracking-tight mb-3">Movie Club</h1>
+          <p className="text-white/70 text-lg">A weekly ritual for film fans.</p>
         </div>
 
-        <div className="bg-card/50 backdrop-blur-xl border border-border/50 rounded-2xl p-8 shadow-xl">
-          <div className="flex rounded-lg bg-background/50 border border-border/30 p-1 mb-6">
+        {/* Form Card */}
+        <div className="bg-card border-8 border-primary p-8">
+          {/* Mode Toggle */}
+          <div className="flex border-4 border-secondary mb-6">
             <button
               type="button"
               onClick={() => { setMode("login"); setServerError(null); }}
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${mode === "login" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+              className={`flex-1 py-3 text-sm font-black uppercase transition-all ${
+                mode === "login"
+                  ? "bg-primary text-secondary"
+                  : "bg-secondary text-white/70 hover:text-white"
+              }`}
             >
               Sign In
             </button>
             <button
               type="button"
               onClick={() => { setMode("register"); setServerError(null); }}
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${mode === "register" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+              className={`flex-1 py-3 text-sm font-black uppercase transition-all ${
+                mode === "register"
+                  ? "bg-primary text-secondary"
+                  : "bg-secondary text-white/70 hover:text-white"
+              }`}
             >
-              Create Account
+              Register
             </button>
           </div>
 
@@ -123,17 +133,17 @@ export default function Login() {
                 name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-muted-foreground text-xs uppercase tracking-wider">Username</FormLabel>
+                    <FormLabel className="text-white text-xs font-black uppercase tracking-widest">Username</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="e.g. film_buff"
                         autoComplete="username"
-                        className="h-12 bg-background/50 border-border/50 text-base px-4"
+                        className="h-12 bg-card border-4 border-secondary text-white text-base px-4 placeholder:text-white/40 focus:border-primary"
                         {...field}
                         data-testid="input-username"
                       />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-destructive" />
                   </FormItem>
                 )}
               />
@@ -142,55 +152,55 @@ export default function Login() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-muted-foreground text-xs uppercase tracking-wider">Password</FormLabel>
+                    <FormLabel className="text-white text-xs font-black uppercase tracking-widest">Password</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Input
                           type={showPassword ? "text" : "password"}
                           placeholder={mode === "register" ? "Min. 8 characters" : "Your password"}
                           autoComplete={mode === "register" ? "new-password" : "current-password"}
-                          className="h-12 bg-background/50 border-border/50 text-base px-4 pr-12"
+                          className="h-12 bg-card border-4 border-secondary text-white text-base px-4 pr-12 placeholder:text-white/40 focus:border-primary"
                           {...field}
                           data-testid="input-password"
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword((v) => !v)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-primary transition-colors"
                           tabIndex={-1}
                           aria-label={showPassword ? "Hide password" : "Show password"}
                         >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                         </button>
                       </div>
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-destructive" />
                   </FormItem>
                 )}
               />
 
               {serverError && (
-                <p className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
+                <div className="bg-destructive border-4 border-destructive text-white px-4 py-3 font-bold uppercase text-sm">
                   {serverError}
-                </p>
+                </div>
               )}
 
-              <Button
+              <button
                 type="submit"
-                className="w-full h-12 text-base font-medium tracking-wide shadow-primary/20 shadow-lg mt-2"
+                className="w-full h-14 bg-primary text-secondary border-4 border-secondary hover:bg-secondary hover:text-primary hover:border-primary transition-all font-black uppercase text-lg tracking-wide disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                 disabled={isPending}
                 data-testid="button-login"
               >
                 {isPending
-                  ? mode === "login" ? "Signing in..." : "Creating account..."
+                  ? mode === "login" ? "Signing in..." : "Creating..."
                   : mode === "login" ? "Sign In" : "Create Account"}
-              </Button>
+              </button>
             </form>
           </Form>
         </div>
 
-        <p className="text-center text-muted-foreground/60 text-sm mt-8">
-          Pick, watch, rate, reveal.
+        <p className="text-center text-white/40 text-sm mt-8 font-bold uppercase tracking-wider">
+          Pick · Watch · Rate · Reveal
         </p>
       </div>
     </div>

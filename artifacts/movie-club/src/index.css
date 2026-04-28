@@ -5,164 +5,168 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-ring: var(--ring);
 
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-card-border: hsl(var(--card-border));
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
 
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-popover-border: hsl(var(--popover-border));
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
 
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-primary-border: var(--primary-border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
 
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-  --color-secondary-border: var(--secondary-border);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
 
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-muted-border: var(--muted-border);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
 
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-accent-border: var(--accent-border);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
 
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-destructive-border: var(--destructive-border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
 
-  --color-chart-1: hsl(var(--chart-1));
-  --color-chart-2: hsl(var(--chart-2));
-  --color-chart-3: hsl(var(--chart-3));
-  --color-chart-4: hsl(var(--chart-4));
-  --color-chart-5: hsl(var(--chart-5));
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 
-  --color-sidebar: hsl(var(--sidebar));
-  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
-  --color-sidebar-border: hsl(var(--sidebar-border));
-  --color-sidebar-primary: hsl(var(--sidebar-primary));
-  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
-  --color-sidebar-primary-border: var(--sidebar-primary-border);
-  --color-sidebar-accent: hsl(var(--sidebar-accent));
-  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
-  --color-sidebar-accent-border: var(--sidebar-accent-border);
-  --color-sidebar-ring: hsl(var(--sidebar-ring));
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-ring: var(--sidebar-ring);
 
   --font-sans: var(--app-font-sans);
   --font-serif: var(--app-font-serif);
   --font-mono: var(--app-font-mono);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
 }
 
-/* Default to dark mode for cinematic feel */
+/* VHS/Blockbuster Cinema Aesthetic */
 :root {
   color-scheme: dark;
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
+  --font-size: 16px;
 
-  --opaque-button-border-intensity: 9;
+  /* Core palette - Dark navy to golden yellow */
+  --background: #000814;
+  --foreground: #ffffff;
 
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
+  --card: #001d3d;
+  --card-foreground: #ffffff;
 
-  --background: 0 0% 4%; /* Very dark grey, almost black */
-  --foreground: 0 0% 98%;
+  --popover: #001d3d;
+  --popover-foreground: #ffffff;
 
-  --border: 0 0% 12%;
+  /* Primary: Golden yellow (main accent) */
+  --primary: #FDB913;
+  --primary-foreground: #000814;
 
-  --card: 0 0% 6%;
-  --card-foreground: 0 0% 98%;
-  --card-border: 0 0% 12%;
+  /* Secondary: Medium navy blue */
+  --secondary: #003087;
+  --secondary-foreground: #ffffff;
 
-  --sidebar: 0 0% 6%;
-  --sidebar-foreground: 0 0% 98%;
-  --sidebar-border: 0 0% 12%;
-  --sidebar-primary: 346 84% 45%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 0 0% 12%;
-  --sidebar-accent-foreground: 0 0% 98%;
-  --sidebar-ring: 346 84% 45%;
+  --muted: #001d3d;
+  --muted-foreground: #94a3b8;
 
-  --popover: 0 0% 6%;
-  --popover-foreground: 0 0% 98%;
-  --popover-border: 0 0% 12%;
+  /* Accent matches primary for consistency */
+  --accent: #FDB913;
+  --accent-foreground: #000814;
 
-  /* Cinematic Red */
-  --primary: 346 84% 45%;
-  --primary-foreground: 0 0% 100%;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
 
-  /* Warm Gold / Amber for secondary */
-  --secondary: 43 96% 58%;
-  --secondary-foreground: 0 0% 10%;
+  /* Borders use secondary navy */
+  --border: #003087;
+  --input: #001d3d;
+  --input-background: #001d3d;
+  --ring: #FDB913;
 
-  --muted: 0 0% 12%;
-  --muted-foreground: 0 0% 65%;
+  /* Charts */
+  --chart-1: #FDB913;
+  --chart-2: #003087;
+  --chart-3: #0052CC;
+  --chart-4: #FFD966;
+  --chart-5: #002654;
 
-  --accent: 0 0% 12%;
-  --accent-foreground: 0 0% 98%;
+  /* No rounded corners - sharp VHS aesthetic */
+  --radius: 0;
 
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 100%;
+  /* Sidebar */
+  --sidebar: #001028;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #FDB913;
+  --sidebar-primary-foreground: #000814;
+  --sidebar-accent: #003087;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #003087;
+  --sidebar-ring: #FDB913;
 
-  --input: 0 0% 16%;
-  --ring: 346 84% 45%;
-  
-  --chart-1: 346 84% 45%;
-  --chart-2: 43 96% 58%;
-  --chart-3: 0 0% 30%;
-  --chart-4: 0 0% 50%;
-  --chart-5: 0 0% 70%;
-
-  --app-font-sans: 'Outfit', sans-serif;
-  --app-font-serif: 'Playfair Display', serif;
-  --app-font-mono: 'Space Mono', monospace;
-  --radius: 0.5rem;
+  /* Fonts - Bold, impactful choices */
+  --app-font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  --app-font-serif: 'Bebas Neue', 'Impact', ui-serif, serif;
+  --app-font-mono: 'Space Mono', ui-monospace, monospace;
 
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
   --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.5);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.5);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5);
-
-  --sidebar-primary-border: hsl(var(--sidebar-primary));
-  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --sidebar-accent-border: hsl(var(--sidebar-accent));
-  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --primary-border: hsl(var(--primary));
-  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --secondary-border: hsl(var(--secondary));
-  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --muted-border: hsl(var(--muted));
-  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --accent-border: hsl(var(--accent));
-  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --destructive-border: hsl(var(--destructive));
-  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-}
-
-.dark {
-  /* Same as root since we default to dark */
 }
 
 @layer base {
   * {
     @apply border-border;
   }
+
+  html {
+    font-size: var(--font-size);
+  }
+
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-serif tracking-tight;
+
+  /* Bold, uppercase headings for VHS aesthetic */
+  h1 {
+    @apply font-sans text-2xl font-black uppercase tracking-tight;
+  }
+
+  h2 {
+    @apply font-sans text-xl font-black uppercase tracking-tight;
+  }
+
+  h3 {
+    @apply font-sans text-lg font-black uppercase tracking-tight;
+  }
+
+  h4 {
+    @apply font-sans text-base font-bold uppercase;
+  }
+
+  label {
+    @apply font-sans text-base font-semibold;
+  }
+
+  button {
+    @apply font-sans text-base font-bold;
+  }
+
+  input {
+    @apply font-sans text-base font-normal;
   }
 }

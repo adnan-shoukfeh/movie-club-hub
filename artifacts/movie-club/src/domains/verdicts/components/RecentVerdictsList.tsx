@@ -1,4 +1,4 @@
-import { Star } from "lucide-react";
+import { Star, Film } from "lucide-react";
 import type { RecentResult } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 
@@ -15,23 +15,29 @@ export function RecentVerdictsList({ results }: RecentVerdictsListProps) {
 
   return (
     <div>
-      <h2 className="font-serif text-xl font-semibold text-foreground mb-4">Recent Results</h2>
-      <div className="grid gap-3">
+      <div className="mb-6 bg-primary px-6 py-3 border-4 border-secondary inline-flex items-center gap-3">
+        <Star className="w-6 h-6 text-secondary fill-secondary" />
+        <h2 className="text-xl font-black text-secondary uppercase tracking-wide">Recently Watched</h2>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {results.map((result, i) => (
           <button
             key={i}
             onClick={() => setLocation(`/groups/${result.groupId}/results?weekOf=${result.weekOf}`)}
-            className="w-full text-left bg-card/30 border border-border/20 rounded-xl p-4 flex items-center justify-between hover:border-secondary/30 hover:bg-card/50 transition-all duration-200"
+            className="group cursor-pointer text-left"
           >
-            <div>
-              <p className="font-medium text-foreground text-sm">{result.movie}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{result.groupName} · {result.weekOf}</p>
+            <div className="relative aspect-[2/3] overflow-hidden mb-2 border-4 border-secondary group-hover:border-primary transition-all bg-black">
+              <div className="w-full h-full flex items-center justify-center bg-card">
+                <Film className="w-12 h-12 text-secondary/30" />
+              </div>
+              <div className="absolute top-2 right-2 bg-primary text-secondary px-2.5 py-1.5 flex items-center gap-1.5 border-2 border-secondary">
+                <Star className="w-3.5 h-3.5 fill-secondary text-secondary" />
+                <span className="font-black text-sm">{result.averageRating.toFixed(1)}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 bg-secondary/10 border border-secondary/20 rounded-lg px-3 py-1.5">
-              <Star className="w-3.5 h-3.5 text-secondary fill-secondary/40" />
-              <span className="text-secondary font-bold text-sm">{parseFloat(result.averageRating.toFixed(2))}</span>
-              <span className="text-muted-foreground text-xs">/ {result.totalVotes} ratings</span>
-            </div>
+            <h4 className="font-bold text-white truncate">{result.movie}</h4>
+            <p className="text-sm text-white/70">{result.groupName}</p>
           </button>
         ))}
       </div>

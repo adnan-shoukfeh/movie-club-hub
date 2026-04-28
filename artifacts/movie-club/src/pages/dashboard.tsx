@@ -3,12 +3,12 @@ import { useLocation } from "wouter";
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GroupList } from "@/domains/groups/components/GroupList";
 import { DashboardStats } from "@/domains/groups/components/DashboardStats";
 import { DashboardHeader } from "@/domains/groups/components/DashboardHeader";
 import { RecentVerdictsList } from "@/domains/verdicts/components/RecentVerdictsList";
+import { VHSNoise } from "@/components/ui/vhs-noise";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -37,10 +37,16 @@ export default function Dashboard() {
   if (meLoading || dashLoading) {
     return (
       <div className="min-h-screen bg-background p-6">
-        <div className="max-w-2xl mx-auto">
+        <VHSNoise />
+        <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-12 w-64" />
+            <Skeleton className="h-10 w-32" />
+          </div>
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
           </div>
           <GroupList groups={undefined} isLoading={true} />
         </div>
@@ -49,26 +55,37 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      <VHSNoise />
       <DashboardHeader
         username={me?.username}
         onProfile={() => setLocation("/profile")}
         onLogout={handleLogout}
       />
 
-      <main className="max-w-2xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats */}
         {dashboard && <DashboardStats totalGroups={dashboard.totalGroups} pendingVotes={dashboard.pendingVotes} pastResults={dashboard.recentResults.length} />}
 
-        {/* Groups */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-serif text-xl font-semibold text-foreground">Your Clubs</h2>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => setLocation("/join")}>Join</Button>
-            <Button size="sm" onClick={() => setLocation("/groups/new")} className="bg-primary hover:bg-primary/90">
-              <Plus className="w-4 h-4 mr-1.5" />
+        {/* Groups Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="bg-primary px-6 py-3 border-4 border-secondary inline-flex items-center gap-3">
+            <h2 className="text-xl font-black text-secondary uppercase tracking-wide">Your Clubs</h2>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setLocation("/join")}
+              className="px-4 py-2 bg-secondary text-white border-2 border-white/30 hover:border-primary hover:text-primary transition-all font-bold uppercase text-sm"
+            >
+              Join
+            </button>
+            <button
+              onClick={() => setLocation("/groups/new")}
+              className="px-4 py-2 bg-primary text-secondary border-2 border-secondary hover:bg-secondary hover:text-primary hover:border-primary transition-all font-bold uppercase text-sm flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
               New Club
-            </Button>
+            </button>
           </div>
         </div>
 
