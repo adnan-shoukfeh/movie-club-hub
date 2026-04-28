@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Star, Check, Pencil, Trash2, Send } from "lucide-react";
+import { Check, Pencil, Trash2, Send } from "lucide-react";
+import { StarRating } from "@/components/ui/star-rating";
 import {
   useSubmitVerdict,
   useSetWatchStatus,
@@ -199,18 +200,7 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
         hasVotedOrPending && !editingVote ? (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-              <div className="flex items-center gap-1 sm:gap-2">
-                {[1, 2, 3, 4, 5].map((value) => (
-                  <Star
-                    key={value}
-                    className={`w-6 h-6 sm:w-8 sm:h-8 ${
-                      value <= Math.round((displayRating ?? 0) / 2)
-                        ? "fill-primary text-primary"
-                        : "text-secondary"
-                    }`}
-                  />
-                ))}
-              </div>
+              <StarRating rating={displayRating ?? 0} size="lg" />
               <div className="px-3 py-1.5 sm:px-4 sm:py-2 bg-primary border-4 border-secondary">
                 <span className="text-xl sm:text-2xl font-black text-secondary">
                   {displayRating?.toFixed(1)}
@@ -259,18 +249,7 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
                       {effectiveRating.toFixed(1)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((value) => (
-                      <Star
-                        key={value}
-                        className={`w-5 h-5 sm:w-6 sm:h-6 ${
-                          value <= Math.round(effectiveRating / 2)
-                            ? "fill-primary text-primary"
-                            : "text-secondary"
-                        }`}
-                      />
-                    ))}
-                  </div>
+                  <StarRating rating={effectiveRating} size="md" />
                 </div>
               </div>
             </div>
