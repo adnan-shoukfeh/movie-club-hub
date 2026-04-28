@@ -2,13 +2,18 @@ import { useGetDashboard, useGetMe, useLogout, getGetDashboardQueryKey } from "@
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Plus, ChevronDown, UserPlus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GroupList } from "@/domains/groups/components/GroupList";
-import { DashboardStats } from "@/domains/groups/components/DashboardStats";
 import { DashboardHeader } from "@/domains/groups/components/DashboardHeader";
 import { RecentVerdictsList } from "@/domains/verdicts/components/RecentVerdictsList";
 import { VHSNoise } from "@/components/ui/vhs-noise";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -43,11 +48,6 @@ export default function Dashboard() {
             <Skeleton className="h-12 w-64" />
             <Skeleton className="h-10 w-32" />
           </div>
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
-          </div>
           <GroupList groups={undefined} isLoading={true} />
         </div>
       </div>
@@ -64,29 +64,41 @@ export default function Dashboard() {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats */}
-        {dashboard && <DashboardStats totalGroups={dashboard.totalGroups} pendingVotes={dashboard.pendingVotes} pastResults={dashboard.recentResults.length} />}
-
         {/* Groups Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="bg-primary px-6 py-3 border-4 border-secondary inline-flex items-center gap-3">
-            <h2 className="text-xl font-black text-secondary uppercase tracking-wide">Your Clubs</h2>
+            <h2 className="text-xl font-black text-secondary uppercase tracking-wide">
+              Your Clubs
+              {dashboard && (
+                <span className="ml-2 text-secondary/70">({dashboard.totalGroups})</span>
+              )}
+            </h2>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setLocation("/join")}
-              className="px-4 py-2 bg-secondary text-white border-2 border-white/30 hover:border-primary hover:text-primary transition-all font-bold uppercase text-sm"
-            >
-              Join
-            </button>
-            <button
-              onClick={() => setLocation("/groups/new")}
-              className="px-4 py-2 bg-primary text-secondary border-2 border-secondary hover:bg-secondary hover:text-primary hover:border-primary transition-all font-bold uppercase text-sm flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              New Club
-            </button>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="px-4 py-2 bg-primary text-secondary border-2 border-secondary hover:bg-secondary hover:text-primary hover:border-primary transition-all font-bold uppercase text-sm flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                Add Club
+                <ChevronDown className="w-4 h-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-secondary border-2 border-primary">
+              <DropdownMenuItem
+                onClick={() => setLocation("/join")}
+                className="font-bold uppercase text-sm cursor-pointer hover:bg-primary hover:text-secondary"
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Join Existing
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setLocation("/groups/new")}
+                className="font-bold uppercase text-sm cursor-pointer hover:bg-primary hover:text-secondary"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create New
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <GroupList groups={dashboard?.groups} isLoading={false} />
