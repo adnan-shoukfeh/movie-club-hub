@@ -255,6 +255,16 @@ export interface Invite {
   createdAt: string;
 }
 
+export interface ActiveInvite {
+  id?: number;
+  /** @nullable */
+  code: string | null;
+  groupId?: number;
+  /** @nullable */
+  expiresAt?: string | null;
+  createdAt?: string;
+}
+
 export interface InviteDetail {
   code: string;
   groupId: number;
@@ -285,7 +295,6 @@ export interface RecentResult {
   groupId: number;
   groupName: string;
   movie: string;
-  /** @nullable */
   moviePoster?: string | null;
   averageRating: number;
   totalVotes: number;

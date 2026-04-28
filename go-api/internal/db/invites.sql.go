@@ -42,6 +42,38 @@ func (q *Queries) CreateInvite(ctx context.Context, arg CreateInviteParams) (Inv
 	return i, err
 }
 
+const deleteInvitesByGroupID = `-- name: DeleteInvitesByGroupID :exec
+DELETE FROM invites WHERE group_id = $1
+`
+
+func (q *Queries) DeleteInvitesByGroupID(ctx context.Context, groupID int32) error {
+	_, err := q.db.Exec(ctx, deleteInvitesByGroupID, groupID)
+	return err
+}
+
+const getActiveInviteByGroupID = `-- name: GetActiveInviteByGroupID :one
+SELECT id, code, group_id, created_by_user_id, expires_at, created_at
+FROM invites
+WHERE group_id = $1
+  AND (expires_at IS NULL OR expires_at > NOW())
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetActiveInviteByGroupID(ctx context.Context, groupID int32) (Invite, error) {
+	row := q.db.QueryRow(ctx, getActiveInviteByGroupID, groupID)
+	var i Invite
+	err := row.Scan(
+		&i.ID,
+		&i.Code,
+		&i.GroupID,
+		&i.CreatedByUserID,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getInviteByCode = `-- name: GetInviteByCode :one
 SELECT i.id, i.code, i.group_id, i.expires_at, i.created_at, g.name AS group_name
 FROM invites i

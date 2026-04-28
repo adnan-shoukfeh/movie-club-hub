@@ -21,6 +21,7 @@ import { PickerScheduleEditor } from "@/domains/admin/components/PickerScheduleE
 import { VerdictOverridePanel } from "@/domains/admin/components/VerdictOverridePanel";
 import { MemberRoleManager } from "@/domains/admin/components/MemberRoleManager";
 import { GroupSettingsForm } from "@/domains/admin/components/GroupSettingsForm";
+import { InviteCodePanel } from "@/domains/admin/components/InviteCodePanel";
 import type { ScheduleEntry } from "@/domains/admin/components/shared";
 
 export default function GroupAdmin() {
@@ -143,6 +144,12 @@ export default function GroupAdmin() {
           onToggle={() => sectionToggle("schedule")}
           reloadKey={scheduleReloadKey}
           onScheduleLoaded={handleScheduleLoaded}
+        />
+
+        <InviteCodePanel
+          groupId={groupId}
+          isExpanded={activeSection === "invite"}
+          onToggle={() => sectionToggle("invite")}
         />
 
         <VerdictOverridePanel

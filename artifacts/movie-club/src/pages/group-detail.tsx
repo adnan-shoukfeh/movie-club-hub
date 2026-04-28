@@ -5,7 +5,6 @@ import {
   useAssignPicker,
   useUpdateMemberRole,
   useKickMember,
-  useCreateInvite,
   getGetGroupQueryKey,
   getGetGroupStatusQueryKey,
   getGetDashboardQueryKey,
@@ -15,16 +14,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
-  Copy,
   Check,
   ChevronDown,
-  Shield,
   User,
   Clapperboard,
-  Plus,
-  Users,
   Clock,
-  BookOpen,
   Calendar,
   Lightbulb,
   Settings,
@@ -51,8 +45,6 @@ export default function GroupDetail() {
   const [selectedWeek, setSelectedWeek] = useState("");
 
   const [showMovieInput, setShowMovieInput] = useState(false);
-  const [showInviteCode, setShowInviteCode] = useState<string | null>(null);
-  const [copiedCode, setCopiedCode] = useState(false);
   const [showMemberActions, setShowMemberActions] = useState<number | null>(null);
 
   // Sheet open state
@@ -88,7 +80,6 @@ export default function GroupDetail() {
   const assignPicker = useAssignPicker();
   const updateRole = useUpdateMemberRole();
   const kickMember = useKickMember();
-  const createInvite = useCreateInvite();
 
   const handleAssignPicker = (userId: number) => {
     assignPicker.mutate(
@@ -139,24 +130,6 @@ export default function GroupDetail() {
     );
   };
 
-  const handleCreateInvite = () => {
-    createInvite.mutate(
-      { groupId, data: {} },
-      {
-        onSuccess: (invite) => setShowInviteCode(invite.code),
-        onError: (e: any) => {
-          toast({ title: "Error", description: e.data?.error, variant: "destructive" });
-        },
-      }
-    );
-  };
-
-  const copyCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background p-6 relative">
@@ -189,9 +162,7 @@ export default function GroupDetail() {
 
   const isAdminOrOwner = group.myRole === "owner" || group.myRole === "admin";
   const currentTurnWeekOf = group.currentTurnWeekOf as string;
-  const isCurrentWeek = normalizeWeekOf(selectedWeek) === normalizeWeekOf(currentTurnWeekOf);
   const movie = group.movieData;
-  const watchedCount = group.members.filter((m) => m.watched).length;
   const pickerSchedule = group.pickerSchedule;
 
   const _config = group.turnConfig;
@@ -305,35 +276,6 @@ export default function GroupDetail() {
           status={status}
           selectedWeek={selectedWeek}
         />
-
-        {/* Admin Controls */}
-        {isCurrentWeek && isAdminOrOwner && (
-          <div className="border-4 border-secondary bg-card p-6 mb-6">
-            <h3 className="font-black text-primary mb-4 text-xl flex items-center gap-2 uppercase">
-              <Shield className="w-6 h-6" />
-              Admin Controls
-            </h3>
-            <button
-              onClick={handleCreateInvite}
-              disabled={createInvite.isPending}
-              className="px-4 py-2 bg-primary text-secondary border-4 border-secondary hover:bg-secondary hover:text-primary hover:border-primary transition-all font-black uppercase text-sm flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Generate Invite
-            </button>
-            {showInviteCode && (
-              <div className="mt-4 flex items-center gap-3 bg-secondary border-4 border-primary p-4">
-                <code className="text-primary font-mono text-lg flex-1 tracking-widest font-bold">{showInviteCode}</code>
-                <button
-                  onClick={() => copyCode(showInviteCode)}
-                  className="p-2 bg-primary text-secondary hover:bg-card hover:text-primary transition-all"
-                >
-                  {copiedCode ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Watch Status / Members */}
         <div className="p-6 mb-6">

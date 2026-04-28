@@ -156,6 +156,7 @@ func main() {
 			r.Delete("/groups/{groupId}/nominations/{nominationId}", h.DeleteNomination)
 
 			r.Post("/groups/{groupId}/invite", h.CreateInvite)
+			r.Get("/groups/{groupId}/invite", h.GetActiveInvite)
 			r.Get("/invites/{code}", h.GetInvite)
 			r.Post("/groups/join", h.JoinGroup)
 

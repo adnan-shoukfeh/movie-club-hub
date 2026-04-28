@@ -48,6 +48,43 @@ func (h *Handler) CreateInvite(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handler) GetActiveInvite(w http.ResponseWriter, r *http.Request) {
+	groupID, err := pathInt(r, "groupId")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid group ID")
+		return
+	}
+
+	userID := h.userID(r)
+	invite, err := h.groupSvc.GetActiveInvite(r.Context(), userID, groupID)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrForbidden):
+			writeError(w, http.StatusForbidden, "Insufficient permissions")
+		case errors.Is(err, service.ErrNotFound):
+			writeJSON(w, http.StatusOK, map[string]any{"code": nil})
+			return
+		default:
+			writeError(w, http.StatusInternalServerError, "Internal error")
+		}
+		return
+	}
+
+	var expiresAtStr *string
+	if invite.ExpiresAt != nil {
+		s := invite.ExpiresAt.Format("2006-01-02T15:04:05.000Z")
+		expiresAtStr = &s
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"id":        invite.ID,
+		"code":      invite.Code,
+		"groupId":   invite.GroupID,
+		"expiresAt": expiresAtStr,
+		"createdAt": invite.CreatedAt.Format("2006-01-02T15:04:05.000Z"),
+	})
+}
+
 func (h *Handler) GetInvite(w http.ResponseWriter, r *http.Request) {
 	code := sanitizeInviteCode(chi.URLParam(r, "code"))
 	if len(code) < 4 {

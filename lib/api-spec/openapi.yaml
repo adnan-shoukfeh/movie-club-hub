@@ -190,6 +190,23 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /groups/{groupId}/invite:
+    get:
+      operationId: getActiveInvite
+      tags: [invites]
+      summary: Get active invite code for group
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Active invite or null if none exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveInvite"
     post:
       operationId: createInvite
       tags: [invites]
@@ -1087,6 +1104,22 @@ components:
         - groupId
         - expiresAt
         - createdAt
+
+    ActiveInvite:
+      type: object
+      properties:
+        id:
+          type: integer
+        code:
+          type: ["string", "null"]
+        groupId:
+          type: integer
+        expiresAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - code
 
     InviteDetail:
       type: object

@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  ActiveInvite,
   AssignPickerBody,
   CreateGroupBody,
   CreateInviteBody,
@@ -803,6 +804,94 @@ export function useGetGroup<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetGroupQueryOptions(groupId, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get active invite code for group
+ */
+export const getGetActiveInviteUrl = (groupId: number) => {
+  return `/api/groups/${groupId}/invite`;
+};
+
+export const getActiveInvite = async (
+  groupId: number,
+  options?: RequestInit,
+): Promise<ActiveInvite> => {
+  return customFetch<ActiveInvite>(getGetActiveInviteUrl(groupId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetActiveInviteQueryKey = (groupId: number) => {
+  return [`/api/groups/${groupId}/invite`] as const;
+};
+
+export const getGetActiveInviteQueryOptions = <
+  TData = Awaited<ReturnType<typeof getActiveInvite>>,
+  TError = ErrorType<unknown>,
+>(
+  groupId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getActiveInvite>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetActiveInviteQueryKey(groupId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getActiveInvite>>> = ({
+    signal,
+  }) => getActiveInvite(groupId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!groupId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getActiveInvite>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetActiveInviteQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getActiveInvite>>
+>;
+export type GetActiveInviteQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get active invite code for group
+ */
+
+export function useGetActiveInvite<
+  TData = Awaited<ReturnType<typeof getActiveInvite>>,
+  TError = ErrorType<unknown>,
+>(
+  groupId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getActiveInvite>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetActiveInviteQueryOptions(groupId, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

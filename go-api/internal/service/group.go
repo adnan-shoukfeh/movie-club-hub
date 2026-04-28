@@ -182,6 +182,7 @@ func (s *GroupService) UpdateMemberRole(ctx context.Context, requesterID, groupI
 }
 
 // CreateInvite generates a new invite code for the group. Requires membership.
+// Deletes any existing invites for the group first (only one active at a time).
 func (s *GroupService) CreateInvite(ctx context.Context, userID, groupID int32) (db.Invite, error) {
 	_, err := s.queries.GetMembership(ctx, db.GetMembershipParams{
 		UserID:  userID,
@@ -191,6 +192,10 @@ func (s *GroupService) CreateInvite(ctx context.Context, userID, groupID int32) 
 		if errors.Is(err, pgx.ErrNoRows) {
 			return db.Invite{}, ErrForbidden
 		}
+		return db.Invite{}, err
+	}
+
+	if err := s.queries.DeleteInvitesByGroupID(ctx, groupID); err != nil {
 		return db.Invite{}, err
 	}
 
@@ -206,6 +211,33 @@ func (s *GroupService) CreateInvite(ctx context.Context, userID, groupID int32) 
 		CreatedByUserID: userID,
 		ExpiresAt:       nil,
 	})
+}
+
+// GetActiveInvite returns the current active invite for a group. Requires admin/owner.
+func (s *GroupService) GetActiveInvite(ctx context.Context, userID, groupID int32) (db.Invite, error) {
+	mem, err := s.queries.GetMembership(ctx, db.GetMembershipParams{
+		UserID:  userID,
+		GroupID: groupID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return db.Invite{}, ErrForbidden
+		}
+		return db.Invite{}, err
+	}
+
+	if mem.Role != "owner" && mem.Role != "admin" {
+		return db.Invite{}, ErrForbidden
+	}
+
+	invite, err := s.queries.GetActiveInviteByGroupID(ctx, groupID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return db.Invite{}, ErrNotFound
+		}
+		return db.Invite{}, err
+	}
+	return invite, nil
 }
 
 // sanitizeGroupName trims and limits group name to 100 characters.
