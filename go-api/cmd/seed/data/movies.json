@@ -1,65 +1,9 @@
 [
-  {
-    "id": 1, "group_id": 1, "title": "The Godfather",
-    "week_of": "2026-04-02", "set_by_user_id": 2, "nominator_user_id": null,
-    "imdb_id": "tt0068646",
-    "poster": "https://m.media-amazon.com/images/M/MV5BNGEwYjgwOGQtYjg5ZS00Njc1LTk2ZGEtM2QwZWQ2NjdhZTE5XkEyXkFqcGc@._V1_SX300.jpg",
-    "director": "Francis Ford Coppola", "genre": "Crime, Drama",
-    "runtime": "175 min", "year": "1972",
-    "created_at": "2026-04-02T12:00:00.000Z"
-  },
-  {
-    "id": 2, "group_id": 1, "title": "Mulholland Drive",
-    "week_of": "2026-04-09", "set_by_user_id": 3, "nominator_user_id": null,
-    "imdb_id": "tt0166924",
-    "poster": "https://m.media-amazon.com/images/M/MV5BNjliY2UwMjQtYjVlNi00NzExLTg1MDMtMjE2OTYwYjI0NTcxXkEyXkFqcGc@._V1_SX300.jpg",
-    "director": "David Lynch", "genre": "Drama, Mystery, Thriller",
-    "runtime": "147 min", "year": "2001",
-    "created_at": "2026-04-09T10:00:00.000Z"
-  },
-  {
-    "id": 3, "group_id": 1, "title": "Parasite",
-    "week_of": "2026-04-16", "set_by_user_id": 4, "nominator_user_id": null,
-    "imdb_id": "tt6751668",
-    "poster": "https://m.media-amazon.com/images/M/MV5BYjk1Y2U4MjQtY2ZiNS00OWQyLWI3MmYtZWUwNmRjYWRiNWNhXkEyXkFqcGc@._V1_SX300.jpg",
-    "director": "Bong Joon Ho", "genre": "Drama, Thriller",
-    "runtime": "132 min", "year": "2019",
-    "created_at": "2026-04-16T08:00:00.000Z"
-  },
-  {
-    "id": 4, "group_id": 2, "title": "Apocalypse Now",
-    "week_of": "2026-04-01", "set_by_user_id": 5, "nominator_user_id": null,
-    "imdb_id": "tt0078788",
-    "poster": "https://m.media-amazon.com/images/M/MV5BZDhiMTljYjYtODc1Yy00MmEwLTg2OTYtYmE1YTRmNDE4MmEwXkEyXkFqcGc@._V1_SX300.jpg",
-    "director": "Francis Ford Coppola", "genre": "Drama, War",
-    "runtime": "153 min", "year": "1979",
-    "created_at": "2026-04-01T12:00:00.000Z"
-  },
-  {
-    "id": 5, "group_id": 2, "title": "Blade Runner 2049",
-    "week_of": "2026-04-15", "set_by_user_id": 2, "nominator_user_id": null,
-    "imdb_id": "tt1856101",
-    "poster": "https://m.media-amazon.com/images/M/MV5BNzA1Njg4NzYxOV5BMl5BanBnXkFtZTgwODk5NjU3MzI@._V1_SX300.jpg",
-    "director": "Denis Villeneuve", "genre": "Action, Drama, Mystery",
-    "runtime": "164 min", "year": "2017",
-    "created_at": "2026-04-15T09:00:00.000Z"
-  },
-  {
-    "id": 6, "group_id": 3, "title": "2001: A Space Odyssey",
-    "week_of": "2026-04-06", "set_by_user_id": 3, "nominator_user_id": null,
-    "imdb_id": "tt0062622",
-    "poster": "https://m.media-amazon.com/images/M/MV5BNjU0NDFkMTQtZWY5OS00MmZhLTg3Y2QtZmJhMzMzMWYyYjc2XkEyXkFqcGc@._V1_SX300.jpg",
-    "director": "Stanley Kubrick", "genre": "Adventure, Sci-Fi",
-    "runtime": "149 min", "year": "1968",
-    "created_at": "2026-04-06T10:00:00.000Z"
-  },
-  {
-    "id": 7, "group_id": 3, "title": "Annihilation",
-    "week_of": "2026-04-13", "set_by_user_id": 4, "nominator_user_id": null,
-    "imdb_id": "tt2798920",
-    "poster": "https://m.media-amazon.com/images/M/MV5BMTk2Mjc2NzYxNl5BMl5BanBnXkFtZTgwMTA2OTA1NDM@._V1_SX300.jpg",
-    "director": "Alex Garland", "genre": "Adventure, Drama, Horror",
-    "runtime": "115 min", "year": "2018",
-    "created_at": "2026-04-13T10:00:00.000Z"
-  }
+  {"id": 1, "group_id": 1, "nominator_user_id": null, "film_id": 1, "turn_id": 1, "created_at": "2026-04-02T12:00:00.000Z"},
+  {"id": 2, "group_id": 1, "nominator_user_id": null, "film_id": 2, "turn_id": 2, "created_at": "2026-04-09T10:00:00.000Z"},
+  {"id": 3, "group_id": 1, "nominator_user_id": null, "film_id": 3, "turn_id": 3, "created_at": "2026-04-16T08:00:00.000Z"},
+  {"id": 4, "group_id": 2, "nominator_user_id": null, "film_id": 4, "turn_id": 5, "created_at": "2026-04-01T12:00:00.000Z"},
+  {"id": 5, "group_id": 2, "nominator_user_id": null, "film_id": 5, "turn_id": 6, "created_at": "2026-04-15T09:00:00.000Z"},
+  {"id": 6, "group_id": 3, "nominator_user_id": null, "film_id": 6, "turn_id": 8, "created_at": "2026-04-06T10:00:00.000Z"},
+  {"id": 7, "group_id": 3, "nominator_user_id": null, "film_id": 7, "turn_id": 9, "created_at": "2026-04-13T10:00:00.000Z"}
 ]

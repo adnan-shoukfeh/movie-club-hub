@@ -28,9 +28,17 @@ export function RecentVerdictsList({ results }: RecentVerdictsListProps) {
             className="group cursor-pointer text-left"
           >
             <div className="relative aspect-[2/3] overflow-hidden mb-2 border-4 border-secondary group-hover:border-primary transition-all bg-black">
-              <div className="w-full h-full flex items-center justify-center bg-card">
-                <Film className="w-12 h-12 text-secondary/30" />
-              </div>
+              {result.moviePoster ? (
+                <img
+                  src={result.moviePoster}
+                  alt={result.movie}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-card">
+                  <Film className="w-12 h-12 text-secondary/30" />
+                </div>
+              )}
               <div className="absolute top-2 right-2 bg-primary text-secondary px-2.5 py-1.5 flex items-center gap-1.5 border-2 border-secondary">
                 <Star className="w-3.5 h-3.5 fill-secondary text-secondary" />
                 <span className="font-black text-sm">{result.averageRating.toFixed(1)}</span>

@@ -31,8 +31,12 @@ function GroupCard({ group, onClick, isLarge }: GroupCardProps) {
 
         {group.currentMovie && (
           <div className="mt-auto flex items-center gap-4 pt-4 border-t-2 border-secondary">
-            <div className="w-16 h-24 bg-secondary border-4 border-primary flex items-center justify-center shrink-0">
-              <Film className="w-8 h-8 text-primary/50" />
+            <div className="w-16 h-24 bg-secondary border-4 border-primary flex items-center justify-center shrink-0 overflow-hidden">
+              {group.moviePoster ? (
+                <img src={group.moviePoster} alt={group.currentMovie} className="w-full h-full object-cover" />
+              ) : (
+                <Film className="w-8 h-8 text-primary/50" />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">

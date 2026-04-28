@@ -1176,6 +1176,9 @@ components:
           type: string
         movie:
           type: string
+        moviePoster:
+          type: string
+          nullable: true
         averageRating:
           type: number
         totalVotes:

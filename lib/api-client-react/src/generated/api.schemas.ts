@@ -285,6 +285,8 @@ export interface RecentResult {
   groupId: number;
   groupName: string;
   movie: string;
+  /** @nullable */
+  moviePoster?: string | null;
   averageRating: number;
   totalVotes: number;
   weekOf: string;

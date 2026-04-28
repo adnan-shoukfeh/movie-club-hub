@@ -1,6 +1,6 @@
 [
-  {"id":1,"group_id":1,"user_id":1,"imdb_id":"tt0157183","title":"West Beirut","year":"1998","poster":"https://m.media-amazon.com/images/M/MV5BNzE0NzdkMmUtNTJlOC00ZGEyLTg1MDctZjdhNDQ4MTc5YzkyXkEyXkFqcGdeQXVyMTMxMTY0OTQ@._V1_SX300.jpg","created_at":"2026-04-10T12:00:00.000Z"},
-  {"id":2,"group_id":1,"user_id":2,"imdb_id":"tt0079944","title":"Stalker","year":"1979","poster":"https://m.media-amazon.com/images/M/MV5BMDIzMDRiYjgtM2U1Yy00MjlhLTliODMtM2E5NDI5Njc3YmZkXkEyXkFqcGc@._V1_SX300.jpg","created_at":"2026-04-11T10:00:00.000Z"},
-  {"id":3,"group_id":1,"user_id":3,"imdb_id":"tt0118694","title":"In the Mood for Love","year":"2000","poster":"https://m.media-amazon.com/images/M/MV5BN2Q4NjllMDgtOTk2Zi00YzM1LWJmOTMtNmRiZDgyZGJmMjQzXkEyXkFqcGc@._V1_SX300.jpg","created_at":"2026-04-12T09:00:00.000Z"},
-  {"id":4,"group_id":2,"user_id":5,"imdb_id":"tt1560747","title":"The Master","year":"2012","poster":"https://m.media-amazon.com/images/M/MV5BMTQ2NjQ5MzMwMF5BMl5BanBnXkFtZTcwMjczNTAzOA@@._V1_SX300.jpg","created_at":"2026-04-15T11:00:00.000Z"}
+  {"id": 1, "group_id": 1, "user_id": 1, "film_id": 8,  "created_at": "2026-04-10T12:00:00.000Z"},
+  {"id": 2, "group_id": 1, "user_id": 2, "film_id": 9,  "created_at": "2026-04-11T10:00:00.000Z"},
+  {"id": 3, "group_id": 1, "user_id": 3, "film_id": 10, "created_at": "2026-04-12T09:00:00.000Z"},
+  {"id": 4, "group_id": 2, "user_id": 5, "film_id": 11, "created_at": "2026-04-15T11:00:00.000Z"}
 ]

@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { useGetVerdicts, useGetGroup, getGetResultsQueryKey } from "@workspace/api-client-react";
+import { useState, useEffect } from "react";
+import { useGetVerdicts, useGetGroup, getGetResultsQueryKey, getGetGroupQueryKey } from "@workspace/api-client-react";
 import { useLocation, useParams, useSearch } from "wouter";
 import { ArrowLeft, Star, Award, Users, Clock, ChevronLeft, ChevronRight, Film, User, TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VHSNoise } from "@/components/ui/vhs-noise";
+import { offsetWeekOf, getTurnIndexForDate } from "@/domains/turns/turnUtils";
 import {
   BarChart,
   Bar,
@@ -13,21 +14,6 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-
-function getCurrentWeekOf(): string {
-  const now = new Date();
-  const day = now.getUTCDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  const monday = new Date(now);
-  monday.setUTCDate(now.getUTCDate() + diffToMonday);
-  return monday.toISOString().slice(0, 10);
-}
-
-function offsetWeekOf(weekOf: string, offset: number): string {
-  const d = new Date(weekOf + "T00:00:00.000Z");
-  d.setUTCDate(d.getUTCDate() + offset * 7);
-  return d.toISOString().slice(0, 10);
-}
 
 function formatWeekLabel(weekOf: string): string {
   const d = new Date(weekOf + "T00:00:00.000Z");
@@ -40,23 +26,36 @@ export default function GroupResults() {
   const [, setLocation] = useLocation();
   const search = useSearch();
   const qp = new URLSearchParams(search);
-  const currentWeek = getCurrentWeekOf();
-  const initialWeek = qp.get("weekOf") ?? currentWeek;
+  const initialWeekParam = qp.get("weekOf");
 
-  const [selectedWeek, setSelectedWeek] = useState(initialWeek);
+  const [selectedWeek, setSelectedWeek] = useState(initialWeekParam ?? "");
+
+  const { data: group, isLoading: groupLoading } = useGetGroup(
+    groupId,
+    { weekOf: selectedWeek || undefined },
+    { query: { queryKey: [...getGetGroupQueryKey(groupId), selectedWeek], enabled: !!groupId } }
+  );
+
+  useEffect(() => {
+    if (group?.currentTurnWeekOf && selectedWeek === "") {
+      setSelectedWeek(initialWeekParam ?? group.currentTurnWeekOf);
+    }
+  }, [group?.currentTurnWeekOf, selectedWeek, initialWeekParam]);
 
   const { data: results, isLoading, error } = useGetVerdicts(
     groupId,
     { weekOf: selectedWeek },
-    { query: { queryKey: [...getGetResultsQueryKey(groupId), selectedWeek], enabled: !!groupId } }
+    { query: { queryKey: [...getGetResultsQueryKey(groupId), selectedWeek], enabled: !!groupId && !!selectedWeek } }
   );
 
-  const { data: group } = useGetGroup(groupId, {}, { query: { enabled: !!groupId } });
+  const turnConfig = group?.turnConfig;
+  const currentTurnIndex = turnConfig ? getTurnIndexForDate(group.currentTurnWeekOf, turnConfig) : 0;
+  const selectedTurnIndex = turnConfig && selectedWeek ? getTurnIndexForDate(selectedWeek, turnConfig) : 0;
 
   const movie = results?.movieData;
   const maxCount = results ? Math.max(...results.distribution.map((d) => d.count), 1) : 1;
 
-  if (isLoading) {
+  if (isLoading || groupLoading || !selectedWeek) {
     return (
       <div className="min-h-screen bg-background p-6 relative">
         <VHSNoise />
@@ -99,8 +98,9 @@ export default function GroupResults() {
         {/* Week navigation */}
         <div className="flex items-center justify-between mb-8">
           <button
-            onClick={() => setSelectedWeek(offsetWeekOf(selectedWeek, -1))}
-            className="p-3 bg-card border-4 border-secondary hover:border-primary transition-all"
+            onClick={() => turnConfig && setSelectedWeek(offsetWeekOf(selectedWeek, -1, turnConfig))}
+            disabled={!turnConfig || selectedTurnIndex <= 0}
+            className="p-3 bg-card border-4 border-secondary disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-all"
           >
             <ChevronLeft className="w-6 h-6 text-primary" />
           </button>
@@ -110,13 +110,14 @@ export default function GroupResults() {
               {formatWeekLabel(selectedWeek)}
             </p>
             <span className="inline-block px-4 py-1 bg-secondary text-primary text-xs font-black uppercase tracking-wider">
-              {selectedWeek === currentWeek ? "This Week" : "Past Week"}
+              Turn {selectedTurnIndex + 1}
+              {selectedTurnIndex === currentTurnIndex && " (Current)"}
             </span>
           </div>
 
           <button
-            onClick={() => setSelectedWeek(offsetWeekOf(selectedWeek, 1))}
-            disabled={selectedWeek >= currentWeek}
+            onClick={() => turnConfig && setSelectedWeek(offsetWeekOf(selectedWeek, 1, turnConfig))}
+            disabled={!turnConfig || selectedTurnIndex >= currentTurnIndex}
             className="p-3 bg-card border-4 border-secondary disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-all"
           >
             <ChevronRight className="w-6 h-6 text-primary" />

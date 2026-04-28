@@ -60,14 +60,12 @@ func main() {
 		{"users", seedUsers},
 		{"groups", seedGroups},
 		{"memberships", seedMemberships},
+		{"films", seedFilms},
+		{"turns", seedTurns},
 		{"movies", seedMovies},
 		{"nominations", seedNominations},
+		{"verdicts", seedVerdicts},
 		{"invites", seedInvites},
-		{"picker_assignments", seedPickerAssignments},
-		{"votes", seedVotes},
-		{"watch_status", seedWatchStatus},
-		{"turn_extensions", seedTurnExtensions},
-		{"turn_overrides", seedTurnOverrides},
 	}
 
 	for _, s := range steps {
@@ -113,19 +111,39 @@ type membershipRow struct {
 	JoinedAt time.Time `json:"joined_at"`
 }
 
+type filmRow struct {
+	ID             int64      `json:"id"`
+	ImdbID         string     `json:"imdb_id"`
+	Title          string     `json:"title"`
+	Year           *int32     `json:"year"`
+	PosterURL      *string    `json:"poster_url"`
+	Director       *string    `json:"director"`
+	Genre          *string    `json:"genre"`
+	RuntimeMinutes *int32     `json:"runtime_minutes"`
+	OmdbFetchedAt  time.Time  `json:"omdb_fetched_at"`
+	CreatedAt      time.Time  `json:"created_at"`
+}
+
+type turnRow struct {
+	ID              int64     `json:"id"`
+	GroupID         int32     `json:"group_id"`
+	TurnIndex       int32     `json:"turn_index"`
+	WeekOf          string    `json:"week_of"`   // "YYYY-MM-DD"
+	PickerUserID    int32     `json:"picker_user_id"`
+	StartDate       string    `json:"start_date"` // "YYYY-MM-DD"
+	EndDate         string    `json:"end_date"`   // "YYYY-MM-DD"
+	MovieUnlocked   bool      `json:"movie_unlocked"`
+	ReviewsUnlocked bool      `json:"reviews_unlocked"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
 type movieRow struct {
 	ID              int32     `json:"id"`
 	GroupID         int32     `json:"group_id"`
-	Title           string    `json:"title"`
-	WeekOf          string    `json:"week_of"`
-	SetByUserID     *int32    `json:"set_by_user_id"`
 	NominatorUserID *int32    `json:"nominator_user_id"`
-	ImdbID          *string   `json:"imdb_id"`
-	Poster          *string   `json:"poster"`
-	Director        *string   `json:"director"`
-	Genre           *string   `json:"genre"`
-	Runtime         *string   `json:"runtime"`
-	Year            *string   `json:"year"`
+	FilmID          int64     `json:"film_id"`
+	TurnID          int64     `json:"turn_id"`
 	CreatedAt       time.Time `json:"created_at"`
 }
 
@@ -133,11 +151,19 @@ type nominationRow struct {
 	ID        int32     `json:"id"`
 	GroupID   int32     `json:"group_id"`
 	UserID    int32     `json:"user_id"`
-	ImdbID    string    `json:"imdb_id"`
-	Title     string    `json:"title"`
-	Year      *string   `json:"year"`
-	Poster    *string   `json:"poster"`
+	FilmID    int64     `json:"film_id"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type verdictRow struct {
+	ID        int64      `json:"id"`
+	TurnID    int64      `json:"turn_id"`
+	UserID    int32      `json:"user_id"`
+	Watched   bool       `json:"watched"`
+	Rating    *float64   `json:"rating"`
+	Review    *string    `json:"review"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
 }
 
 type inviteRow struct {
@@ -147,52 +173,6 @@ type inviteRow struct {
 	CreatedByUserID int32      `json:"created_by_user_id"`
 	ExpiresAt       *time.Time `json:"expires_at"`
 	CreatedAt       time.Time  `json:"created_at"`
-}
-
-type pickerAssignmentRow struct {
-	ID        int32     `json:"id"`
-	GroupID   int32     `json:"group_id"`
-	UserID    int32     `json:"user_id"`
-	WeekOf    string    `json:"week_of"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-type voteRow struct {
-	ID        int32     `json:"id"`
-	UserID    int32     `json:"user_id"`
-	GroupID   int32     `json:"group_id"`
-	Rating    float32   `json:"rating"`
-	Review    *string   `json:"review"`
-	WeekOf    string    `json:"week_of"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-type watchStatusRow struct {
-	ID        int32     `json:"id"`
-	UserID    int32     `json:"user_id"`
-	GroupID   int32     `json:"group_id"`
-	WeekOf    string    `json:"week_of"`
-	Watched   bool      `json:"watched"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-type turnExtensionRow struct {
-	ID        int32     `json:"id"`
-	GroupID   int32     `json:"group_id"`
-	TurnIndex int32     `json:"turn_index"`
-	ExtraDays int32     `json:"extra_days"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-type turnOverrideRow struct {
-	ID                    int32     `json:"id"`
-	GroupID               int32     `json:"group_id"`
-	WeekOf                string    `json:"week_of"` // "YYYY-MM-DD"
-	ReviewUnlockedByAdmin bool      `json:"review_unlocked_by_admin"`
-	MovieUnlockedByAdmin  bool      `json:"movie_unlocked_by_admin"`
-	ExtendedDays          int32     `json:"extended_days"`
-	UpdatedAt             time.Time `json:"updated_at"`
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -265,6 +245,45 @@ func seedMemberships(ctx context.Context, pool *pgxpool.Pool) (int, error) {
 	return len(rows), nil
 }
 
+func seedFilms(ctx context.Context, pool *pgxpool.Pool) (int, error) {
+	rows, err := loadJSON[filmRow]("films")
+	if err != nil {
+		return 0, err
+	}
+	for _, r := range rows {
+		_, err := pool.Exec(ctx, `
+			INSERT INTO films (id, imdb_id, title, year, poster_url, director, genre, runtime_minutes, omdb_fetched_at, created_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			ON CONFLICT (id) DO NOTHING`,
+			r.ID, r.ImdbID, r.Title, r.Year, r.PosterURL, r.Director, r.Genre, r.RuntimeMinutes, r.OmdbFetchedAt, r.CreatedAt)
+		if err != nil {
+			return 0, fmt.Errorf("insert film %d: %w", r.ID, err)
+		}
+	}
+	return len(rows), nil
+}
+
+func seedTurns(ctx context.Context, pool *pgxpool.Pool) (int, error) {
+	rows, err := loadJSON[turnRow]("turns")
+	if err != nil {
+		return 0, err
+	}
+	for _, r := range rows {
+		_, err := pool.Exec(ctx, `
+			INSERT INTO turns (id, group_id, turn_index, week_of, picker_user_id, start_date, end_date,
+			                   movie_unlocked, reviews_unlocked, created_at, updated_at)
+			VALUES ($1, $2, $3, $4::date, $5, $6::date, $7::date, $8, $9, $10, $11)
+			ON CONFLICT (id) DO NOTHING`,
+			r.ID, r.GroupID, r.TurnIndex, r.WeekOf, r.PickerUserID,
+			r.StartDate, r.EndDate, r.MovieUnlocked, r.ReviewsUnlocked,
+			r.CreatedAt, r.UpdatedAt)
+		if err != nil {
+			return 0, fmt.Errorf("insert turn %d: %w", r.ID, err)
+		}
+	}
+	return len(rows), nil
+}
+
 func seedMovies(ctx context.Context, pool *pgxpool.Pool) (int, error) {
 	rows, err := loadJSON[movieRow]("movies")
 	if err != nil {
@@ -272,12 +291,10 @@ func seedMovies(ctx context.Context, pool *pgxpool.Pool) (int, error) {
 	}
 	for _, r := range rows {
 		_, err := pool.Exec(ctx, `
-			INSERT INTO movies (id, group_id, title, week_of, set_by_user_id, nominator_user_id,
-			                    imdb_id, poster, director, genre, runtime, year, created_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+			INSERT INTO movies (id, group_id, nominator_user_id, film_id, turn_id, created_at)
+			VALUES ($1, $2, $3, $4, $5, $6)
 			ON CONFLICT (id) DO NOTHING`,
-			r.ID, r.GroupID, r.Title, r.WeekOf, r.SetByUserID, r.NominatorUserID,
-			r.ImdbID, r.Poster, r.Director, r.Genre, r.Runtime, r.Year, r.CreatedAt)
+			r.ID, r.GroupID, r.NominatorUserID, r.FilmID, r.TurnID, r.CreatedAt)
 		if err != nil {
 			return 0, fmt.Errorf("insert movie %d: %w", r.ID, err)
 		}
@@ -292,12 +309,30 @@ func seedNominations(ctx context.Context, pool *pgxpool.Pool) (int, error) {
 	}
 	for _, r := range rows {
 		_, err := pool.Exec(ctx, `
-			INSERT INTO nominations (id, group_id, user_id, imdb_id, title, year, poster, created_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			INSERT INTO nominations (id, group_id, user_id, film_id, created_at)
+			VALUES ($1, $2, $3, $4, $5)
 			ON CONFLICT (id) DO NOTHING`,
-			r.ID, r.GroupID, r.UserID, r.ImdbID, r.Title, r.Year, r.Poster, r.CreatedAt)
+			r.ID, r.GroupID, r.UserID, r.FilmID, r.CreatedAt)
 		if err != nil {
 			return 0, fmt.Errorf("insert nomination %d: %w", r.ID, err)
+		}
+	}
+	return len(rows), nil
+}
+
+func seedVerdicts(ctx context.Context, pool *pgxpool.Pool) (int, error) {
+	rows, err := loadJSON[verdictRow]("verdicts")
+	if err != nil {
+		return 0, err
+	}
+	for _, r := range rows {
+		_, err := pool.Exec(ctx, `
+			INSERT INTO verdicts (id, turn_id, user_id, watched, rating, review, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT (id) DO NOTHING`,
+			r.ID, r.TurnID, r.UserID, r.Watched, r.Rating, r.Review, r.CreatedAt, r.UpdatedAt)
+		if err != nil {
+			return 0, fmt.Errorf("insert verdict %d: %w", r.ID, err)
 		}
 	}
 	return len(rows), nil
@@ -321,109 +356,15 @@ func seedInvites(ctx context.Context, pool *pgxpool.Pool) (int, error) {
 	return len(rows), nil
 }
 
-func seedPickerAssignments(ctx context.Context, pool *pgxpool.Pool) (int, error) {
-	rows, err := loadJSON[pickerAssignmentRow]("picker_assignments")
-	if err != nil {
-		return 0, err
-	}
-	for _, r := range rows {
-		_, err := pool.Exec(ctx, `
-			INSERT INTO picker_assignments (id, group_id, user_id, week_of, created_at)
-			VALUES ($1, $2, $3, $4, $5)
-			ON CONFLICT (id) DO NOTHING`,
-			r.ID, r.GroupID, r.UserID, r.WeekOf, r.CreatedAt)
-		if err != nil {
-			return 0, fmt.Errorf("insert picker_assignment %d: %w", r.ID, err)
-		}
-	}
-	return len(rows), nil
-}
-
-func seedVotes(ctx context.Context, pool *pgxpool.Pool) (int, error) {
-	rows, err := loadJSON[voteRow]("votes")
-	if err != nil {
-		return 0, err
-	}
-	for _, r := range rows {
-		_, err := pool.Exec(ctx, `
-			INSERT INTO votes (id, user_id, group_id, rating, review, week_of, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-			ON CONFLICT (id) DO NOTHING`,
-			r.ID, r.UserID, r.GroupID, r.Rating, r.Review, r.WeekOf, r.CreatedAt, r.UpdatedAt)
-		if err != nil {
-			return 0, fmt.Errorf("insert vote %d: %w", r.ID, err)
-		}
-	}
-	return len(rows), nil
-}
-
-func seedWatchStatus(ctx context.Context, pool *pgxpool.Pool) (int, error) {
-	rows, err := loadJSON[watchStatusRow]("watch_status")
-	if err != nil {
-		return 0, err
-	}
-	for _, r := range rows {
-		_, err := pool.Exec(ctx, `
-			INSERT INTO watch_status (id, user_id, group_id, week_of, watched, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6)
-			ON CONFLICT (id) DO NOTHING`,
-			r.ID, r.UserID, r.GroupID, r.WeekOf, r.Watched, r.UpdatedAt)
-		if err != nil {
-			return 0, fmt.Errorf("insert watch_status %d: %w", r.ID, err)
-		}
-	}
-	return len(rows), nil
-}
-
-func seedTurnExtensions(ctx context.Context, pool *pgxpool.Pool) (int, error) {
-	rows, err := loadJSON[turnExtensionRow]("turn_extensions")
-	if err != nil {
-		return 0, err
-	}
-	for _, r := range rows {
-		_, err := pool.Exec(ctx, `
-			INSERT INTO turn_extensions (id, group_id, turn_index, extra_days, created_at)
-			VALUES ($1, $2, $3, $4, $5)
-			ON CONFLICT (id) DO NOTHING`,
-			r.ID, r.GroupID, r.TurnIndex, r.ExtraDays, r.CreatedAt)
-		if err != nil {
-			return 0, fmt.Errorf("insert turn_extension %d: %w", r.ID, err)
-		}
-	}
-	return len(rows), nil
-}
-
-func seedTurnOverrides(ctx context.Context, pool *pgxpool.Pool) (int, error) {
-	rows, err := loadJSON[turnOverrideRow]("turn_overrides")
-	if err != nil {
-		return 0, err
-	}
-	for _, r := range rows {
-		_, err := pool.Exec(ctx, `
-			INSERT INTO turn_overrides (id, group_id, week_of, review_unlocked_by_admin,
-			                           movie_unlocked_by_admin, extended_days, updated_at)
-			VALUES ($1, $2, $3::date, $4, $5, $6, $7)
-			ON CONFLICT (id) DO NOTHING`,
-			r.ID, r.GroupID, r.WeekOf, r.ReviewUnlockedByAdmin,
-			r.MovieUnlockedByAdmin, r.ExtendedDays, r.UpdatedAt)
-		if err != nil {
-			return 0, fmt.Errorf("insert turn_override %d: %w", r.ID, err)
-		}
-	}
-	return len(rows), nil
-}
-
 func truncateAll(ctx context.Context, pool *pgxpool.Pool) error {
 	_, err := pool.Exec(ctx, `
 		TRUNCATE TABLE
-			turn_overrides,
-			turn_extensions,
-			watch_status,
-			votes,
-			picker_assignments,
-			invites,
-			nominations,
+			verdicts,
 			movies,
+			nominations,
+			films,
+			turns,
+			invites,
 			memberships,
 			groups,
 			users
@@ -434,17 +375,15 @@ func truncateAll(ctx context.Context, pool *pgxpool.Pool) error {
 
 func resetSequences(ctx context.Context, pool *pgxpool.Pool) error {
 	seqs := []string{
-		`SELECT setval('users_id_seq',              COALESCE((SELECT MAX(id) FROM users), 1))`,
-		`SELECT setval('groups_id_seq',             COALESCE((SELECT MAX(id) FROM groups), 1))`,
-		`SELECT setval('memberships_id_seq',        COALESCE((SELECT MAX(id) FROM memberships), 1))`,
-		`SELECT setval('movies_id_seq',             COALESCE((SELECT MAX(id) FROM movies), 1))`,
-		`SELECT setval('nominations_id_seq',        COALESCE((SELECT MAX(id) FROM nominations), 1))`,
-		`SELECT setval('invites_id_seq',            COALESCE((SELECT MAX(id) FROM invites), 1))`,
-		`SELECT setval('picker_assignments_id_seq', COALESCE((SELECT MAX(id) FROM picker_assignments), 1))`,
-		`SELECT setval('votes_id_seq',              COALESCE((SELECT MAX(id) FROM votes), 1))`,
-		`SELECT setval('watch_status_id_seq',       COALESCE((SELECT MAX(id) FROM watch_status), 1))`,
-		`SELECT setval('turn_extensions_id_seq',    COALESCE((SELECT MAX(id) FROM turn_extensions), 1))`,
-		`SELECT setval('turn_overrides_id_seq',     COALESCE((SELECT MAX(id) FROM turn_overrides), 1))`,
+		`SELECT setval('users_id_seq',        COALESCE((SELECT MAX(id) FROM users), 1))`,
+		`SELECT setval('groups_id_seq',        COALESCE((SELECT MAX(id) FROM groups), 1))`,
+		`SELECT setval('memberships_id_seq',   COALESCE((SELECT MAX(id) FROM memberships), 1))`,
+		`SELECT setval('films_id_seq',         COALESCE((SELECT MAX(id) FROM films), 1))`,
+		`SELECT setval('turns_id_seq',         COALESCE((SELECT MAX(id) FROM turns), 1))`,
+		`SELECT setval('movies_id_seq',        COALESCE((SELECT MAX(id) FROM movies), 1))`,
+		`SELECT setval('nominations_id_seq',   COALESCE((SELECT MAX(id) FROM nominations), 1))`,
+		`SELECT setval('verdicts_id_seq',      COALESCE((SELECT MAX(id) FROM verdicts), 1))`,
+		`SELECT setval('invites_id_seq',       COALESCE((SELECT MAX(id) FROM invites), 1))`,
 	}
 	for _, q := range seqs {
 		if _, err := pool.Exec(ctx, q); err != nil {

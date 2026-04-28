@@ -100,6 +100,7 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		GroupID       int32   `json:"groupId"`
 		GroupName     string  `json:"groupName"`
 		Movie         string  `json:"movie"`
+		MoviePoster   *string `json:"moviePoster"`
 		AverageRating float32 `json:"averageRating"`
 		TotalVotes    int32   `json:"totalVotes"`
 		WeekOf        string  `json:"weekOf"`
@@ -114,7 +115,8 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		rowWeekOf := pgDateToString(row.WeekOf)
 		recentResults = append(recentResults, recentResult{
 			GroupID: row.GroupID, GroupName: row.GroupName,
-			Movie: row.Movie, AverageRating: row.AverageRating,
+			Movie: row.Movie, MoviePoster: row.MoviePoster,
+			AverageRating: row.AverageRating,
 			TotalVotes: row.TotalVotes, WeekOf: rowWeekOf,
 		})
 		if len(recentResults) == 5 {

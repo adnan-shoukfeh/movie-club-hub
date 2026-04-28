@@ -15,13 +15,12 @@ The FE-Design uses a mock data structure with additional fields that the current
 **Current API (`GroupSummary`):**
 ```typescript
 {
-  currentMovie: string; // Just the title, e.g. "Moonlight"
+  currentMovie: string;
+  moviePoster?: string | null;
 }
 ```
 
-**What's needed:** Add `currentMoviePoster?: string` to `GroupSummary`
-
-**Workaround applied:** Showing a Film icon placeholder instead of poster
+**Status:** ✅ RESOLVED - GroupSummary already includes `moviePoster`. Frontend updated to display posters when available.
 
 ---
 
@@ -32,16 +31,14 @@ The FE-Design uses a mock data structure with additional fields that the current
 **Current API (`RecentResult`):**
 ```typescript
 {
-  movie: string;        // Title only
+  movie: string;
+  moviePoster?: string | null;
   averageRating: number;
   groupName: string;
-  // No poster URL
 }
 ```
 
-**What's needed:** Add `moviePoster?: string` to `RecentResult`
-
-**Workaround applied:** Showing Film icon placeholder with rating badge
+**Status:** ✅ RESOLVED - Added `moviePoster` to SQL query, Go handler, OpenAPI spec, and TypeScript types. Frontend displays actual poster when available.
 
 ---
 
@@ -102,20 +99,22 @@ The FE-Design uses a mock data structure with additional fields that the current
 
 ## Priority Order
 
-1. **High:** Movie posters in dashboard/recently watched (most visual impact)
-2. **Medium:** User avatars (enhances social feel)
-3. **Low:** Club descriptions (nice to have)
+1. ~~**High:** Movie posters in dashboard/recently watched (most visual impact)~~ ✅ DONE
+2. **Medium:** User avatars (enhances social feel) - Using colored icon placeholders
+3. **Low:** Club descriptions (nice to have) - Using role as fallback
 
 ---
 
 ## Implementation Notes
 
-To add poster URLs to `GroupSummary` and `RecentResult`:
-- Requires API changes in `go-api/`
-- Include poster URL when fetching dashboard data
-- Consider caching poster URLs to avoid extra OMDB/TMDB calls
+Poster URLs are now included in both `GroupSummary` and `RecentResult`. Changes made:
+- `go-api/internal/db/queries/movies.sql`: Added `f.poster_url AS movie_poster` to `GetRecentMoviesWithResults`
+- `go-api/internal/handler/dashboard.go`: Added `MoviePoster` field to `recentResult` struct
+- `lib/api-spec/openapi.yaml`: Added `moviePoster` field to `RecentResult` schema
+- `lib/api-client-react/src/generated/api.schemas.ts`: Added `moviePoster` to `RecentResult` interface
+- Frontend components: Updated to display posters with Film icon fallback
 
-To add avatars:
+To add avatars later:
 - Could use gravatar based on email hash
 - Or allow user-uploaded avatars (more complex)
 - Or generate identicons from username
