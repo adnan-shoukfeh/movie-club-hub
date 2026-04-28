@@ -43,7 +43,7 @@ export function CurrentTurnMovie({
     <div className="border-8 border-primary bg-card mb-8 overflow-hidden">
       <div className="md:flex">
         {/* Movie Poster */}
-        <div className="md:w-2/5 p-8 flex items-center justify-center bg-black">
+        <div className="md:w-2/5 p-4 sm:p-8 flex items-center justify-center bg-black">
           {movie?.poster ? (
             movie.imdbId ? (
               <a
@@ -72,10 +72,10 @@ export function CurrentTurnMovie({
         </div>
 
         {/* Movie Info */}
-        <div className="p-8 md:w-3/5 flex flex-col justify-center bg-card">
+        <div className="p-4 sm:p-8 md:w-3/5 flex flex-col justify-center bg-card">
           {movie ? (
             <>
-              <h2 className="text-4xl font-black text-primary mb-4 uppercase tracking-tight">
+              <h2 className="text-2xl sm:text-4xl font-black text-primary mb-4 uppercase tracking-tight">
                 {movie.title}
               </h2>
               <div className="flex flex-wrap gap-3 text-sm text-white mb-6">
@@ -157,18 +157,18 @@ export function CurrentTurnMovie({
 
           {/* Status bar */}
           {status && isCurrentWeek && movie && (
-            <div className="flex items-center justify-between mt-6 pt-4 border-t-4 border-secondary">
-              <div>
+            <div className="flex flex-wrap items-center gap-3 mt-6 pt-4 border-t-4 border-secondary">
+              <div className="flex-shrink-0">
                 {status.votingOpen ? (
-                  <span className="px-4 py-2 bg-primary text-secondary text-sm font-black uppercase">
+                  <span className="px-3 py-1.5 sm:px-4 sm:py-2 bg-primary text-secondary text-xs sm:text-sm font-black uppercase">
                     Rating Open
                   </span>
                 ) : status.resultsAvailable ? (
-                  <span className="px-4 py-2 bg-secondary border-2 border-primary text-primary text-sm font-black uppercase">
+                  <span className="px-3 py-1.5 sm:px-4 sm:py-2 bg-secondary border-2 border-primary text-primary text-xs sm:text-sm font-black uppercase">
                     Results Ready
                   </span>
                 ) : (
-                  <span className="px-4 py-2 bg-secondary border-2 border-white/30 text-white/60 text-sm font-black uppercase">
+                  <span className="px-3 py-1.5 sm:px-4 sm:py-2 bg-secondary border-2 border-white/30 text-white/60 text-xs sm:text-sm font-black uppercase">
                     Waiting
                   </span>
                 )}
@@ -177,7 +177,7 @@ export function CurrentTurnMovie({
               {canEditMovie && movie && (
                 <button
                   onClick={onEditMovie}
-                  className="px-4 py-2 bg-secondary border-2 border-white/30 hover:border-primary text-white hover:text-primary transition-all font-bold uppercase text-sm flex items-center gap-2"
+                  className="ml-auto px-3 py-1.5 sm:px-4 sm:py-2 bg-secondary border-2 border-white/30 hover:border-primary text-white hover:text-primary transition-all font-bold uppercase text-xs sm:text-sm flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" />
                   Change

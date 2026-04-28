@@ -208,53 +208,54 @@ export default function GroupDetail() {
       <div className="flex-1 flex flex-col">
         <header className="border-b-4 border-primary sticky top-0 z-20 bg-secondary">
           <div className="px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1 mr-2">
               <button
                 onClick={() => setLocation("/dashboard")}
-                className="text-white hover:text-primary transition-colors"
+                className="text-white hover:text-primary transition-colors flex-shrink-0"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <div>
-                <h1 className="font-black text-primary uppercase">{group.name}</h1>
-                <p className="text-sm text-white/80 capitalize">{group.myRole}</p>
+              <div className="min-w-0">
+                <h1 className="font-black text-primary uppercase truncate text-sm sm:text-2xl">{group.name}</h1>
+                <p className="text-xs sm:text-sm text-white/80 capitalize">{group.myRole}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
               <button
                 onClick={() => setPickerScheduleOpen(true)}
-                className={`p-2.5 border-2 transition-all ${
+                className={`p-2 sm:p-2.5 border-2 transition-all ${
                   pickerScheduleOpen
                     ? "bg-primary text-secondary border-primary"
                     : "bg-secondary text-white border-white/30 hover:border-primary"
                 }`}
               >
-                <Calendar className="w-5 h-5" />
+                <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               <button
                 onClick={() => setNominationsOpen(true)}
-                className={`p-2.5 border-2 transition-all ${
+                className={`p-2 sm:p-2.5 border-2 transition-all ${
                   nominationsOpen
                     ? "bg-primary text-secondary border-primary"
                     : "bg-secondary text-white border-white/30 hover:border-primary"
                 }`}
               >
-                <Lightbulb className="w-5 h-5" />
+                <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               {isAdminOrOwner && (
                 <button
                   onClick={() => setLocation(`/groups/${groupId}/admin`)}
-                  className="p-2.5 border-2 border-white/30 hover:border-primary bg-secondary text-white hover:text-primary transition-all"
+                  className="p-2 sm:p-2.5 border-2 border-white/30 hover:border-primary bg-secondary text-white hover:text-primary transition-all"
                 >
-                  <Settings className="w-5 h-5" />
+                  <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               )}
               {canEditMovie && (
                 <button
                   onClick={() => setShowMovieInput(true)}
-                  className="px-4 py-2 bg-primary text-secondary border-2 border-secondary hover:bg-secondary hover:text-primary hover:border-primary transition-all font-black uppercase text-sm"
+                  className="p-2 sm:px-4 sm:py-2 bg-primary text-secondary border-2 border-secondary hover:bg-secondary hover:text-primary hover:border-primary transition-all font-black uppercase text-sm"
                 >
-                  Select Movie
+                  <Clapperboard className="w-4 h-4 sm:hidden" />
+                  <span className="hidden sm:inline">Select Movie</span>
                 </button>
               )}
             </div>

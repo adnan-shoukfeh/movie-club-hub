@@ -9,6 +9,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { WheelPicker, INT_ITEMS, DEC_ITEMS } from "@/components/ui/wheel-picker";
 import type { GroupDetail, GroupStatus } from "@workspace/api-client-react";
 
 interface VerdictFormProps {
@@ -22,12 +23,19 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [rating, setRating] = useState(0);
-  const [hoverRating, setHoverRating] = useState(0);
+  const [intIdx, setIntIdx] = useState(6);
+  const [decIdx, setDecIdx] = useState(0);
   const [reviewText, setReviewText] = useState("");
   const [editingVote, setEditingVote] = useState(false);
   const [showVoteSuccess, setShowVoteSuccess] = useState(false);
   const [pendingVote, setPendingVote] = useState<{ rating: number; review?: string } | null>(null);
+
+  const intValue = intIdx + 1;
+  const effectiveRating = intValue === 10 ? 10 : intValue + decIdx / 10;
+
+  useEffect(() => {
+    if (intIdx === 9) setDecIdx(0);
+  }, [intIdx]);
 
   useEffect(() => {
     if (pendingVote && status.hasVoted) {
@@ -60,7 +68,8 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
     },
     onSuccess: () => {
       setEditingVote(false);
-      setRating(0);
+      setIntIdx(6);
+      setDecIdx(0);
       setReviewText("");
       invalidate();
     },
@@ -71,20 +80,22 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
 
   const handleStartEdit = () => {
     if (status.myVote !== null && status.myVote !== undefined) {
-      setRating(Math.round(status.myVote / 2));
+      const vote = status.myVote;
+      setIntIdx(Math.floor(vote) - 1);
+      setDecIdx(Math.round((vote - Math.floor(vote)) * 10));
     } else {
-      setRating(0);
+      setIntIdx(6);
+      setDecIdx(0);
     }
     setReviewText(status.myReview ?? "");
     setEditingVote(true);
   };
 
   const handleVote = () => {
-    const ratingValue = rating * 2;
     const submittedReview = reviewText.trim() || undefined;
-    setPendingVote({ rating: ratingValue, review: submittedReview });
+    setPendingVote({ rating: effectiveRating, review: submittedReview });
     submitVote.mutate(
-      { groupId, data: { rating: ratingValue, review: submittedReview, weekOf: selectedWeek } },
+      { groupId, data: { rating: effectiveRating, review: submittedReview, weekOf: selectedWeek } },
       {
         onSuccess: () => {
           setEditingVote(false);
@@ -131,7 +142,7 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
   const displayReview = status.myReview ?? pendingVote?.review;
 
   return (
-    <div className="border-4 border-secondary bg-card p-6">
+    <div className="border-4 border-secondary bg-card p-4 sm:p-6">
       <div className="flex items-center justify-between mb-6">
         <h3 className="font-black text-primary text-2xl uppercase tracking-tight">
           {hasVotedOrPending && !editingVote ? "Your Rating" : "Rate & Review"}
@@ -187,12 +198,12 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
       {isWatchedOrPending && (
         hasVotedOrPending && !editingVote ? (
           <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+              <div className="flex items-center gap-1 sm:gap-2">
                 {[1, 2, 3, 4, 5].map((value) => (
                   <Star
                     key={value}
-                    className={`w-8 h-8 ${
+                    className={`w-6 h-6 sm:w-8 sm:h-8 ${
                       value <= Math.round((displayRating ?? 0) / 2)
                         ? "fill-primary text-primary"
                         : "text-secondary"
@@ -200,8 +211,8 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
                   />
                 ))}
               </div>
-              <div className="px-4 py-2 bg-primary border-4 border-secondary">
-                <span className="text-2xl font-black text-secondary">
+              <div className="px-3 py-1.5 sm:px-4 sm:py-2 bg-primary border-4 border-secondary">
+                <span className="text-xl sm:text-2xl font-black text-secondary">
                   {displayRating?.toFixed(1)}
                 </span>
               </div>
@@ -214,36 +225,53 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Star rating */}
+            {/* Wheel picker rating */}
             <div>
-              <label className="block text-sm font-black text-white mb-3 uppercase tracking-widest">
+              <label className="block text-sm font-black text-white mb-4 uppercase tracking-widest">
                 Your Rating
               </label>
-              <div className="flex gap-2 items-center">
-                {[1, 2, 3, 4, 5].map((value) => (
-                  <button
-                    key={value}
-                    onMouseEnter={() => setHoverRating(value)}
-                    onMouseLeave={() => setHoverRating(0)}
-                    onClick={() => setRating(value)}
-                    className="p-1 hover:scale-110 transition-transform"
-                  >
-                    <Star
-                      className={`w-10 h-10 transition-colors ${
-                        value <= (hoverRating || rating)
-                          ? "fill-primary text-primary"
-                          : "text-secondary"
-                      }`}
+
+              <div className="flex flex-col items-center gap-4">
+                {/* Wheel pickers */}
+                <div className="flex items-center justify-center gap-1">
+                  <div className="bg-card border-4 border-secondary overflow-hidden">
+                    <WheelPicker
+                      items={INT_ITEMS}
+                      selectedIndex={intIdx}
+                      onIndexChange={setIntIdx}
                     />
-                  </button>
-                ))}
-                {rating > 0 && (
-                  <div className="ml-3 px-4 py-2 bg-primary border-4 border-secondary">
-                    <span className="text-2xl font-black text-secondary">
-                      {(rating * 2).toFixed(1)}
+                  </div>
+                  <span className="text-3xl font-black text-primary pb-1 w-6 text-center">.</span>
+                  <div className="bg-card border-4 border-secondary overflow-hidden">
+                    <WheelPicker
+                      items={DEC_ITEMS}
+                      selectedIndex={decIdx}
+                      onIndexChange={setDecIdx}
+                      disabled={intIdx === 9}
+                    />
+                  </div>
+                </div>
+
+                {/* Rating display with stars */}
+                <div className="flex items-center gap-4">
+                  <div className="px-4 py-2 bg-primary border-4 border-secondary">
+                    <span className="text-2xl sm:text-3xl font-black text-secondary">
+                      {effectiveRating.toFixed(1)}
                     </span>
                   </div>
-                )}
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <Star
+                        key={value}
+                        className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                          value <= Math.round(effectiveRating / 2)
+                            ? "fill-primary text-primary"
+                            : "text-secondary"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -261,27 +289,27 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
               />
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <button
                 onClick={handleVote}
-                disabled={rating === 0 || submitVote.isPending}
-                className="flex-1 px-6 py-3 bg-primary text-secondary border-4 border-secondary hover:bg-secondary hover:text-primary hover:border-primary disabled:bg-secondary disabled:text-white/30 disabled:cursor-not-allowed disabled:border-secondary transition-all font-black uppercase flex items-center justify-center gap-2"
+                disabled={submitVote.isPending}
+                className="flex-1 min-w-[200px] px-4 sm:px-6 py-3 bg-primary text-secondary border-4 border-secondary hover:bg-secondary hover:text-primary hover:border-primary disabled:bg-secondary disabled:text-white/30 disabled:cursor-not-allowed disabled:border-secondary transition-all font-black uppercase flex items-center justify-center gap-2 text-sm sm:text-base"
               >
-                <Send className="w-5 h-5" />
+                <Send className="w-4 h-4 sm:w-5 sm:h-5" />
                 {submitVote.isPending ? "Saving..." : editingVote ? "Update Rating" : "Submit Rating"}
               </button>
               {editingVote && (
                 <>
                   <button
                     onClick={() => setEditingVote(false)}
-                    className="px-6 py-3 bg-secondary text-white border-4 border-white/30 hover:border-primary hover:text-primary transition-all font-black uppercase"
+                    className="px-4 sm:px-6 py-3 bg-secondary text-white border-4 border-white/30 hover:border-primary hover:text-primary transition-all font-black uppercase text-sm sm:text-base"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => clearVoteMutation.mutate()}
                     disabled={clearVoteMutation.isPending}
-                    className="px-6 py-3 bg-destructive text-white border-4 border-destructive hover:bg-secondary hover:border-destructive transition-all font-black uppercase flex items-center gap-2"
+                    className="px-4 sm:px-6 py-3 bg-destructive text-white border-4 border-destructive hover:bg-secondary hover:border-destructive transition-all font-black uppercase flex items-center gap-2 text-sm sm:text-base"
                   >
                     <Trash2 className="w-4 h-4" />
                     Clear
