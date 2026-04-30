@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { ReactionBar } from "@/domains/reactions";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StarRating } from "@/components/ui/star-rating";
 import {
   BarChart,
   Bar,
@@ -27,35 +28,6 @@ interface TurnResultsInlineProps {
   groupId: number;
   selectedWeek: string;
   members: Member[];
-}
-
-function convertTo5StarRating(rating10: number): number {
-  const raw = rating10 / 2;
-  return Math.round(raw * 4) / 4;
-}
-
-function FiveStarDisplay({ rating }: { rating: number }) {
-  const displayRating = convertTo5StarRating(rating);
-
-  return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => {
-        const fillPercent = Math.min(Math.max(displayRating - (star - 1), 0), 1) * 100;
-
-        return (
-          <div key={star} className="relative w-4 h-4">
-            <Star className="w-4 h-4 text-white/20 absolute" />
-            <div
-              className="absolute overflow-hidden"
-              style={{ width: `${fillPercent}%` }}
-            >
-              <Star className="w-4 h-4 fill-primary text-primary" />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 export function TurnResultsInline({ groupId, selectedWeek, members }: TurnResultsInlineProps) {
@@ -227,7 +199,7 @@ export function TurnResultsInline({ groupId, selectedWeek, members }: TurnResult
                   <div className="flex-1">
                     <p className="font-black text-white mb-2 text-lg">{vote.username}</p>
                     <div className="flex items-center gap-2 mb-2">
-                      <FiveStarDisplay rating={vote.rating} />
+                      <StarRating rating={vote.rating} size="sm" />
                       <span className="px-3 py-1 bg-primary border-2 border-card font-black text-secondary text-sm">
                         {vote.rating.toFixed(1)}
                       </span>
