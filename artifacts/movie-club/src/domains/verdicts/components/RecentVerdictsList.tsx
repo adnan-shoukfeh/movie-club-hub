@@ -24,7 +24,7 @@ export function RecentVerdictsList({ results }: RecentVerdictsListProps) {
         {results.map((result, i) => (
           <button
             key={i}
-            onClick={() => setLocation(`/groups/${result.groupId}/results?weekOf=${result.weekOf}`)}
+            onClick={() => setLocation(`/groups/${result.groupId}?weekOf=${result.weekOf}`)}
             className="group cursor-pointer text-left"
           >
             <div className="relative aspect-[2/3] overflow-hidden mb-2 border-4 border-secondary group-hover:border-primary transition-all bg-black">
