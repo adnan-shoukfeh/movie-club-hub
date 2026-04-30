@@ -16,6 +16,7 @@ import (
 
 // Verdict is the unified domain type combining vote and watch status.
 type Verdict struct {
+	ID        int64
 	UserID    int32
 	GroupID   int32
 	WeekOf    string
@@ -294,6 +295,7 @@ func (s *VerdictService) GetVerdicts(ctx context.Context, userID, groupID int32,
 		}
 
 		verdicts = append(verdicts, Verdict{
+			ID:        v.ID,
 			UserID:    v.UserID,
 			GroupID:   groupID,
 			WeekOf:    weekOf,

@@ -1,12 +1,16 @@
-import { Film, LogOut, Settings } from "lucide-react";
+import { Film, LogOut, Settings, Shield } from "lucide-react";
+
+const SUPER_ADMIN_USERNAME = "dingle_documentary";
 
 interface DashboardHeaderProps {
   username?: string;
   onProfile: () => void;
   onLogout: () => void;
+  onSuperAdmin?: () => void;
 }
 
-export function DashboardHeader({ username, onProfile, onLogout }: DashboardHeaderProps) {
+export function DashboardHeader({ username, onProfile, onLogout, onSuperAdmin }: DashboardHeaderProps) {
+  const isSuperAdmin = username === SUPER_ADMIN_USERNAME;
   return (
     <header className="border-b-4 border-primary sticky top-0 z-10 bg-secondary">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -25,6 +29,15 @@ export function DashboardHeader({ username, onProfile, onLogout }: DashboardHead
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {isSuperAdmin && onSuperAdmin && (
+              <button
+                onClick={onSuperAdmin}
+                className="p-2.5 border-2 border-primary bg-secondary text-primary hover:bg-primary hover:text-secondary transition-all"
+                title="Global Admin"
+              >
+                <Shield className="w-5 h-5" />
+              </button>
+            )}
             <button
               onClick={onProfile}
               className="p-2.5 border-2 border-white/30 hover:border-primary bg-secondary text-white hover:text-primary transition-all"

@@ -346,6 +346,100 @@ export interface TurnExtensionResult {
   extraDays: number;
 }
 
+export interface Sticker {
+  id: number;
+  name: string;
+  imageUrl: string;
+  isGlobal: boolean;
+  groupId?: number | null;
+  createdBy?: number;
+}
+
+export interface GetUploadUrlBody {
+  filename: string;
+  contentType: string;
+  groupId?: number | null;
+}
+
+export interface UploadUrlResponse {
+  uploadUrl: string;
+  objectName: string;
+  publicUrl: string;
+}
+
+export interface CreateStickerBody {
+  name: string;
+  imageUrl: string;
+}
+
+export interface GlobalStickersResponse {
+  stickers: Sticker[];
+}
+
+export interface GroupStickersResponse {
+  globalStickers: Sticker[];
+  groupStickers: Sticker[];
+  stickers: Sticker[];
+}
+
+export interface DeleteStickerResponse {
+  message: string;
+  reactionsRemoved: number;
+}
+
+export interface Reaction {
+  id: number;
+  entityType: string;
+  entityId: number;
+  stickerId: number;
+  userId: number;
+  createdAt: string;
+}
+
+export interface CreateReactionBody {
+  entityType: string;
+  entityId: number;
+  stickerId: number;
+}
+
+export interface ToggleReactionBody {
+  entityType: string;
+  entityId: number;
+  stickerId: number;
+}
+
+export interface ToggleReactionResponse {
+  added: boolean;
+  reactionId?: number | null;
+}
+
+export interface ReactionSummary {
+  stickerId: number;
+  stickerName: string;
+  stickerImageUrl: string;
+  count: number;
+  userReacted: boolean;
+}
+
+export interface ReactionsResponse {
+  reactions: ReactionSummary[];
+  totalCount: number;
+}
+
+export interface ReactionDetail {
+  id: number;
+  stickerId: number;
+  stickerName: string;
+  stickerImageUrl: string;
+  userId: number;
+  username: string;
+  createdAt: string;
+}
+
+export interface ReactionDetailsResponse {
+  reactions: ReactionDetail[];
+}
+
 export type SearchMoviesParams = {
   q: string;
 };
@@ -360,4 +454,14 @@ export type GetGroupStatusParams = {
 
 export type GetResultsParams = {
   weekOf?: string;
+};
+
+export type GetReactionsParams = {
+  entityType: string;
+  entityId: number;
+};
+
+export type GetReactionDetailsParams = {
+  entityType: string;
+  entityId: number;
 };

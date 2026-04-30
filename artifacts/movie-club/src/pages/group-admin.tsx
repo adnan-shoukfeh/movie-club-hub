@@ -1,13 +1,13 @@
 import { useState, useCallback, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import {
   useGetGroup,
   getGetGroupQueryKey,
   getGetGroupStatusQueryKey,
   getGetDashboardQueryKey,
 } from "@workspace/api-client-react";
-import { ArrowLeft, Shield, Menu, Clapperboard, BookOpen, Trophy } from "lucide-react";
+import { ArrowLeft, Shield, Menu, Clapperboard, BookOpen, Trophy, Sticker, Plus, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -22,6 +22,8 @@ import { VerdictOverridePanel } from "@/domains/admin/components/VerdictOverride
 import { MemberRoleManager } from "@/domains/admin/components/MemberRoleManager";
 import { GroupSettingsForm } from "@/domains/admin/components/GroupSettingsForm";
 import { InviteCodePanel } from "@/domains/admin/components/InviteCodePanel";
+import { StickerGrid } from "@/domains/admin/components/StickerGrid";
+import { StickerUploadModal } from "@/domains/admin/components/StickerUploadModal";
 import type { ScheduleEntry } from "@/domains/admin/components/shared";
 
 export default function GroupAdmin() {
@@ -39,6 +41,50 @@ export default function GroupAdmin() {
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [currentTurnWeekOf, setCurrentTurnWeekOf] = useState<string>("");
   const [scheduleReloadKey, setScheduleReloadKey] = useState(0);
+  const [stickerUploadOpen, setStickerUploadOpen] = useState(false);
+  const [deletingStickerId, setDeletingStickerId] = useState<number | null>(null);
+
+  const { data: stickersData, isLoading: stickersLoading } = useQuery({
+    queryKey: ["group-stickers", groupId],
+    queryFn: async () => {
+      const res = await fetch(`/api/groups/${groupId}/stickers`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch stickers");
+      return res.json() as Promise<{
+        globalStickers: Array<{ id: number; name: string; imageUrl: string; isGlobal: boolean }>;
+        groupStickers: Array<{ id: number; name: string; imageUrl: string; isGlobal: boolean }>;
+      }>;
+    },
+    enabled: !!groupId,
+  });
+
+  const deleteStickerMutation = useMutation({
+    mutationFn: async (stickerId: number) => {
+      const res = await fetch(`/api/groups/${groupId}/stickers/${stickerId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to delete sticker");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["group-stickers", groupId] });
+      setDeletingStickerId(null);
+    },
+    onError: () => {
+      setDeletingStickerId(null);
+    },
+  });
+
+  const handleDeleteSticker = (stickerId: number, name: string) => {
+    if (!confirm(`Delete sticker "${name}"? This will remove all reactions using this sticker.`)) {
+      return;
+    }
+    setDeletingStickerId(stickerId);
+    deleteStickerMutation.mutate(stickerId);
+  };
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
@@ -182,7 +228,77 @@ export default function GroupAdmin() {
             }}
           />
         )}
+
+        {isAdminOrOwner && (
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <button
+              className="w-full p-4 flex items-center justify-between text-left"
+              onClick={() => sectionToggle("stickers")}
+            >
+              <div className="flex items-center gap-2">
+                <Sticker className="w-4 h-4 text-primary" />
+                <span className="font-serif font-semibold text-foreground">Group Stickers</span>
+              </div>
+              {activeSection === "stickers" ? (
+                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              )}
+            </button>
+            {activeSection === "stickers" && (
+              <div className="px-4 pb-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Custom stickers for this group
+                  </span>
+                  <Button
+                    size="sm"
+                    onClick={() => setStickerUploadOpen(true)}
+                    className="gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Upload
+                  </Button>
+                </div>
+
+                {stickersLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <StickerGrid
+                    stickers={stickersData?.groupStickers ?? []}
+                    onDelete={handleDeleteSticker}
+                    isDeleting={deletingStickerId}
+                    emptyMessage="No group stickers yet"
+                  />
+                )}
+
+                {(stickersData?.globalStickers?.length ?? 0) > 0 && (
+                  <div className="pt-4 border-t border-border">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Global stickers (available to all groups)
+                    </p>
+                    <StickerGrid
+                      stickers={stickersData?.globalStickers ?? []}
+                      emptyMessage=""
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </main>
+
+      <StickerUploadModal
+        open={stickerUploadOpen}
+        onOpenChange={setStickerUploadOpen}
+        groupId={groupId}
+        onUploadComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ["group-stickers", groupId] });
+        }}
+      />
     </div>
   );
 }

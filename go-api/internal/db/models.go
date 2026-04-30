@@ -66,10 +66,28 @@ type Nomination struct {
 	FilmID    int64     `json:"film_id"`
 }
 
+type Reaction struct {
+	ID         int64              `json:"id"`
+	EntityType string             `json:"entity_type"`
+	EntityID   int64              `json:"entity_id"`
+	UserID     int32              `json:"user_id"`
+	StickerID  int64              `json:"sticker_id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type Session struct {
 	Token  string             `json:"token"`
 	Data   []byte             `json:"data"`
 	Expiry pgtype.Timestamptz `json:"expiry"`
+}
+
+type Sticker struct {
+	ID        int64              `json:"id"`
+	Name      string             `json:"name"`
+	ImageUrl  string             `json:"image_url"`
+	GroupID   *int64             `json:"group_id"`
+	CreatedBy int32              `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type Turn struct {

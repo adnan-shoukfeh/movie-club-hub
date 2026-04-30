@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useGetVerdicts, useGetGroup, getGetResultsQueryKey, getGetGroupQueryKey } from "@workspace/api-client-react";
 import { useLocation, useParams, useSearch } from "wouter";
 import { ArrowLeft, Star, Award, Users, Clock, ChevronLeft, ChevronRight, Film, User, TrendingUp } from "lucide-react";
+import { ReactionBar } from "@/domains/reactions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VHSNoise } from "@/components/ui/vhs-noise";
 import { offsetWeekOf, getTurnIndexForDate } from "@/domains/turns/turnUtils";
@@ -324,11 +325,11 @@ export default function GroupResults() {
                 </h4>
 
                 <div className="space-y-4">
-                  {results.votes
+                  {(results.votes as Array<typeof results.votes[number] & { id?: number }>)
                     .sort((a, b) => b.rating - a.rating)
                     .map((vote, i) => (
                       <div
-                        key={i}
+                        key={vote.id ?? i}
                         className="p-5 bg-secondary border-l-8 border-primary"
                       >
                         <div className="flex items-start gap-4 mb-3">
@@ -349,6 +350,15 @@ export default function GroupResults() {
                           <p className="text-sm text-white leading-relaxed pl-16 mt-2 border-t-2 border-white/20 pt-3 italic">
                             "{vote.review}"
                           </p>
+                        )}
+                        {vote.id && (
+                          <div className="pl-16 mt-3">
+                            <ReactionBar
+                              entityType="verdict"
+                              entityId={vote.id}
+                              groupId={groupId}
+                            />
+                          </div>
                         )}
                       </div>
                     ))}

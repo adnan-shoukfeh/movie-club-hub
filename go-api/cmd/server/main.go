@@ -111,12 +111,23 @@ func main() {
 	r.Use(chimw.Recoverer)
 	r.Use(sm.LoadAndSave)
 
+	// GCS service for sticker uploads
+	gcsBucket := os.Getenv("GCS_BUCKET")
+	gcsProjectID := os.Getenv("GCS_PROJECT_ID")
+	gcsSvc, err := service.NewGCSService(ctx, gcsBucket, gcsProjectID)
+	if err != nil {
+		slog.Warn("GCS service not available", "error", err)
+	} else if gcsSvc != nil {
+		defer gcsSvc.Close()
+		slog.Info("GCS service initialized", "bucket", gcsBucket)
+	}
+
 	// API routes
 	svcCfg := service.Config{
 		OmdbAPIKey: os.Getenv("OMDB_API_KEY"),
 		TimeZone:   "America/New_York",
 	}
-	h := handler.New(queries, pool, sm, svcCfg)
+	h := handler.New(queries, pool, sm, svcCfg, gcsSvc)
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", h.HealthCheck)
 
@@ -166,6 +177,26 @@ func main() {
 			r.Patch("/me/password", h.UpdatePassword)
 
 			r.Post("/groups/{groupId}/watch-status", h.SetWatchStatus)
+
+			// Reactions
+			r.Post("/reactions", h.CreateReaction)
+			r.Post("/reactions/toggle", h.ToggleReaction)
+			r.Delete("/reactions/{reactionId}", h.DeleteReaction)
+			r.Get("/reactions", h.GetReactions)
+			r.Get("/reactions/details", h.GetReactionDetails)
+
+			// Stickers - upload URL
+			r.Post("/stickers/upload-url", h.GetStickerUploadURL)
+
+			// Stickers - global (super admin only via handler check)
+			r.Post("/stickers", h.CreateGlobalSticker)
+			r.Get("/stickers", h.ListGlobalStickers)
+			r.Delete("/stickers/{stickerId}", h.DeleteGlobalSticker)
+
+			// Stickers - group
+			r.Get("/groups/{groupId}/stickers", h.ListGroupStickers)
+			r.Post("/groups/{groupId}/stickers", h.CreateGroupSticker)
+			r.Delete("/groups/{groupId}/stickers/{stickerId}", h.DeleteGroupSticker)
 
 			// Admin routes — require admin role
 			r.Route("/admin/groups/{groupId}", func(r chi.Router) {

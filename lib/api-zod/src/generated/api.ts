@@ -564,3 +564,196 @@ export const DeleteNominationParams = zod.object({
 export const DeleteNominationResponse = zod.object({
   message: zod.string(),
 });
+
+/**
+ * @summary Get a signed URL for uploading a sticker image
+ */
+export const GetStickerUploadUrlBody = zod.object({
+  filename: zod.string(),
+  contentType: zod.string(),
+  groupId: zod.number().nullish(),
+});
+
+export const GetStickerUploadUrlResponse = zod.object({
+  uploadUrl: zod.string(),
+  objectName: zod.string(),
+  publicUrl: zod.string(),
+});
+
+/**
+ * @summary List all global stickers
+ */
+export const ListGlobalStickersResponse = zod.object({
+  stickers: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      imageUrl: zod.string(),
+      isGlobal: zod.boolean(),
+      groupId: zod.number().nullish(),
+      createdBy: zod.number().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a global sticker (super admin only)
+ */
+export const CreateGlobalStickerBody = zod.object({
+  name: zod.string(),
+  imageUrl: zod.string(),
+});
+
+/**
+ * @summary Delete a global sticker (super admin only)
+ */
+export const DeleteGlobalStickerParams = zod.object({
+  stickerId: zod.coerce.number(),
+});
+
+export const DeleteGlobalStickerResponse = zod.object({
+  message: zod.string(),
+  reactionsRemoved: zod.number(),
+});
+
+/**
+ * @summary List stickers available for a group (global + group-specific)
+ */
+export const ListGroupStickersParams = zod.object({
+  groupId: zod.coerce.number(),
+});
+
+export const ListGroupStickersResponse = zod.object({
+  globalStickers: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      imageUrl: zod.string(),
+      isGlobal: zod.boolean(),
+      groupId: zod.number().nullish(),
+      createdBy: zod.number().optional(),
+    }),
+  ),
+  groupStickers: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      imageUrl: zod.string(),
+      isGlobal: zod.boolean(),
+      groupId: zod.number().nullish(),
+      createdBy: zod.number().optional(),
+    }),
+  ),
+  stickers: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      imageUrl: zod.string(),
+      isGlobal: zod.boolean(),
+      groupId: zod.number().nullish(),
+      createdBy: zod.number().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a group-specific sticker (admin only)
+ */
+export const CreateGroupStickerParams = zod.object({
+  groupId: zod.coerce.number(),
+});
+
+export const CreateGroupStickerBody = zod.object({
+  name: zod.string(),
+  imageUrl: zod.string(),
+});
+
+/**
+ * @summary Delete a group sticker (admin only)
+ */
+export const DeleteGroupStickerParams = zod.object({
+  groupId: zod.coerce.number(),
+  stickerId: zod.coerce.number(),
+});
+
+export const DeleteGroupStickerResponse = zod.object({
+  message: zod.string(),
+  reactionsRemoved: zod.number(),
+});
+
+/**
+ * @summary Get reactions for an entity
+ */
+export const GetReactionsQueryParams = zod.object({
+  entityType: zod.coerce.string(),
+  entityId: zod.coerce.number(),
+});
+
+export const GetReactionsResponse = zod.object({
+  reactions: zod.array(
+    zod.object({
+      stickerId: zod.number(),
+      stickerName: zod.string(),
+      stickerImageUrl: zod.string(),
+      count: zod.number(),
+      userReacted: zod.boolean(),
+    }),
+  ),
+  totalCount: zod.number(),
+});
+
+/**
+ * @summary Add a reaction to an entity
+ */
+export const CreateReactionBody = zod.object({
+  entityType: zod.string(),
+  entityId: zod.number(),
+  stickerId: zod.number(),
+});
+
+/**
+ * @summary Toggle a reaction (add if not exists, remove if exists)
+ */
+export const ToggleReactionBody = zod.object({
+  entityType: zod.string(),
+  entityId: zod.number(),
+  stickerId: zod.number(),
+});
+
+export const ToggleReactionResponse = zod.object({
+  added: zod.boolean(),
+  reactionId: zod.number().nullish(),
+});
+
+/**
+ * @summary Get detailed reactions (who reacted with what)
+ */
+export const GetReactionDetailsQueryParams = zod.object({
+  entityType: zod.coerce.string(),
+  entityId: zod.coerce.number(),
+});
+
+export const GetReactionDetailsResponse = zod.object({
+  reactions: zod.array(
+    zod.object({
+      id: zod.number(),
+      stickerId: zod.number(),
+      stickerName: zod.string(),
+      stickerImageUrl: zod.string(),
+      userId: zod.number(),
+      username: zod.string(),
+      createdAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Remove a reaction
+ */
+export const DeleteReactionParams = zod.object({
+  reactionId: zod.coerce.number(),
+});
+
+export const DeleteReactionResponse = zod.object({
+  message: zod.string(),
+});

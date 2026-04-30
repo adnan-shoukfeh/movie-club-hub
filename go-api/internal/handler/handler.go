@@ -27,9 +27,10 @@ type Handler struct {
 	verdictSvc     *service.VerdictService
 	movieSvc       *service.MovieService
 	nominationSvc  *service.NominationService
+	gcsSvc         *service.GCSService
 }
 
-func New(q *db.Queries, pool *pgxpool.Pool, sm *session.Manager, cfg service.Config) *Handler {
+func New(q *db.Queries, pool *pgxpool.Pool, sm *session.Manager, cfg service.Config, gcsSvc *service.GCSService) *Handler {
 	return &Handler{
 		q:              q,
 		pool:           pool,
@@ -41,6 +42,7 @@ func New(q *db.Queries, pool *pgxpool.Pool, sm *session.Manager, cfg service.Con
 		verdictSvc:     service.NewVerdictService(q, pool, cfg),
 		movieSvc:       service.NewMovieService(q, cfg),
 		nominationSvc:  service.NewNominationService(q, cfg),
+		gcsSvc:         gcsSvc,
 	}
 }
 

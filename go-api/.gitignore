@@ -9,3 +9,4 @@ server
 
 # Test artifacts
 coverage.out
+gcs-key.json

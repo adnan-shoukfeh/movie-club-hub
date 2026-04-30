@@ -146,6 +146,7 @@ func (h *Handler) GetVerdicts(w http.ResponseWriter, r *http.Request) {
 
 	// Build votes list
 	type voteEntry struct {
+		ID        int64   `json:"id"`
 		Username  string  `json:"username"`
 		Rating    float32 `json:"rating"`
 		Review    *string `json:"review"`
@@ -167,6 +168,7 @@ func (h *Handler) GetVerdicts(w http.ResponseWriter, r *http.Request) {
 
 	for _, v := range verdicts {
 		entry := voteEntry{
+			ID:        v.ID,
 			Username:  v.Username,
 			Review:    v.Review,
 			UpdatedAt: v.UpdatedAt.Format("2006-01-02T15:04:05.000Z"),

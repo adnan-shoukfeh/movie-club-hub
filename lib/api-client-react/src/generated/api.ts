@@ -21,14 +21,22 @@ import type {
   AssignPickerBody,
   CreateGroupBody,
   CreateInviteBody,
+  CreateReactionBody,
+  CreateStickerBody,
   Dashboard,
+  DeleteStickerResponse,
   ErrorResponse,
   GetGroupParams,
   GetGroupStatusParams,
+  GetReactionDetailsParams,
+  GetReactionsParams,
   GetResultsParams,
+  GetUploadUrlBody,
+  GlobalStickersResponse,
   Group,
   GroupDetail,
   GroupStatus,
+  GroupStickersResponse,
   GroupSummary,
   HealthStatus,
   Invite,
@@ -40,16 +48,23 @@ import type {
   MovieData,
   MovieSearchResult,
   Nomination,
+  Reaction,
+  ReactionDetailsResponse,
+  ReactionsResponse,
   RegisterBody,
   Results,
   SearchMoviesParams,
   SetMovieBody,
   SetTurnExtensionBody,
   SetWatchStatusBody,
+  Sticker,
   SubmitNominationBody,
   SubmitVoteBody,
+  ToggleReactionBody,
+  ToggleReactionResponse,
   TurnExtensionResult,
   UpdateMemberRoleBody,
+  UploadUrlResponse,
   User,
 } from "./api.schemas";
 
@@ -2342,4 +2357,1054 @@ export const useDeleteNomination = <
   TContext
 > => {
   return useMutation(getDeleteNominationMutationOptions(options));
+};
+
+/**
+ * @summary Get a signed URL for uploading a sticker image
+ */
+export const getGetStickerUploadUrlUrl = () => {
+  return `/api/stickers/upload-url`;
+};
+
+export const getStickerUploadUrl = async (
+  getUploadUrlBody: GetUploadUrlBody,
+  options?: RequestInit,
+): Promise<UploadUrlResponse> => {
+  return customFetch<UploadUrlResponse>(getGetStickerUploadUrlUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(getUploadUrlBody),
+  });
+};
+
+export const getGetStickerUploadUrlMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getStickerUploadUrl>>,
+    TError,
+    { data: BodyType<GetUploadUrlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof getStickerUploadUrl>>,
+  TError,
+  { data: BodyType<GetUploadUrlBody> },
+  TContext
+> => {
+  const mutationKey = ["getStickerUploadUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof getStickerUploadUrl>>,
+    { data: BodyType<GetUploadUrlBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return getStickerUploadUrl(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GetStickerUploadUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof getStickerUploadUrl>>
+>;
+export type GetStickerUploadUrlMutationBody = BodyType<GetUploadUrlBody>;
+export type GetStickerUploadUrlMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Get a signed URL for uploading a sticker image
+ */
+export const useGetStickerUploadUrl = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getStickerUploadUrl>>,
+    TError,
+    { data: BodyType<GetUploadUrlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof getStickerUploadUrl>>,
+  TError,
+  { data: BodyType<GetUploadUrlBody> },
+  TContext
+> => {
+  return useMutation(getGetStickerUploadUrlMutationOptions(options));
+};
+
+/**
+ * @summary List all global stickers
+ */
+export const getListGlobalStickersUrl = () => {
+  return `/api/stickers`;
+};
+
+export const listGlobalStickers = async (
+  options?: RequestInit,
+): Promise<GlobalStickersResponse> => {
+  return customFetch<GlobalStickersResponse>(getListGlobalStickersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListGlobalStickersQueryKey = () => {
+  return [`/api/stickers`] as const;
+};
+
+export const getListGlobalStickersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listGlobalStickers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listGlobalStickers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListGlobalStickersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listGlobalStickers>>
+  > = ({ signal }) => listGlobalStickers({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listGlobalStickers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListGlobalStickersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listGlobalStickers>>
+>;
+export type ListGlobalStickersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all global stickers
+ */
+
+export function useListGlobalStickers<
+  TData = Awaited<ReturnType<typeof listGlobalStickers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listGlobalStickers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListGlobalStickersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a global sticker (super admin only)
+ */
+export const getCreateGlobalStickerUrl = () => {
+  return `/api/stickers`;
+};
+
+export const createGlobalSticker = async (
+  createStickerBody: CreateStickerBody,
+  options?: RequestInit,
+): Promise<Sticker> => {
+  return customFetch<Sticker>(getCreateGlobalStickerUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createStickerBody),
+  });
+};
+
+export const getCreateGlobalStickerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createGlobalSticker>>,
+    TError,
+    { data: BodyType<CreateStickerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createGlobalSticker>>,
+  TError,
+  { data: BodyType<CreateStickerBody> },
+  TContext
+> => {
+  const mutationKey = ["createGlobalSticker"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createGlobalSticker>>,
+    { data: BodyType<CreateStickerBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createGlobalSticker(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateGlobalStickerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createGlobalSticker>>
+>;
+export type CreateGlobalStickerMutationBody = BodyType<CreateStickerBody>;
+export type CreateGlobalStickerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a global sticker (super admin only)
+ */
+export const useCreateGlobalSticker = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createGlobalSticker>>,
+    TError,
+    { data: BodyType<CreateStickerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createGlobalSticker>>,
+  TError,
+  { data: BodyType<CreateStickerBody> },
+  TContext
+> => {
+  return useMutation(getCreateGlobalStickerMutationOptions(options));
+};
+
+/**
+ * @summary Delete a global sticker (super admin only)
+ */
+export const getDeleteGlobalStickerUrl = (stickerId: number) => {
+  return `/api/stickers/${stickerId}`;
+};
+
+export const deleteGlobalSticker = async (
+  stickerId: number,
+  options?: RequestInit,
+): Promise<DeleteStickerResponse> => {
+  return customFetch<DeleteStickerResponse>(
+    getDeleteGlobalStickerUrl(stickerId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteGlobalStickerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteGlobalSticker>>,
+    TError,
+    { stickerId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteGlobalSticker>>,
+  TError,
+  { stickerId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteGlobalSticker"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteGlobalSticker>>,
+    { stickerId: number }
+  > = (props) => {
+    const { stickerId } = props ?? {};
+
+    return deleteGlobalSticker(stickerId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteGlobalStickerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteGlobalSticker>>
+>;
+
+export type DeleteGlobalStickerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a global sticker (super admin only)
+ */
+export const useDeleteGlobalSticker = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteGlobalSticker>>,
+    TError,
+    { stickerId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteGlobalSticker>>,
+  TError,
+  { stickerId: number },
+  TContext
+> => {
+  return useMutation(getDeleteGlobalStickerMutationOptions(options));
+};
+
+/**
+ * @summary List stickers available for a group (global + group-specific)
+ */
+export const getListGroupStickersUrl = (groupId: number) => {
+  return `/api/groups/${groupId}/stickers`;
+};
+
+export const listGroupStickers = async (
+  groupId: number,
+  options?: RequestInit,
+): Promise<GroupStickersResponse> => {
+  return customFetch<GroupStickersResponse>(getListGroupStickersUrl(groupId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListGroupStickersQueryKey = (groupId: number) => {
+  return [`/api/groups/${groupId}/stickers`] as const;
+};
+
+export const getListGroupStickersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listGroupStickers>>,
+  TError = ErrorType<unknown>,
+>(
+  groupId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listGroupStickers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListGroupStickersQueryKey(groupId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listGroupStickers>>
+  > = ({ signal }) => listGroupStickers(groupId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!groupId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listGroupStickers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListGroupStickersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listGroupStickers>>
+>;
+export type ListGroupStickersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List stickers available for a group (global + group-specific)
+ */
+
+export function useListGroupStickers<
+  TData = Awaited<ReturnType<typeof listGroupStickers>>,
+  TError = ErrorType<unknown>,
+>(
+  groupId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listGroupStickers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListGroupStickersQueryOptions(groupId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a group-specific sticker (admin only)
+ */
+export const getCreateGroupStickerUrl = (groupId: number) => {
+  return `/api/groups/${groupId}/stickers`;
+};
+
+export const createGroupSticker = async (
+  groupId: number,
+  createStickerBody: CreateStickerBody,
+  options?: RequestInit,
+): Promise<Sticker> => {
+  return customFetch<Sticker>(getCreateGroupStickerUrl(groupId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createStickerBody),
+  });
+};
+
+export const getCreateGroupStickerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createGroupSticker>>,
+    TError,
+    { groupId: number; data: BodyType<CreateStickerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createGroupSticker>>,
+  TError,
+  { groupId: number; data: BodyType<CreateStickerBody> },
+  TContext
+> => {
+  const mutationKey = ["createGroupSticker"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createGroupSticker>>,
+    { groupId: number; data: BodyType<CreateStickerBody> }
+  > = (props) => {
+    const { groupId, data } = props ?? {};
+
+    return createGroupSticker(groupId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateGroupStickerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createGroupSticker>>
+>;
+export type CreateGroupStickerMutationBody = BodyType<CreateStickerBody>;
+export type CreateGroupStickerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a group-specific sticker (admin only)
+ */
+export const useCreateGroupSticker = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createGroupSticker>>,
+    TError,
+    { groupId: number; data: BodyType<CreateStickerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createGroupSticker>>,
+  TError,
+  { groupId: number; data: BodyType<CreateStickerBody> },
+  TContext
+> => {
+  return useMutation(getCreateGroupStickerMutationOptions(options));
+};
+
+/**
+ * @summary Delete a group sticker (admin only)
+ */
+export const getDeleteGroupStickerUrl = (
+  groupId: number,
+  stickerId: number,
+) => {
+  return `/api/groups/${groupId}/stickers/${stickerId}`;
+};
+
+export const deleteGroupSticker = async (
+  groupId: number,
+  stickerId: number,
+  options?: RequestInit,
+): Promise<DeleteStickerResponse> => {
+  return customFetch<DeleteStickerResponse>(
+    getDeleteGroupStickerUrl(groupId, stickerId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteGroupStickerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteGroupSticker>>,
+    TError,
+    { groupId: number; stickerId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteGroupSticker>>,
+  TError,
+  { groupId: number; stickerId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteGroupSticker"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteGroupSticker>>,
+    { groupId: number; stickerId: number }
+  > = (props) => {
+    const { groupId, stickerId } = props ?? {};
+
+    return deleteGroupSticker(groupId, stickerId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteGroupStickerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteGroupSticker>>
+>;
+
+export type DeleteGroupStickerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a group sticker (admin only)
+ */
+export const useDeleteGroupSticker = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteGroupSticker>>,
+    TError,
+    { groupId: number; stickerId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteGroupSticker>>,
+  TError,
+  { groupId: number; stickerId: number },
+  TContext
+> => {
+  return useMutation(getDeleteGroupStickerMutationOptions(options));
+};
+
+/**
+ * @summary Get reactions for an entity
+ */
+export const getGetReactionsUrl = (params: GetReactionsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/reactions?${stringifiedParams}`
+    : `/api/reactions`;
+};
+
+export const getReactions = async (
+  params: GetReactionsParams,
+  options?: RequestInit,
+): Promise<ReactionsResponse> => {
+  return customFetch<ReactionsResponse>(getGetReactionsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetReactionsQueryKey = (params?: GetReactionsParams) => {
+  return [`/api/reactions`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetReactionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getReactions>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetReactionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getReactions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetReactionsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getReactions>>> = ({
+    signal,
+  }) => getReactions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getReactions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetReactionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getReactions>>
+>;
+export type GetReactionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get reactions for an entity
+ */
+
+export function useGetReactions<
+  TData = Awaited<ReturnType<typeof getReactions>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetReactionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getReactions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetReactionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a reaction to an entity
+ */
+export const getCreateReactionUrl = () => {
+  return `/api/reactions`;
+};
+
+export const createReaction = async (
+  createReactionBody: CreateReactionBody,
+  options?: RequestInit,
+): Promise<Reaction> => {
+  return customFetch<Reaction>(getCreateReactionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createReactionBody),
+  });
+};
+
+export const getCreateReactionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createReaction>>,
+    TError,
+    { data: BodyType<CreateReactionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createReaction>>,
+  TError,
+  { data: BodyType<CreateReactionBody> },
+  TContext
+> => {
+  const mutationKey = ["createReaction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createReaction>>,
+    { data: BodyType<CreateReactionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createReaction(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateReactionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createReaction>>
+>;
+export type CreateReactionMutationBody = BodyType<CreateReactionBody>;
+export type CreateReactionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a reaction to an entity
+ */
+export const useCreateReaction = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createReaction>>,
+    TError,
+    { data: BodyType<CreateReactionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createReaction>>,
+  TError,
+  { data: BodyType<CreateReactionBody> },
+  TContext
+> => {
+  return useMutation(getCreateReactionMutationOptions(options));
+};
+
+/**
+ * @summary Toggle a reaction (add if not exists, remove if exists)
+ */
+export const getToggleReactionUrl = () => {
+  return `/api/reactions/toggle`;
+};
+
+export const toggleReaction = async (
+  toggleReactionBody: ToggleReactionBody,
+  options?: RequestInit,
+): Promise<ToggleReactionResponse> => {
+  return customFetch<ToggleReactionResponse>(getToggleReactionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(toggleReactionBody),
+  });
+};
+
+export const getToggleReactionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof toggleReaction>>,
+    TError,
+    { data: BodyType<ToggleReactionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof toggleReaction>>,
+  TError,
+  { data: BodyType<ToggleReactionBody> },
+  TContext
+> => {
+  const mutationKey = ["toggleReaction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof toggleReaction>>,
+    { data: BodyType<ToggleReactionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return toggleReaction(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ToggleReactionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof toggleReaction>>
+>;
+export type ToggleReactionMutationBody = BodyType<ToggleReactionBody>;
+export type ToggleReactionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Toggle a reaction (add if not exists, remove if exists)
+ */
+export const useToggleReaction = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof toggleReaction>>,
+    TError,
+    { data: BodyType<ToggleReactionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof toggleReaction>>,
+  TError,
+  { data: BodyType<ToggleReactionBody> },
+  TContext
+> => {
+  return useMutation(getToggleReactionMutationOptions(options));
+};
+
+/**
+ * @summary Get detailed reactions (who reacted with what)
+ */
+export const getGetReactionDetailsUrl = (params: GetReactionDetailsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/reactions/details?${stringifiedParams}`
+    : `/api/reactions/details`;
+};
+
+export const getReactionDetails = async (
+  params: GetReactionDetailsParams,
+  options?: RequestInit,
+): Promise<ReactionDetailsResponse> => {
+  return customFetch<ReactionDetailsResponse>(
+    getGetReactionDetailsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetReactionDetailsQueryKey = (
+  params?: GetReactionDetailsParams,
+) => {
+  return [`/api/reactions/details`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetReactionDetailsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getReactionDetails>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetReactionDetailsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getReactionDetails>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetReactionDetailsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getReactionDetails>>
+  > = ({ signal }) => getReactionDetails(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getReactionDetails>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetReactionDetailsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getReactionDetails>>
+>;
+export type GetReactionDetailsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get detailed reactions (who reacted with what)
+ */
+
+export function useGetReactionDetails<
+  TData = Awaited<ReturnType<typeof getReactionDetails>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetReactionDetailsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getReactionDetails>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetReactionDetailsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Remove a reaction
+ */
+export const getDeleteReactionUrl = (reactionId: number) => {
+  return `/api/reactions/${reactionId}`;
+};
+
+export const deleteReaction = async (
+  reactionId: number,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(getDeleteReactionUrl(reactionId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteReactionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteReaction>>,
+    TError,
+    { reactionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteReaction>>,
+  TError,
+  { reactionId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteReaction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteReaction>>,
+    { reactionId: number }
+  > = (props) => {
+    const { reactionId } = props ?? {};
+
+    return deleteReaction(reactionId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteReactionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteReaction>>
+>;
+
+export type DeleteReactionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove a reaction
+ */
+export const useDeleteReaction = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteReaction>>,
+    TError,
+    { reactionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteReaction>>,
+  TError,
+  { reactionId: number },
+  TContext
+> => {
+  return useMutation(getDeleteReactionMutationOptions(options));
 };

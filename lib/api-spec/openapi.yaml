@@ -22,6 +22,10 @@ tags:
     description: Invite system
   - name: nominations
     description: Movie nomination pool
+  - name: stickers
+    description: Sticker management
+  - name: reactions
+    description: Reactions on verdicts
 paths:
   /healthz:
     get:
@@ -613,6 +617,245 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  # Sticker endpoints
+  /stickers/upload-url:
+    post:
+      operationId: getStickerUploadUrl
+      tags: [stickers]
+      summary: Get a signed URL for uploading a sticker image
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GetUploadUrlBody"
+      responses:
+        "200":
+          description: Upload URL generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+
+  /stickers:
+    get:
+      operationId: listGlobalStickers
+      tags: [stickers]
+      summary: List all global stickers
+      responses:
+        "200":
+          description: Global stickers list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlobalStickersResponse"
+    post:
+      operationId: createGlobalSticker
+      tags: [stickers]
+      summary: Create a global sticker (super admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStickerBody"
+      responses:
+        "201":
+          description: Sticker created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sticker"
+
+  /stickers/{stickerId}:
+    delete:
+      operationId: deleteGlobalSticker
+      tags: [stickers]
+      summary: Delete a global sticker (super admin only)
+      parameters:
+        - name: stickerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sticker deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteStickerResponse"
+
+  /groups/{groupId}/stickers:
+    get:
+      operationId: listGroupStickers
+      tags: [stickers]
+      summary: List stickers available for a group (global + group-specific)
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Stickers list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupStickersResponse"
+    post:
+      operationId: createGroupSticker
+      tags: [stickers]
+      summary: Create a group-specific sticker (admin only)
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStickerBody"
+      responses:
+        "201":
+          description: Sticker created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sticker"
+
+  /groups/{groupId}/stickers/{stickerId}:
+    delete:
+      operationId: deleteGroupSticker
+      tags: [stickers]
+      summary: Delete a group sticker (admin only)
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: stickerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sticker deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteStickerResponse"
+
+  # Reaction endpoints
+  /reactions:
+    get:
+      operationId: getReactions
+      tags: [reactions]
+      summary: Get reactions for an entity
+      parameters:
+        - name: entityType
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: entityId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Reactions summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReactionsResponse"
+    post:
+      operationId: createReaction
+      tags: [reactions]
+      summary: Add a reaction to an entity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReactionBody"
+      responses:
+        "201":
+          description: Reaction created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reaction"
+
+  /reactions/toggle:
+    post:
+      operationId: toggleReaction
+      tags: [reactions]
+      summary: Toggle a reaction (add if not exists, remove if exists)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToggleReactionBody"
+      responses:
+        "200":
+          description: Reaction toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToggleReactionResponse"
+
+  /reactions/details:
+    get:
+      operationId: getReactionDetails
+      tags: [reactions]
+      summary: Get detailed reactions (who reacted with what)
+      parameters:
+        - name: entityType
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: entityId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Detailed reactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReactionDetailsResponse"
+
+  /reactions/{reactionId}:
+    delete:
+      operationId: deleteReaction
+      tags: [reactions]
+      summary: Remove a reaction
+      parameters:
+        - name: reactionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Reaction removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
 
 components:
   schemas:
@@ -1294,3 +1537,238 @@ components:
         - groupId
         - turnIndex
         - extraDays
+
+    # Sticker schemas
+    Sticker:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        imageUrl:
+          type: string
+        isGlobal:
+          type: boolean
+        groupId:
+          type: integer
+          nullable: true
+        createdBy:
+          type: integer
+      required:
+        - id
+        - name
+        - imageUrl
+        - isGlobal
+
+    GetUploadUrlBody:
+      type: object
+      properties:
+        filename:
+          type: string
+        contentType:
+          type: string
+        groupId:
+          type: integer
+          nullable: true
+      required:
+        - filename
+        - contentType
+
+    UploadUrlResponse:
+      type: object
+      properties:
+        uploadUrl:
+          type: string
+        objectName:
+          type: string
+        publicUrl:
+          type: string
+      required:
+        - uploadUrl
+        - objectName
+        - publicUrl
+
+    CreateStickerBody:
+      type: object
+      properties:
+        name:
+          type: string
+        imageUrl:
+          type: string
+      required:
+        - name
+        - imageUrl
+
+    GlobalStickersResponse:
+      type: object
+      properties:
+        stickers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Sticker"
+      required:
+        - stickers
+
+    GroupStickersResponse:
+      type: object
+      properties:
+        globalStickers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Sticker"
+        groupStickers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Sticker"
+        stickers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Sticker"
+      required:
+        - globalStickers
+        - groupStickers
+        - stickers
+
+    DeleteStickerResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        reactionsRemoved:
+          type: integer
+      required:
+        - message
+        - reactionsRemoved
+
+    # Reaction schemas
+    Reaction:
+      type: object
+      properties:
+        id:
+          type: integer
+        entityType:
+          type: string
+        entityId:
+          type: integer
+        stickerId:
+          type: integer
+        userId:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - entityType
+        - entityId
+        - stickerId
+        - userId
+        - createdAt
+
+    CreateReactionBody:
+      type: object
+      properties:
+        entityType:
+          type: string
+        entityId:
+          type: integer
+        stickerId:
+          type: integer
+      required:
+        - entityType
+        - entityId
+        - stickerId
+
+    ToggleReactionBody:
+      type: object
+      properties:
+        entityType:
+          type: string
+        entityId:
+          type: integer
+        stickerId:
+          type: integer
+      required:
+        - entityType
+        - entityId
+        - stickerId
+
+    ToggleReactionResponse:
+      type: object
+      properties:
+        added:
+          type: boolean
+        reactionId:
+          type: integer
+          nullable: true
+      required:
+        - added
+
+    ReactionSummary:
+      type: object
+      properties:
+        stickerId:
+          type: integer
+        stickerName:
+          type: string
+        stickerImageUrl:
+          type: string
+        count:
+          type: integer
+        userReacted:
+          type: boolean
+      required:
+        - stickerId
+        - stickerName
+        - stickerImageUrl
+        - count
+        - userReacted
+
+    ReactionsResponse:
+      type: object
+      properties:
+        reactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReactionSummary"
+        totalCount:
+          type: integer
+      required:
+        - reactions
+        - totalCount
+
+    ReactionDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        stickerId:
+          type: integer
+        stickerName:
+          type: string
+        stickerImageUrl:
+          type: string
+        userId:
+          type: integer
+        username:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - stickerId
+        - stickerName
+        - stickerImageUrl
+        - userId
+        - username
+        - createdAt
+
+    ReactionDetailsResponse:
+      type: object
+      properties:
+        reactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReactionDetail"
+      required:
+        - reactions

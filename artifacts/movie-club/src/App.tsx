@@ -11,6 +11,7 @@ import GroupsNew from "./pages/groups-new";
 import GroupDetail from "./pages/group-detail";
 import GroupAdmin from "./pages/group-admin";
 import GroupResults from "./pages/group-results";
+import GlobalAdmin from "./pages/global-admin";
 import AcceptInvite from "./pages/accept-invite";
 import Join from "./pages/join";
 import NotFound from "@/pages/not-found";
@@ -37,6 +38,7 @@ function App() {
             <Route path="/" component={Login} />
             <Route path="/dashboard" component={Dashboard} />
             <Route path="/profile" component={Profile} />
+            <Route path="/admin/stickers" component={GlobalAdmin} />
             <Route path="/groups/new" component={GroupsNew} />
             <Route path="/groups/:groupId/results" component={GroupResults} />
             <Route path="/groups/:groupId/admin" component={GroupAdmin} />
