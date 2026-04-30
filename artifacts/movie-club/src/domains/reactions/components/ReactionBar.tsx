@@ -1,8 +1,9 @@
 import { Plus } from "lucide-react";
 import { useState } from "react";
+import { useGetMe } from "@workspace/api-client-react";
 import { useReactions, useToggleReaction } from "../hooks/useReactions";
 import { ReactionPicker } from "./ReactionPicker";
-import type { ReactionSummary } from "../types";
+import type { ReactionSummary, Sticker } from "../types";
 
 interface ReactionBarProps {
   entityType: string;
@@ -13,18 +14,35 @@ interface ReactionBarProps {
 export function ReactionBar({ entityType, entityId, groupId }: ReactionBarProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
+  const { data: me } = useGetMe();
   const { data, isLoading } = useReactions(entityType, entityId);
   const toggleReaction = useToggleReaction();
 
   const reactions = data?.reactions ?? [];
 
-  const handleStickerSelect = (stickerId: number) => {
-    toggleReaction.mutate({ entityType, entityId, stickerId });
+  const handleStickerSelect = (sticker: Sticker) => {
+    toggleReaction.mutate({
+      entityType,
+      entityId,
+      stickerId: sticker.id,
+      stickerName: sticker.name,
+      stickerImageUrl: sticker.imageUrl,
+      userId: me?.id,
+      username: me?.username,
+    });
     setPickerOpen(false);
   };
 
   const handleReactionClick = (reaction: ReactionSummary) => {
-    toggleReaction.mutate({ entityType, entityId, stickerId: reaction.stickerId });
+    toggleReaction.mutate({
+      entityType,
+      entityId,
+      stickerId: reaction.stickerId,
+      stickerName: reaction.name,
+      stickerImageUrl: reaction.imageUrl,
+      userId: me?.id,
+      username: me?.username,
+    });
   };
 
   if (isLoading) {

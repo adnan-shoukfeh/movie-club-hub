@@ -10,7 +10,7 @@ interface ReactionPickerProps {
   groupId: number;
   entityType: string;
   entityId: number;
-  onSelect: (stickerId: number) => void;
+  onSelect: (sticker: Sticker) => void;
   existingReactions: ReactionSummary[];
 }
 
@@ -32,37 +32,23 @@ export function ReactionPicker({
     existingReactions.filter((r) => r.userReacted).map((r) => r.stickerId)
   );
 
-  const groupedBySticker = allReactions.reduce(
-    (acc, reaction) => {
-      if (!acc[reaction.stickerId]) {
-        acc[reaction.stickerId] = {
-          stickerId: reaction.stickerId,
-          name: reaction.stickerName,
-          imageUrl: reaction.imageUrl,
-          users: [],
-        };
-      }
-      acc[reaction.stickerId].users.push({
-        userId: reaction.userId,
-        username: reaction.username,
-      });
-      return acc;
-    },
-    {} as Record<
-      number,
-      {
-        stickerId: number;
-        name: string;
-        imageUrl: string;
-        users: { userId: number; username: string }[];
-      }
-    >
-  );
-
-  const stickerGroups = Object.values(groupedBySticker);
+  const stickerGroups = existingReactions
+    .filter((r) => r.count > 0)
+    .map((r) => {
+      const detailUsers = allReactions
+        .filter((d) => d.stickerId === r.stickerId)
+        .map((d) => ({ userId: d.userId, username: d.username }));
+      return {
+        stickerId: r.stickerId,
+        name: r.name,
+        imageUrl: r.imageUrl,
+        count: r.count,
+        users: detailUsers,
+      };
+    });
 
   const handleSelect = (sticker: Sticker) => {
-    onSelect(sticker.id);
+    onSelect(sticker);
   };
 
   return (
@@ -103,14 +89,20 @@ export function ReactionPicker({
                       className="w-5 h-5 object-contain mt-0.5"
                     />
                     <div className="flex flex-wrap gap-1.5">
-                      {group.users.map((user) => (
-                        <span
-                          key={user.userId}
-                          className="px-2 py-0.5 bg-white/10 rounded-full text-xs text-white"
-                        >
-                          {user.username}
+                      {group.users.length > 0 ? (
+                        group.users.map((user) => (
+                          <span
+                            key={user.userId}
+                            className="px-2 py-0.5 bg-white/10 rounded-full text-xs text-white"
+                          >
+                            {user.username}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="px-2 py-0.5 bg-white/10 rounded-full text-xs text-white/50">
+                          {group.count} {group.count === 1 ? "person" : "people"}
                         </span>
-                      ))}
+                      )}
                     </div>
                   </div>
                 ))}
