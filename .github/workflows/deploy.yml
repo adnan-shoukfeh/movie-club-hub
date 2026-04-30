@@ -67,6 +67,6 @@ jobs:
             --max-instances 3 \
             --memory 512Mi \
             --set-cloudsql-instances "${{ secrets.CLOUD_SQL_CONNECTION_NAME }}" \
-            --set-env-vars "MIGRATION_DIR=/migrations" \
+            --update-env-vars "MIGRATION_DIR=/migrations,GCS_BUCKET=movieclub-stickers,GCS_PROJECT_ID=movie-club-hub-493303" \
             --set-secrets "SESSION_SECRET=session-secret:latest,OMDB_API_KEY=omdb-api-key:latest,DATABASE_URL=database-url:latest" \
             --quiet
