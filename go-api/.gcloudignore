@@ -1,0 +1,17 @@
+# Compiled binaries in root
+/bin/
+/*.exe
+/reset-password
+/seed
+/server
+
+# Test artifacts
+coverage.out
+gcs-key.json
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
