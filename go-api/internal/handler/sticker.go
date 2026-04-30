@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -80,6 +81,7 @@ func (h *Handler) GetStickerUploadURL(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.gcsSvc.GenerateUploadURL(r.Context(), objectName, req.ContentType)
 	if err != nil {
+		slog.Error("failed to generate upload URL", "error", err, "bucket", h.gcsSvc.Bucket())
 		writeError(w, http.StatusInternalServerError, "Failed to generate upload URL")
 		return
 	}

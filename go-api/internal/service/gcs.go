@@ -110,3 +110,10 @@ func (s *GCSService) UploadFromReader(ctx context.Context, objectName, contentTy
 func (s *GCSService) IsConfigured() bool {
 	return s != nil && s.client != nil
 }
+
+func (s *GCSService) Bucket() string {
+	if s == nil {
+		return ""
+	}
+	return s.bucket
+}
