@@ -33,7 +33,7 @@ import { CurrentTurnMovie } from "@/domains/movies/components/CurrentTurnMovie";
 import { PickerMovieSelector } from "@/domains/movies/components/PickerMovieSelector";
 import { NominationSheet } from "@/domains/nominations/components/NominationSheet";
 import { VerdictForm } from "@/domains/verdicts/components/VerdictForm";
-import { VerdictList } from "@/domains/verdicts/components/VerdictList";
+import { TurnResultsInline } from "@/domains/verdicts/components/TurnResultsInline";
 import { VHSNoise } from "@/components/ui/vhs-noise";
 
 export default function GroupDetail() {
@@ -270,14 +270,16 @@ export default function GroupDetail() {
           />
         )}
 
-        <VerdictList
-          groupId={groupId}
-          group={group}
-          status={status}
-          selectedWeek={selectedWeek}
-        />
+        {group.resultsAvailable && (
+          <TurnResultsInline
+            groupId={groupId}
+            selectedWeek={selectedWeek}
+            members={group.members}
+          />
+        )}
 
-        {/* Watch Status / Members */}
+        {/* Watch Status / Members - only shown when results not available */}
+        {!group.resultsAvailable && (
         <div className="p-6 mb-6">
           <h3 className="font-black text-primary mb-4 text-xl flex items-center gap-2 uppercase">
             <User className="w-6 h-6" />
@@ -362,6 +364,7 @@ export default function GroupDetail() {
             })}
           </div>
         </div>
+        )}
           </div>
         </main>
       </div>
