@@ -1,6 +1,7 @@
-import { Film, Clock, Clapperboard, BookOpen, Plus } from "lucide-react";
+import { Film, Clock, Clapperboard, BookOpen, Plus, ExternalLink } from "lucide-react";
 import type { GroupDetail, GroupStatus } from "@workspace/api-client-react";
 import { normalizeWeekOf } from "@/domains/turns/turnUtils";
+import { getLetterboxdUrl } from "@/lib/letterboxd";
 
 function CountdownTimer({ deadlineMs }: { deadlineMs: number }) {
   const now = Date.now();
@@ -45,25 +46,17 @@ export function CurrentTurnMovie({
         {/* Movie Poster */}
         <div className="md:w-2/5 p-4 sm:p-8 flex items-center justify-center bg-black">
           {movie?.poster ? (
-            movie.imdbId ? (
-              <a
-                href={`https://www.imdb.com/title/${movie.imdbId}/`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <img
-                  src={movie.poster}
-                  alt={movie.title}
-                  className="max-w-full h-auto border-8 border-secondary hover:border-primary transition-colors"
-                />
-              </a>
-            ) : (
+            <a
+              href={getLetterboxdUrl(movie.title)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <img
                 src={movie.poster}
                 alt={movie.title}
-                className="max-w-full h-auto border-8 border-secondary"
+                className="max-w-full h-auto border-8 border-secondary hover:border-primary transition-colors"
               />
-            )
+            </a>
           ) : (
             <div className="w-48 h-72 bg-card border-8 border-secondary flex items-center justify-center">
               <Film className="w-16 h-16 text-secondary/50" />
@@ -76,7 +69,15 @@ export function CurrentTurnMovie({
           {movie ? (
             <>
               <h2 className="text-2xl sm:text-4xl font-black text-primary mb-4 uppercase tracking-tight">
-                {movie.title}
+                <a
+                  href={getLetterboxdUrl(movie.title)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline inline-flex items-center gap-2"
+                >
+                  {movie.title}
+                  <ExternalLink className="w-5 h-5 opacity-50" />
+                </a>
               </h2>
               <div className="flex flex-wrap gap-3 text-sm text-white mb-6">
                 {movie.year && (
