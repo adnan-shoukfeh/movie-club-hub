@@ -267,20 +267,19 @@ func (s *VerdictService) GetVerdicts(ctx context.Context, userID, groupID int32,
 		return nil, err
 	}
 
+	// Use turn.EndDate for deadline (consistent with GetGroup/GetGroupStatus)
+	deadlineTime := pgDateToTime(turn.EndDate).Add(24 * time.Hour) // End of end_date
 	reviewsUnlocked := turn.ReviewsUnlocked
 
-	adminExt := 0
-	startOffset := 0
+	// Also check override for ReviewUnlockedByAdmin
 	if override, err := s.queries.GetTurnOverride(ctx, db.GetTurnOverrideParams{
 		GroupID: groupID,
 		WeekOf:  timeToPgDate(weekOf),
 	}); err == nil {
-		adminExt = int(override.ExtendedDays)
-		startOffset = int(override.StartOffsetDays)
 		reviewsUnlocked = reviewsUnlocked || override.ReviewUnlockedByAdmin
 	}
 
-	if !isResultsAvailable(weekOf, config, adminExt, startOffset) && !reviewsUnlocked {
+	if !time.Now().After(deadlineTime) && !reviewsUnlocked {
 		return nil, errors.New("results are not available yet")
 	}
 

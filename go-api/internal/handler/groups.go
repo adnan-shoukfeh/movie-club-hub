@@ -161,8 +161,11 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 
 	// Use turns table directly for current turn
 	var currentWeekOf string
-	currentTurn, err := h.q.GetCurrentTurn(r.Context(), groupID)
-	if err == nil {
+	var currentTurn db.Turn
+	var hasCurrentTurn bool
+	if ct, err := h.q.GetCurrentTurn(r.Context(), groupID); err == nil {
+		currentTurn = ct
+		hasCurrentTurn = true
 		currentWeekOf = pgDateToString(currentTurn.WeekOf)
 	} else {
 		// Fallback to computed if no current turn in DB
@@ -264,26 +267,38 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Turn override
+	// Turn override and deadline logic (matching GetGroupStatus)
 	adminExt := 0
 	startOffset := 0
 	movieUnlocked := false
 	reviewUnlocked := false
-	if override, err := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
+	var deadlineTime time.Time
+
+	// Try to get turn from DB for the selected week
+	if selectedTurn, err := h.q.GetTurn(r.Context(), db.GetTurnParams{
 		GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 	}); err == nil {
-		adminExt = int(override.ExtendedDays)
-		startOffset = int(override.StartOffsetDays)
-		movieUnlocked = override.MovieUnlockedByAdmin
-		reviewUnlocked = override.ReviewUnlockedByAdmin
+		reviewUnlocked = selectedTurn.ReviewsUnlocked
+		deadlineTime = pgDateToTime(selectedTurn.EndDate).Add(24 * time.Hour) // End of end_date
+	} else {
+		// Fallback to computed deadline
+		if override, err := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
+			GroupID: groupID, WeekOf: timeToPgDate(weekOf),
+		}); err == nil {
+			adminExt = int(override.ExtendedDays)
+			startOffset = int(override.StartOffsetDays)
+			movieUnlocked = override.MovieUnlockedByAdmin
+			reviewUnlocked = override.ReviewUnlockedByAdmin
+		}
+		deadlineTime = time.UnixMilli(getDeadlineMs(weekOf, config, adminExt, startOffset))
 	}
 
 	votingOpen := false
 	if movieErr == nil {
 		isCurrentTurn := weekOf == currentWeekOf
-		votingOpen = (isVotingOpen(weekOf, config, adminExt, startOffset) && isCurrentTurn) || reviewUnlocked
+		votingOpen = (time.Now().Before(deadlineTime) && isCurrentTurn) || reviewUnlocked
 	}
-	resultsAvail := (movieErr == nil && isResultsAvailable(weekOf, config, adminExt, startOffset)) || reviewUnlocked
+	resultsAvail := (movieErr == nil && time.Now().After(deadlineTime)) || (hasCurrentTurn && currentTurn.ReviewsUnlocked)
 
 	// My vote
 	userID := h.userID(r)
