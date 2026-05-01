@@ -1,6 +1,6 @@
 import { Link } from "react-router";
-import { clubs, movies, recentMovies, users } from "../data/mockData";
-import { Film, Users, Star, Play } from "lucide-react";
+import { clubs, movies, recentMovies, users, currentUserId } from "../data/mockData";
+import { Film, Users, Star, Play, User, Settings } from "lucide-react";
 import { VHSNoise } from "./VHSNoise";
 
 export function Dashboard() {
@@ -11,15 +11,37 @@ export function Dashboard() {
       <VHSNoise />
       <header className="border-b-4 border-[#FDB913] sticky top-0 z-10 bg-[#003087]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-[#FDB913] rounded flex items-center justify-center">
-              <Film className="w-7 h-7 text-[#003087]" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-[#FDB913] rounded flex items-center justify-center">
+                <Film className="w-7 h-7 text-[#003087]" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-black text-[#FDB913] tracking-tight">
+                  MOVIE CLUBS
+                </h1>
+                <p className="text-sm text-white/80">Your cinematic journey</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-black text-[#FDB913] tracking-tight">
-                MOVIE CLUBS
-              </h1>
-              <p className="text-sm text-white/80">Your cinematic journey</p>
+            <div className="flex items-center gap-3">
+              <Link
+                to="/settings"
+                className="p-2 text-white/70 hover:text-[#FDB913] transition-colors"
+                title="Settings"
+              >
+                <Settings className="w-5 h-5" />
+              </Link>
+              <Link
+                to={`/user/${currentUserId}`}
+                className="flex items-center gap-2 px-3 py-2 bg-[#001d3d] border-2 border-[#FDB913] hover:bg-[#FDB913] hover:text-[#003087] transition-all"
+              >
+                <img
+                  src={users[currentUserId].avatar}
+                  alt={users[currentUserId].name}
+                  className="w-6 h-6 rounded-full border-2 border-[#FDB913]"
+                />
+                <span className="font-bold text-white text-sm hidden sm:inline">{users[currentUserId].name}</span>
+              </Link>
             </div>
           </div>
         </div>
