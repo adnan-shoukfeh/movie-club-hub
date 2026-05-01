@@ -283,7 +283,7 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 		isCurrentTurn := weekOf == currentWeekOf
 		votingOpen = (isVotingOpen(weekOf, config, adminExt, startOffset) && isCurrentTurn) || reviewUnlocked
 	}
-	resultsAvail := movieErr == nil && isResultsAvailable(weekOf, config, adminExt, startOffset)
+	resultsAvail := (movieErr == nil && isResultsAvailable(weekOf, config, adminExt, startOffset)) || reviewUnlocked
 
 	// My vote
 	userID := h.userID(r)
