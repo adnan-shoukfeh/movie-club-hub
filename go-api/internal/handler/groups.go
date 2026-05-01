@@ -3,7 +3,6 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -296,11 +295,6 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 		votingOpen = (time.Now().Before(deadlineTime) && isCurrentTurn) || reviewUnlocked
 	}
 	resultsAvail := (movieErr == nil && time.Now().After(deadlineTime)) || reviewUnlocked
-
-	// DEBUG logging
-	log.Printf("[GetGroup] groupID=%d weekOf=%s currentWeekOf=%s", groupID, weekOf, currentWeekOf)
-	log.Printf("[GetGroup] deadlineTime=%v now=%v afterDeadline=%v", deadlineTime, time.Now(), time.Now().After(deadlineTime))
-	log.Printf("[GetGroup] movieErr=%v reviewUnlocked=%v resultsAvail=%v votingOpen=%v", movieErr, reviewUnlocked, resultsAvail, votingOpen)
 
 	// My vote
 	userID := h.userID(r)

@@ -1,9 +1,10 @@
 import { useRef, useState, useEffect } from "react";
-import { Search, X, Film } from "lucide-react";
+import { Search, X, Film, BookOpen, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   useSearchMovies,
   useSetMovie,
+  useListNominations,
   getSearchMoviesQueryKey,
   getGetGroupQueryKey,
   getGetGroupStatusQueryKey,
@@ -42,9 +43,15 @@ export function PickerMovieSelector({
     imdbId: string; title: string; year: string; poster: string | null;
   } | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [nominationsExpanded, setNominationsExpanded] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const debouncedQuery = useDebounce(searchQuery, 300);
+
+  const { data: nominations, isLoading: nominationsLoading } = useListNominations(
+    groupId,
+    { query: { queryKey: getListNominationsQueryKey(groupId), enabled: !!groupId } }
+  );
 
   const { data: searchResults, isFetching: isSearching } = useSearchMovies(
     { q: debouncedQuery },
@@ -173,6 +180,61 @@ export function PickerMovieSelector({
             <p className="text-sm font-semibold text-foreground">{selectedMovie.title}</p>
             <p className="text-xs text-muted-foreground">{selectedMovie.year}</p>
           </div>
+        </div>
+      )}
+
+      {nominations && nominations.length > 0 && (
+        <div className="border border-border rounded-lg overflow-hidden">
+          <button
+            className="w-full px-3 py-2.5 flex items-center justify-between bg-muted/30 hover:bg-muted/50 transition-colors"
+            onClick={() => setNominationsExpanded(!nominationsExpanded)}
+          >
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium text-foreground">
+                Nominations Pool ({nominations.length})
+              </span>
+            </div>
+            {nominationsExpanded ? (
+              <ChevronUp className="w-4 h-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            )}
+          </button>
+          {nominationsExpanded && (
+            <div className="max-h-48 overflow-y-auto divide-y divide-border">
+              {nominations.map((nom) => (
+                <button
+                  key={nom.id}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 transition-colors text-left"
+                  onClick={() => {
+                    setSelectedMovie({
+                      imdbId: nom.imdbId,
+                      title: nom.title,
+                      year: nom.year ?? "",
+                      poster: nom.poster ?? null,
+                    });
+                    setSearchQuery("");
+                    setShowDropdown(false);
+                  }}
+                >
+                  {nom.poster ? (
+                    <img src={nom.poster} alt={nom.title} className="w-9 h-12 object-cover rounded flex-shrink-0" />
+                  ) : (
+                    <div className="w-9 h-12 bg-muted rounded flex-shrink-0 flex items-center justify-center">
+                      <Film className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground truncate">{nom.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {nom.year}{nom.nominatorUsername ? ` · Nominated by ${nom.nominatorUsername}` : ""}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

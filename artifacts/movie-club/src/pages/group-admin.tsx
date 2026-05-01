@@ -7,7 +7,7 @@ import {
   getGetGroupStatusQueryKey,
   getGetDashboardQueryKey,
 } from "@workspace/api-client-react";
-import { ArrowLeft, Shield, Menu, Clapperboard, BookOpen, Trophy, Sticker, Plus, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { ArrowLeft, Shield, Menu, Clapperboard, Trophy, Sticker, Plus, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -37,7 +37,7 @@ export default function GroupAdmin() {
     { query: { queryKey: getGetGroupQueryKey(groupId), enabled: !!groupId } }
   );
 
-  const [activeSection, setActiveSection] = useState<string | null>("schedule");
+  const [activeSection, setActiveSection] = useState<string | null>(null);
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [currentTurnWeekOf, setCurrentTurnWeekOf] = useState<string>("");
   const [scheduleReloadKey, setScheduleReloadKey] = useState(0);
@@ -162,11 +162,7 @@ export default function GroupAdmin() {
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem onClick={() => setLocation(`/groups/${groupId}`)}>
                 <Clapperboard className="w-4 h-4 mr-2" />
-                Picker Schedule
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setLocation(`/groups/${groupId}`)}>
-                <BookOpen className="w-4 h-4 mr-2" />
-                Nominations Pool
+                Back to Group
               </DropdownMenuItem>
               {group.resultsAvailable && (
                 <>

@@ -430,6 +430,24 @@ func (h *Handler) AdminUnlockReviews(w http.ResponseWriter, r *http.Request) {
 	}
 
 	weekOfPgDate := timeToPgDate(req.WeekOf)
+
+	// Prevent unlocking reviews for a turn whose deadline hasn't passed
+	if req.Unlocked {
+		turn, err := h.q.GetTurn(r.Context(), db.GetTurnParams{
+			GroupID: groupID, WeekOf: weekOfPgDate,
+		})
+		if err == nil {
+			deadlineTime := pgDateToTime(turn.EndDate).Add(24 * time.Hour)
+			if time.Now().Before(deadlineTime) {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf(
+					"Cannot unlock reviews: turn deadline (%s) has not passed yet",
+					deadlineTime.Format("2006-01-02 15:04 MST"),
+				))
+				return
+			}
+		}
+	}
+
 	if err := h.q.UpsertTurnOverrideReviewUnlocked(r.Context(), db.UpsertTurnOverrideReviewUnlockedParams{
 		GroupID: groupID, WeekOf: weekOfPgDate, ReviewUnlockedByAdmin: req.Unlocked,
 	}); err != nil {

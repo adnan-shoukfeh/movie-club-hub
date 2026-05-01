@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"math"
 	"time"
 
@@ -279,11 +278,6 @@ func (s *VerdictService) GetVerdicts(ctx context.Context, userID, groupID int32,
 	}); err == nil {
 		reviewsUnlocked = reviewsUnlocked || override.ReviewUnlockedByAdmin
 	}
-
-	// DEBUG logging
-	log.Printf("[GetVerdicts] groupID=%d weekOf=%s turnID=%d", groupID, weekOf, turn.ID)
-	log.Printf("[GetVerdicts] turn.EndDate=%v deadlineTime=%v now=%v afterDeadline=%v", turn.EndDate, deadlineTime, time.Now(), time.Now().After(deadlineTime))
-	log.Printf("[GetVerdicts] turn.ReviewsUnlocked=%v reviewsUnlocked=%v", turn.ReviewsUnlocked, reviewsUnlocked)
 
 	if !time.Now().After(deadlineTime) && !reviewsUnlocked {
 		return nil, errors.New("results are not available yet")
