@@ -43,12 +43,23 @@ export interface RegisterBody {
   password: string;
 }
 
+export type UserMovieLinkPreference =
+  (typeof UserMovieLinkPreference)[keyof typeof UserMovieLinkPreference];
+
+export const UserMovieLinkPreference = {
+  letterboxd: "letterboxd",
+  imdb: "imdb",
+} as const;
+
 export interface User {
   id: number;
   username: string;
   createdAt: string;
   /** @nullable */
   avatarUrl?: string | null;
+  /** @nullable */
+  letterboxdUsername?: string | null;
+  movieLinkPreference: UserMovieLinkPreference;
 }
 
 export interface GetAvatarUploadUrlBody {
@@ -58,6 +69,26 @@ export interface GetAvatarUploadUrlBody {
 
 export interface UpdateAvatarBody {
   avatarUrl: string;
+}
+
+export interface UpdateProfileBody {
+  /**
+   * Letterboxd username (letters, numbers, underscores). Empty string clears the field.
+   * @maxLength 50
+   */
+  letterboxdUsername: string;
+}
+
+export type UpdateSettingsBodyMovieLinkPreference =
+  (typeof UpdateSettingsBodyMovieLinkPreference)[keyof typeof UpdateSettingsBodyMovieLinkPreference];
+
+export const UpdateSettingsBodyMovieLinkPreference = {
+  letterboxd: "letterboxd",
+  imdb: "imdb",
+} as const;
+
+export interface UpdateSettingsBody {
+  movieLinkPreference: UpdateSettingsBodyMovieLinkPreference;
 }
 
 export interface MovieSearchResult {

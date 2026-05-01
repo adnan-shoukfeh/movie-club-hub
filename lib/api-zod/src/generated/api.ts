@@ -33,6 +33,8 @@ export const LoginResponse = zod.object({
   username: zod.string(),
   createdAt: zod.string(),
   avatarUrl: zod.string().nullish(),
+  letterboxdUsername: zod.string().nullish(),
+  movieLinkPreference: zod.enum(["letterboxd", "imdb"]),
 });
 
 /**
@@ -70,6 +72,8 @@ export const GetMeResponse = zod.object({
   username: zod.string(),
   createdAt: zod.string(),
   avatarUrl: zod.string().nullish(),
+  letterboxdUsername: zod.string().nullish(),
+  movieLinkPreference: zod.enum(["letterboxd", "imdb"]),
 });
 
 /**
@@ -98,6 +102,37 @@ export const UpdateAvatarResponse = zod.object({
   username: zod.string(),
   createdAt: zod.string(),
   avatarUrl: zod.string().nullish(),
+  letterboxdUsername: zod.string().nullish(),
+  movieLinkPreference: zod.enum(["letterboxd", "imdb"]),
+});
+
+/**
+ * @summary Update Letterboxd username on the current user's profile
+ */
+export const updateMyProfileBodyLetterboxdUsernameMax = 50;
+
+export const UpdateMyProfileBody = zod.object({
+  letterboxdUsername: zod
+    .string()
+    .max(updateMyProfileBodyLetterboxdUsernameMax)
+    .describe(
+      "Letterboxd username (letters, numbers, underscores). Empty string clears the field.",
+    ),
+});
+
+export const UpdateMyProfileResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Update the current user's settings (e.g. movie link preference)
+ */
+export const UpdateMySettingsBody = zod.object({
+  movieLinkPreference: zod.enum(["letterboxd", "imdb"]),
+});
+
+export const UpdateMySettingsResponse = zod.object({
+  message: zod.string(),
 });
 
 /**
@@ -483,6 +518,8 @@ export const GetDashboardResponse = zod.object({
     username: zod.string(),
     createdAt: zod.string(),
     avatarUrl: zod.string().nullish(),
+    letterboxdUsername: zod.string().nullish(),
+    movieLinkPreference: zod.enum(["letterboxd", "imdb"]),
   }),
   groups: zod.array(
     zod.object({

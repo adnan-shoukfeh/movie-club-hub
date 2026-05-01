@@ -5,6 +5,7 @@
  * Movie Club API
  * OpenAPI spec version: 0.1.0
  */
+import type { UserMovieLinkPreference } from "./userMovieLinkPreference";
 
 export interface User {
   id: number;
@@ -12,4 +13,7 @@ export interface User {
   createdAt: string;
   /** @nullable */
   avatarUrl?: string | null;
+  /** @nullable */
+  letterboxdUsername?: string | null;
+  movieLinkPreference: UserMovieLinkPreference;
 }

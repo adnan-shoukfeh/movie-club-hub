@@ -148,6 +148,56 @@ paths:
               schema:
                 $ref: "#/components/schemas/User"
 
+  /me/profile:
+    patch:
+      operationId: updateMyProfile
+      tags: [auth]
+      summary: Update Letterboxd username on the current user's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileBody"
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid Letterboxd username
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /me/settings:
+    patch:
+      operationId: updateMySettings
+      tags: [auth]
+      summary: Update the current user's settings (e.g. movie link preference)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSettingsBody"
+      responses:
+        "200":
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /movies/search:
     get:
       operationId: searchMovies
@@ -962,10 +1012,16 @@ components:
           type: string
         avatarUrl:
           type: ["string", "null"]
+        letterboxdUsername:
+          type: ["string", "null"]
+        movieLinkPreference:
+          type: string
+          enum: [letterboxd, imdb]
       required:
         - id
         - username
         - createdAt
+        - movieLinkPreference
 
     GetAvatarUploadUrlBody:
       type: object
@@ -985,6 +1041,25 @@ components:
           type: string
       required:
         - avatarUrl
+
+    UpdateProfileBody:
+      type: object
+      properties:
+        letterboxdUsername:
+          type: string
+          maxLength: 50
+          description: "Letterboxd username (letters, numbers, underscores). Empty string clears the field."
+      required:
+        - letterboxdUsername
+
+    UpdateSettingsBody:
+      type: object
+      properties:
+        movieLinkPreference:
+          type: string
+          enum: [letterboxd, imdb]
+      required:
+        - movieLinkPreference
 
     MovieSearchResult:
       type: object

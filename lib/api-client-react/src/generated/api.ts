@@ -66,6 +66,8 @@ import type {
   TurnExtensionResult,
   UpdateAvatarBody,
   UpdateMemberRoleBody,
+  UpdateProfileBody,
+  UpdateSettingsBody,
   UploadUrlResponse,
   User,
 } from "./api.schemas";
@@ -640,6 +642,178 @@ export const useUpdateAvatar = <
   TContext
 > => {
   return useMutation(getUpdateAvatarMutationOptions(options));
+};
+
+/**
+ * @summary Update Letterboxd username on the current user's profile
+ */
+export const getUpdateMyProfileUrl = () => {
+  return `/api/me/profile`;
+};
+
+export const updateMyProfile = async (
+  updateProfileBody: UpdateProfileBody,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(getUpdateMyProfileUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateProfileBody),
+  });
+};
+
+export const getUpdateMyProfileMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyProfile>>,
+    TError,
+    { data: BodyType<UpdateProfileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMyProfile>>,
+  TError,
+  { data: BodyType<UpdateProfileBody> },
+  TContext
+> => {
+  const mutationKey = ["updateMyProfile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMyProfile>>,
+    { data: BodyType<UpdateProfileBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateMyProfile(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMyProfileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMyProfile>>
+>;
+export type UpdateMyProfileMutationBody = BodyType<UpdateProfileBody>;
+export type UpdateMyProfileMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update Letterboxd username on the current user's profile
+ */
+export const useUpdateMyProfile = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyProfile>>,
+    TError,
+    { data: BodyType<UpdateProfileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMyProfile>>,
+  TError,
+  { data: BodyType<UpdateProfileBody> },
+  TContext
+> => {
+  return useMutation(getUpdateMyProfileMutationOptions(options));
+};
+
+/**
+ * @summary Update the current user's settings (e.g. movie link preference)
+ */
+export const getUpdateMySettingsUrl = () => {
+  return `/api/me/settings`;
+};
+
+export const updateMySettings = async (
+  updateSettingsBody: UpdateSettingsBody,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(getUpdateMySettingsUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateSettingsBody),
+  });
+};
+
+export const getUpdateMySettingsMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMySettings>>,
+    TError,
+    { data: BodyType<UpdateSettingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMySettings>>,
+  TError,
+  { data: BodyType<UpdateSettingsBody> },
+  TContext
+> => {
+  const mutationKey = ["updateMySettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMySettings>>,
+    { data: BodyType<UpdateSettingsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateMySettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMySettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMySettings>>
+>;
+export type UpdateMySettingsMutationBody = BodyType<UpdateSettingsBody>;
+export type UpdateMySettingsMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update the current user's settings (e.g. movie link preference)
+ */
+export const useUpdateMySettings = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMySettings>>,
+    TError,
+    { data: BodyType<UpdateSettingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMySettings>>,
+  TError,
+  { data: BodyType<UpdateSettingsBody> },
+  TContext
+> => {
+  return useMutation(getUpdateMySettingsMutationOptions(options));
 };
 
 /**
