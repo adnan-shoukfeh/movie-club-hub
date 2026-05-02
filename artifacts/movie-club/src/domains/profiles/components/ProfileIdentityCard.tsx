@@ -27,13 +27,10 @@ export function ProfileIdentityCard({ profile, isSelf }: ProfileIdentityCardProp
         <div className="min-w-0 lg:mt-4">
           <h2 className="text-lg lg:text-2xl font-black text-foreground truncate">
             {profile.username}
-            {isSelf && (
-              <span className="ml-2 align-middle text-[10px] tracking-widest uppercase bg-primary text-secondary px-1.5 py-0.5 font-black">
-                You
-              </span>
-            )}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
+            {isSelf && <span className="text-primary font-bold">You</span>}
+            {isSelf && " · "}
             Member since {formatMemberSince(profile.createdAt)}
           </p>
 
