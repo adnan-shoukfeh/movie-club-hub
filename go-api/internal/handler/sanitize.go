@@ -66,6 +66,12 @@ func sanitizeImdbID(raw string) string {
 	return s
 }
 
+const feedbackMaxLen = 5000
+
+func sanitizeFeedback(raw string) string {
+	return sanitizeText(raw, feedbackMaxLen)
+}
+
 func isValidDateStr(s string) bool {
 	if len(s) != 10 {
 		return false
