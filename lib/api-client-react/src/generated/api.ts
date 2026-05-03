@@ -59,6 +59,8 @@ import type {
   SetTurnExtensionBody,
   SetWatchStatusBody,
   Sticker,
+  SubmitFeedback200,
+  SubmitFeedbackBody,
   SubmitNominationBody,
   SubmitVoteBody,
   ToggleReactionBody,
@@ -815,6 +817,101 @@ export const useUpdateMySettings = <
   TContext
 > => {
   return useMutation(getUpdateMySettingsMutationOptions(options));
+};
+
+/**
+ * Accepts a text message (10-5000 chars, sanitized) and an optional image
+(PNG, JPEG, WebP, GIF, HEIC, HEIF; max 10 MB). The submission is written
+to GCS under requests/<requestId>/. Rate-limited to 3 per hour per user.
+
+ * @summary Submit a feature request or bug report
+ */
+export const getSubmitFeedbackUrl = () => {
+  return `/api/me/feedback`;
+};
+
+export const submitFeedback = async (
+  submitFeedbackBody: SubmitFeedbackBody,
+  options?: RequestInit,
+): Promise<SubmitFeedback200> => {
+  const formData = new FormData();
+  formData.append(`text`, submitFeedbackBody.text);
+  if (submitFeedbackBody.image !== undefined) {
+    formData.append(`image`, submitFeedbackBody.image);
+  }
+
+  return customFetch<SubmitFeedback200>(getSubmitFeedbackUrl(), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getSubmitFeedbackMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitFeedback>>,
+    TError,
+    { data: BodyType<SubmitFeedbackBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitFeedback>>,
+  TError,
+  { data: BodyType<SubmitFeedbackBody> },
+  TContext
+> => {
+  const mutationKey = ["submitFeedback"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitFeedback>>,
+    { data: BodyType<SubmitFeedbackBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return submitFeedback(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitFeedbackMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitFeedback>>
+>;
+export type SubmitFeedbackMutationBody = BodyType<SubmitFeedbackBody>;
+export type SubmitFeedbackMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Submit a feature request or bug report
+ */
+export const useSubmitFeedback = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitFeedback>>,
+    TError,
+    { data: BodyType<SubmitFeedbackBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitFeedback>>,
+  TError,
+  { data: BodyType<SubmitFeedbackBody> },
+  TContext
+> => {
+  return useMutation(getSubmitFeedbackMutationOptions(options));
 };
 
 /**

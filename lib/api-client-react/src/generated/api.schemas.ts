@@ -524,6 +524,19 @@ export interface ReactionDetailsResponse {
   reactions: ReactionDetail[];
 }
 
+export type SubmitFeedbackBody = {
+  /**
+   * @minLength 10
+   * @maxLength 5000
+   */
+  text: string;
+  image?: Blob;
+};
+
+export type SubmitFeedback200 = {
+  requestId: string;
+};
+
 export type SearchMoviesParams = {
   q: string;
 };

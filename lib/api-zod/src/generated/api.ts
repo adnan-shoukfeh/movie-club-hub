@@ -136,6 +136,28 @@ export const UpdateMySettingsResponse = zod.object({
 });
 
 /**
+ * Accepts a text message (10-5000 chars, sanitized) and an optional image
+(PNG, JPEG, WebP, GIF, HEIC, HEIF; max 10 MB). The submission is written
+to GCS under requests/<requestId>/. Rate-limited to 3 per hour per user.
+
+ * @summary Submit a feature request or bug report
+ */
+export const submitFeedbackBodyTextMin = 10;
+export const submitFeedbackBodyTextMax = 5000;
+
+export const SubmitFeedbackBody = zod.object({
+  text: zod
+    .string()
+    .min(submitFeedbackBodyTextMin)
+    .max(submitFeedbackBodyTextMax),
+  image: zod.instanceof(File).optional(),
+});
+
+export const SubmitFeedbackResponse = zod.object({
+  requestId: zod.string(),
+});
+
+/**
  * @summary Get a user's public profile (stats, top genres, recent activity)
  */
 export const GetUserProfileParams = zod.object({

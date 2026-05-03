@@ -57,6 +57,8 @@ export * from "./setMovieBody";
 export * from "./setTurnExtensionBody";
 export * from "./setWatchStatusBody";
 export * from "./sticker";
+export * from "./submitFeedback200";
+export * from "./submitFeedbackBody";
 export * from "./submitNominationBody";
 export * from "./submitVoteBody";
 export * from "./toggleReactionBody";
