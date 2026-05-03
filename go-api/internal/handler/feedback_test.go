@@ -1,7 +1,16 @@
 package handler
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 )
@@ -156,3 +165,185 @@ func TestNewRequestID_FormatAndUniqueness(t *testing.T) {
 		t.Errorf("expected distinct suffixes, got %q twice", id1)
 	}
 }
+
+// stubStorage records uploads instead of hitting GCS.
+type stubStorage struct {
+	configured bool
+	uploads    []stubUpload
+	failOn     string
+}
+
+type stubUpload struct {
+	objectName  string
+	contentType string
+	body        []byte
+}
+
+func (s *stubStorage) IsConfigured() bool { return s.configured }
+
+func (s *stubStorage) UploadFromReader(_ context.Context, name, ct string, r io.Reader) (string, error) {
+	if s.failOn != "" && s.failOn == name {
+		return "", errors.New("forced failure")
+	}
+	body, err := io.ReadAll(r)
+	if err != nil {
+		return "", err
+	}
+	s.uploads = append(s.uploads, stubUpload{objectName: name, contentType: ct, body: body})
+	return "https://example/" + name, nil
+}
+
+func buildMultipart(t *testing.T, text string, image []byte, imageFilename string) (body *bytes.Buffer, contentType string) {
+	t.Helper()
+	body = &bytes.Buffer{}
+	w := multipart.NewWriter(body)
+	if text != "" {
+		if err := w.WriteField("text", text); err != nil {
+			t.Fatalf("write text: %v", err)
+		}
+	}
+	if image != nil {
+		fw, err := w.CreateFormFile("image", imageFilename)
+		if err != nil {
+			t.Fatalf("create form file: %v", err)
+		}
+		if _, err := fw.Write(image); err != nil {
+			t.Fatalf("write image: %v", err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("close writer: %v", err)
+	}
+	return body, w.FormDataContentType()
+}
+
+func newTestHandler(stub *stubStorage) *Handler {
+	return &Handler{feedbackStorage: stub}
+}
+
+func injectUserID(r *http.Request, id int32) *http.Request {
+	ctx := context.WithValue(r.Context(), testUserIDCtxKey{}, id)
+	return r.WithContext(ctx)
+}
+
+func decodeJSON(t *testing.T, body io.Reader, v any) {
+	t.Helper()
+	if err := json.NewDecoder(body).Decode(v); err != nil {
+		t.Fatalf("decode json: %v", err)
+	}
+}
+
+const testUserID int32 = 42
+
+func TestSubmitFeedback_GCSNotConfigured(t *testing.T) {
+	stub := &stubStorage{configured: false}
+	h := newTestHandler(stub)
+
+	body, ct := buildMultipart(t, "this is at least ten chars long", nil, "")
+	req := httptest.NewRequest(http.MethodPost, "/api/me/feedback", body)
+	req.Header.Set("Content-Type", ct)
+	req = injectUserID(req, testUserID)
+
+	w := httptest.NewRecorder()
+	h.SubmitFeedback(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("status: got %d, want %d", w.Code, http.StatusServiceUnavailable)
+	}
+	if len(stub.uploads) != 0 {
+		t.Errorf("expected no uploads, got %d", len(stub.uploads))
+	}
+}
+
+func TestSubmitFeedback_TextTooShort(t *testing.T) {
+	stub := &stubStorage{configured: true}
+	h := newTestHandler(stub)
+
+	body, ct := buildMultipart(t, "short", nil, "")
+	req := httptest.NewRequest(http.MethodPost, "/api/me/feedback", body)
+	req.Header.Set("Content-Type", ct)
+	req = injectUserID(req, testUserID)
+
+	w := httptest.NewRecorder()
+	h.SubmitFeedback(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status: got %d, want %d", w.Code, http.StatusBadRequest)
+	}
+	if len(stub.uploads) != 0 {
+		t.Errorf("expected no uploads, got %d", len(stub.uploads))
+	}
+}
+
+func TestSubmitFeedback_MissingText(t *testing.T) {
+	stub := &stubStorage{configured: true}
+	h := newTestHandler(stub)
+
+	body, ct := buildMultipart(t, "", nil, "")
+	req := httptest.NewRequest(http.MethodPost, "/api/me/feedback", body)
+	req.Header.Set("Content-Type", ct)
+	req = injectUserID(req, testUserID)
+
+	w := httptest.NewRecorder()
+	h.SubmitFeedback(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status: got %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestSubmitFeedback_TextOnlyHappyPath(t *testing.T) {
+	stub := &stubStorage{configured: true}
+	h := newTestHandler(stub)
+
+	body, ct := buildMultipart(t, "I found a bug in the dashboard.", nil, "")
+	req := httptest.NewRequest(http.MethodPost, "/api/me/feedback", body)
+	req.Header.Set("Content-Type", ct)
+	req.Header.Set("User-Agent", "TestAgent/1.0")
+	req = injectUserID(req, testUserID)
+
+	w := httptest.NewRecorder()
+	h.SubmitFeedback(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: got %d, want %d (body=%s)", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	var resp struct {
+		RequestID string `json:"requestId"`
+	}
+	decodeJSON(t, w.Body, &resp)
+	if resp.RequestID == "" {
+		t.Fatal("expected non-empty requestId")
+	}
+
+	if len(stub.uploads) != 2 {
+		t.Fatalf("expected 2 uploads, got %d", len(stub.uploads))
+	}
+	wantPrefix := "requests/" + resp.RequestID + "/"
+	if stub.uploads[0].objectName != wantPrefix+"request.txt" {
+		t.Errorf("upload[0]: got %q, want %q", stub.uploads[0].objectName, wantPrefix+"request.txt")
+	}
+	if string(stub.uploads[0].body) != "I found a bug in the dashboard." {
+		t.Errorf("text body: got %q", string(stub.uploads[0].body))
+	}
+	if stub.uploads[1].objectName != wantPrefix+"meta.json" {
+		t.Errorf("upload[1]: got %q, want %q", stub.uploads[1].objectName, wantPrefix+"meta.json")
+	}
+	var meta map[string]any
+	if err := json.Unmarshal(stub.uploads[1].body, &meta); err != nil {
+		t.Fatalf("meta.json unmarshal: %v", err)
+	}
+	if meta["userId"].(float64) != float64(testUserID) {
+		t.Errorf("meta.userId: got %v, want %d", meta["userId"], testUserID)
+	}
+	if meta["userAgent"] != "TestAgent/1.0" {
+		t.Errorf("meta.userAgent: got %v", meta["userAgent"])
+	}
+	if meta["hasImage"] != false {
+		t.Errorf("meta.hasImage: got %v, want false", meta["hasImage"])
+	}
+}
+
+// Ensure unused imports from the new helpers are not flagged — strings is used in Step 6 tests.
+var _ = strings.HasSuffix
