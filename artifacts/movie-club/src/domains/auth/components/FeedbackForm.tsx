@@ -76,7 +76,8 @@ export function FeedbackForm() {
   };
 
   const mutation = useMutation({
-    mutationFn: () => submitFeedback(text, image),
+    mutationFn: ({ text, image }: { text: string; image: File | null }) =>
+      submitFeedback(text, image),
     onSuccess: () => {
       toast({ title: "Thanks — we got it." });
       reset();
@@ -151,7 +152,11 @@ export function FeedbackForm() {
       <Dialog
         open={open}
         onOpenChange={(next) => {
-          if (!next) reset();
+          if (next) {
+            setError(null);
+          } else {
+            reset();
+          }
           setOpen(next);
         }}
       >
@@ -189,7 +194,6 @@ export function FeedbackForm() {
                 accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
                 onChange={handleFileChange}
                 className="hidden"
-                id="feedback-image"
               />
               {!image ? (
                 <Button
@@ -240,14 +244,17 @@ export function FeedbackForm() {
             <Button
               type="button"
               variant="ghost"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                reset();
+                setOpen(false);
+              }}
               disabled={mutation.isPending}
             >
               Cancel
             </Button>
             <Button
               type="button"
-              onClick={() => mutation.mutate()}
+              onClick={() => mutation.mutate({ text, image })}
               disabled={!canSubmit}
               className="bg-primary hover:bg-primary/90"
             >
