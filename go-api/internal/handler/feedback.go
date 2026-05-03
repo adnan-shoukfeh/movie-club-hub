@@ -100,6 +100,10 @@ func (h *Handler) SubmitFeedback(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "Could not read uploaded image")
 			return
 		}
+		if int64(len(buf)) > feedbackImageMaxSize {
+			writeError(w, http.StatusBadRequest, "Image must be 10 MB or smaller")
+			return
+		}
 		head := buf
 		if len(head) > 512 {
 			head = head[:512]
@@ -170,13 +174,12 @@ func (h *Handler) lookupUsername(ctx context.Context, r *http.Request) string {
 	return u.Username
 }
 
-// userIDForFeedback returns the authenticated user ID, or a test-injected ID
-// when the session manager is absent (unit tests).
+// userIDForFeedback returns the authenticated user ID, or 0 when no session
+// manager is wired (unit tests). In production the route is auth-gated so
+// this never returns 0.
 func (h *Handler) userIDForFeedback(r *http.Request) int32 {
-	if v, ok := r.Context().Value(testUserIDCtxKey{}).(int32); ok {
-		return v
+	if h.sm == nil {
+		return 0
 	}
 	return h.userID(r)
 }
-
-type testUserIDCtxKey struct{}

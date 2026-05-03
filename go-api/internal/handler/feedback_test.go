@@ -182,7 +182,7 @@ type stubUpload struct {
 func (s *stubStorage) IsConfigured() bool { return s.configured }
 
 func (s *stubStorage) UploadFromReader(_ context.Context, name, ct string, r io.Reader) (string, error) {
-	if s.failOn != "" && s.failOn == name {
+	if s.failOn != "" && strings.HasSuffix(name, s.failOn) {
 		return "", errors.New("forced failure")
 	}
 	body, err := io.ReadAll(r)
@@ -221,19 +221,12 @@ func newTestHandler(stub *stubStorage) *Handler {
 	return &Handler{feedbackStorage: stub}
 }
 
-func injectUserID(r *http.Request, id int32) *http.Request {
-	ctx := context.WithValue(r.Context(), testUserIDCtxKey{}, id)
-	return r.WithContext(ctx)
-}
-
 func decodeJSON(t *testing.T, body io.Reader, v any) {
 	t.Helper()
 	if err := json.NewDecoder(body).Decode(v); err != nil {
 		t.Fatalf("decode json: %v", err)
 	}
 }
-
-const testUserID int32 = 42
 
 func TestSubmitFeedback_GCSNotConfigured(t *testing.T) {
 	stub := &stubStorage{configured: false}
@@ -242,8 +235,6 @@ func TestSubmitFeedback_GCSNotConfigured(t *testing.T) {
 	body, ct := buildMultipart(t, "this is at least ten chars long", nil, "")
 	req := httptest.NewRequest(http.MethodPost, "/api/me/feedback", body)
 	req.Header.Set("Content-Type", ct)
-	req = injectUserID(req, testUserID)
-
 	w := httptest.NewRecorder()
 	h.SubmitFeedback(w, req)
 
@@ -262,8 +253,6 @@ func TestSubmitFeedback_TextTooShort(t *testing.T) {
 	body, ct := buildMultipart(t, "short", nil, "")
 	req := httptest.NewRequest(http.MethodPost, "/api/me/feedback", body)
 	req.Header.Set("Content-Type", ct)
-	req = injectUserID(req, testUserID)
-
 	w := httptest.NewRecorder()
 	h.SubmitFeedback(w, req)
 
@@ -282,8 +271,6 @@ func TestSubmitFeedback_MissingText(t *testing.T) {
 	body, ct := buildMultipart(t, "", nil, "")
 	req := httptest.NewRequest(http.MethodPost, "/api/me/feedback", body)
 	req.Header.Set("Content-Type", ct)
-	req = injectUserID(req, testUserID)
-
 	w := httptest.NewRecorder()
 	h.SubmitFeedback(w, req)
 
@@ -300,8 +287,6 @@ func TestSubmitFeedback_TextOnlyHappyPath(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/me/feedback", body)
 	req.Header.Set("Content-Type", ct)
 	req.Header.Set("User-Agent", "TestAgent/1.0")
-	req = injectUserID(req, testUserID)
-
 	w := httptest.NewRecorder()
 	h.SubmitFeedback(w, req)
 
@@ -334,8 +319,8 @@ func TestSubmitFeedback_TextOnlyHappyPath(t *testing.T) {
 	if err := json.Unmarshal(stub.uploads[1].body, &meta); err != nil {
 		t.Fatalf("meta.json unmarshal: %v", err)
 	}
-	if meta["userId"].(float64) != float64(testUserID) {
-		t.Errorf("meta.userId: got %v, want %d", meta["userId"], testUserID)
+	if meta["userId"].(float64) != 0 {
+		t.Errorf("meta.userId: got %v, want 0", meta["userId"])
 	}
 	if meta["userAgent"] != "TestAgent/1.0" {
 		t.Errorf("meta.userAgent: got %v", meta["userAgent"])
@@ -364,8 +349,6 @@ func TestSubmitFeedback_ImageTooLarge(t *testing.T) {
 	body, ct := buildMultipart(t, "this is a long-enough message", big, "shot.png")
 	req := httptest.NewRequest(http.MethodPost, "/api/me/feedback", body)
 	req.Header.Set("Content-Type", ct)
-	req = injectUserID(req, testUserID)
-
 	w := httptest.NewRecorder()
 	h.SubmitFeedback(w, req)
 
@@ -385,8 +368,6 @@ func TestSubmitFeedback_DisguisedFile(t *testing.T) {
 	body, ct := buildMultipart(t, "this is a long-enough message", htmlBytes, "shot.png")
 	req := httptest.NewRequest(http.MethodPost, "/api/me/feedback", body)
 	req.Header.Set("Content-Type", ct)
-	req = injectUserID(req, testUserID)
-
 	w := httptest.NewRecorder()
 	h.SubmitFeedback(w, req)
 
@@ -406,8 +387,6 @@ func TestSubmitFeedback_ValidPNG(t *testing.T) {
 	body, ct := buildMultipart(t, "found a glitch on dashboard, screenshot attached", png, "shot.png")
 	req := httptest.NewRequest(http.MethodPost, "/api/me/feedback", body)
 	req.Header.Set("Content-Type", ct)
-	req = injectUserID(req, testUserID)
-
 	w := httptest.NewRecorder()
 	h.SubmitFeedback(w, req)
 
@@ -437,8 +416,6 @@ func TestSubmitFeedback_ValidHEIC(t *testing.T) {
 	body, ct := buildMultipart(t, "iphone screenshot of the bug attached", heic, "IMG_0042.HEIC")
 	req := httptest.NewRequest(http.MethodPost, "/api/me/feedback", body)
 	req.Header.Set("Content-Type", ct)
-	req = injectUserID(req, testUserID)
-
 	w := httptest.NewRecorder()
 	h.SubmitFeedback(w, req)
 
@@ -453,5 +430,32 @@ func TestSubmitFeedback_ValidHEIC(t *testing.T) {
 	}
 	if stub.uploads[2].contentType != "image/heic" {
 		t.Errorf("image content type: got %q", stub.uploads[2].contentType)
+	}
+}
+
+func TestSubmitFeedback_ImageUploadFails_StillReturns200(t *testing.T) {
+	stub := &stubStorage{configured: true, failOn: "/image.png"}
+	h := newTestHandler(stub)
+
+	png := validPNGBytes()
+	body, ct := buildMultipart(t, "image upload should fail but text saves", png, "shot.png")
+	req := httptest.NewRequest(http.MethodPost, "/api/me/feedback", body)
+	req.Header.Set("Content-Type", ct)
+
+	w := httptest.NewRecorder()
+	h.SubmitFeedback(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: got %d, want 200 (body=%s)", w.Code, w.Body.String())
+	}
+	// Expect 2 successful uploads (request.txt + meta.json), image was rejected by stub.
+	if len(stub.uploads) != 2 {
+		t.Fatalf("expected 2 successful uploads, got %d", len(stub.uploads))
+	}
+	if !strings.HasSuffix(stub.uploads[0].objectName, "/request.txt") {
+		t.Errorf("upload[0]: got %q, want suffix /request.txt", stub.uploads[0].objectName)
+	}
+	if !strings.HasSuffix(stub.uploads[1].objectName, "/meta.json") {
+		t.Errorf("upload[1]: got %q, want suffix /meta.json", stub.uploads[1].objectName)
 	}
 }
