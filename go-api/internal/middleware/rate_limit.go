@@ -17,7 +17,7 @@ import (
 
 const (
 	cleanupInterval = 5 * time.Minute
-	entryMaxAge     = 10 * time.Minute
+	entryMaxAge     = 2 * time.Hour
 )
 
 type entry struct {
