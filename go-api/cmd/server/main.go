@@ -102,6 +102,7 @@ func main() {
 	// higher (each instance has its own budget). Acceptable for a small private club app.
 	authLimiter := middleware.NewRateLimiter(ctx, rate.Every(6*time.Second), 5)   // 10/min, burst 5
 	searchLimiter := middleware.NewRateLimiter(ctx, rate.Every(3*time.Second), 5) // 20/min, burst 5
+	feedbackLimiter := middleware.NewRateLimiter(ctx, rate.Every(20*time.Minute), 3) // 3/hour, burst 3
 
 	// Router
 	r := chi.NewRouter()
@@ -182,6 +183,8 @@ func main() {
 			r.Get("/users/{userId}/profile", h.GetProfile)
 			r.Patch("/me/profile", h.UpdateProfile)
 			r.Patch("/me/settings", h.UpdateSettings)
+			r.With(middleware.RateLimit(feedbackLimiter, middleware.UserIDKeyFunc(sm))).
+				Post("/me/feedback", h.SubmitFeedback)
 
 			r.Post("/groups/{groupId}/watch-status", h.SetWatchStatus)
 
