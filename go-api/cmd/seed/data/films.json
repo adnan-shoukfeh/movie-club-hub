@@ -1,0 +1,68 @@
+[
+  {
+    "id": 1, "imdb_id": "tt0068646", "title": "The Godfather", "year": 1972,
+    "poster_url": "https://m.media-amazon.com/images/M/MV5BNGEwYjgwOGQtYjg5ZS00Njc1LTk2ZGEtM2QwZWQ2NjdhZTE5XkEyXkFqcGc@._V1_SX300.jpg",
+    "director": "Francis Ford Coppola", "genre": "Crime, Drama", "runtime_minutes": 175,
+    "omdb_fetched_at": "2026-04-01T00:00:00.000Z", "created_at": "2026-04-01T00:00:00.000Z"
+  },
+  {
+    "id": 2, "imdb_id": "tt0166924", "title": "Mulholland Drive", "year": 2001,
+    "poster_url": "https://m.media-amazon.com/images/M/MV5BNjliY2UwMjQtYjVlNi00NzExLTg1MDMtMjE2OTYwYjI0NTcxXkEyXkFqcGc@._V1_SX300.jpg",
+    "director": "David Lynch", "genre": "Drama, Mystery, Thriller", "runtime_minutes": 147,
+    "omdb_fetched_at": "2026-04-01T00:00:00.000Z", "created_at": "2026-04-01T00:00:00.000Z"
+  },
+  {
+    "id": 3, "imdb_id": "tt6751668", "title": "Parasite", "year": 2019,
+    "poster_url": "https://m.media-amazon.com/images/M/MV5BYjk1Y2U4MjQtY2ZiNS00OWQyLWI3MmYtZWUwNmRjYWRiNWNhXkEyXkFqcGc@._V1_SX300.jpg",
+    "director": "Bong Joon Ho", "genre": "Drama, Thriller", "runtime_minutes": 132,
+    "omdb_fetched_at": "2026-04-01T00:00:00.000Z", "created_at": "2026-04-01T00:00:00.000Z"
+  },
+  {
+    "id": 4, "imdb_id": "tt0078788", "title": "Apocalypse Now", "year": 1979,
+    "poster_url": "https://m.media-amazon.com/images/M/MV5BZDhiMTljYjYtODc1Yy00MmEwLTg2OTYtYmE1YTRmNDE4MmEwXkEyXkFqcGc@._V1_SX300.jpg",
+    "director": "Francis Ford Coppola", "genre": "Drama, War", "runtime_minutes": 153,
+    "omdb_fetched_at": "2026-04-01T00:00:00.000Z", "created_at": "2026-04-01T00:00:00.000Z"
+  },
+  {
+    "id": 5, "imdb_id": "tt1856101", "title": "Blade Runner 2049", "year": 2017,
+    "poster_url": "https://m.media-amazon.com/images/M/MV5BNzA1Njg4NzYxOV5BMl5BanBnXkFtZTgwODk5NjU3MzI@._V1_SX300.jpg",
+    "director": "Denis Villeneuve", "genre": "Action, Drama, Mystery", "runtime_minutes": 164,
+    "omdb_fetched_at": "2026-04-01T00:00:00.000Z", "created_at": "2026-04-01T00:00:00.000Z"
+  },
+  {
+    "id": 6, "imdb_id": "tt0062622", "title": "2001: A Space Odyssey", "year": 1968,
+    "poster_url": "https://m.media-amazon.com/images/M/MV5BNjU0NDFkMTQtZWY5OS00MmZhLTg3Y2QtZmJhMzMzMWYyYjc2XkEyXkFqcGc@._V1_SX300.jpg",
+    "director": "Stanley Kubrick", "genre": "Adventure, Sci-Fi", "runtime_minutes": 149,
+    "omdb_fetched_at": "2026-04-01T00:00:00.000Z", "created_at": "2026-04-01T00:00:00.000Z"
+  },
+  {
+    "id": 7, "imdb_id": "tt2798920", "title": "Annihilation", "year": 2018,
+    "poster_url": "https://m.media-amazon.com/images/M/MV5BMTk2Mjc2NzYxNl5BMl5BanBnXkFtZTgwMTA2OTA1NDM@._V1_SX300.jpg",
+    "director": "Alex Garland", "genre": "Adventure, Drama, Horror", "runtime_minutes": 115,
+    "omdb_fetched_at": "2026-04-01T00:00:00.000Z", "created_at": "2026-04-01T00:00:00.000Z"
+  },
+  {
+    "id": 8, "imdb_id": "tt0157183", "title": "West Beirut", "year": 1998,
+    "poster_url": "https://m.media-amazon.com/images/M/MV5BNzE0NzdkMmUtNTJlOC00ZGEyLTg1MDctZjdhNDQ4MTc5YzkyXkEyXkFqcGdeQXVyMTMxMTY0OTQ@._V1_SX300.jpg",
+    "director": null, "genre": null, "runtime_minutes": null,
+    "omdb_fetched_at": "2026-04-10T00:00:00.000Z", "created_at": "2026-04-10T00:00:00.000Z"
+  },
+  {
+    "id": 9, "imdb_id": "tt0079944", "title": "Stalker", "year": 1979,
+    "poster_url": "https://m.media-amazon.com/images/M/MV5BMDIzMDRiYjgtM2U1Yy00MjlhLTliODMtM2E5NDI5Njc3YmZkXkEyXkFqcGc@._V1_SX300.jpg",
+    "director": null, "genre": null, "runtime_minutes": null,
+    "omdb_fetched_at": "2026-04-11T00:00:00.000Z", "created_at": "2026-04-11T00:00:00.000Z"
+  },
+  {
+    "id": 10, "imdb_id": "tt0118694", "title": "In the Mood for Love", "year": 2000,
+    "poster_url": "https://m.media-amazon.com/images/M/MV5BN2Q4NjllMDgtOTk2Zi00YzM1LWJmOTMtNmRiZDgyZGJmMjQzXkEyXkFqcGc@._V1_SX300.jpg",
+    "director": null, "genre": null, "runtime_minutes": null,
+    "omdb_fetched_at": "2026-04-12T00:00:00.000Z", "created_at": "2026-04-12T00:00:00.000Z"
+  },
+  {
+    "id": 11, "imdb_id": "tt1560747", "title": "The Master", "year": 2012,
+    "poster_url": "https://m.media-amazon.com/images/M/MV5BMTQ2NjQ5MzMwMF5BMl5BanBnXkFtZTcwMjczNTAzOA@@._V1_SX300.jpg",
+    "director": null, "genre": null, "runtime_minutes": null,
+    "omdb_fetched_at": "2026-04-15T00:00:00.000Z", "created_at": "2026-04-15T00:00:00.000Z"
+  }
+]

@@ -4,6 +4,7 @@ WORKDIR /app
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY tsconfig.base.json ./
+COPY scripts/ ./scripts/
 COPY artifacts/movie-club/package.json ./artifacts/movie-club/
 COPY lib/ ./lib/
 RUN pnpm install --frozen-lockfile --filter movie-club...

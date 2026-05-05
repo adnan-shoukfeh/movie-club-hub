@@ -1,0 +1,19 @@
+[
+  {"id": 1,  "turn_id": 1, "user_id": 1, "watched": true, "rating": 8.5, "review": "A masterpiece. The horse scene got me.",     "created_at": "2026-04-08T20:00:00.000Z", "updated_at": "2026-04-08T20:00:00.000Z"},
+  {"id": 2,  "turn_id": 1, "user_id": 2, "watched": true, "rating": 9.2, "review": "Peak cinema. Nothing else to say.",           "created_at": "2026-04-07T18:00:00.000Z", "updated_at": "2026-04-07T18:00:00.000Z"},
+  {"id": 3,  "turn_id": 1, "user_id": 3, "watched": true, "rating": 7.8, "review": null,                                          "created_at": "2026-04-08T15:00:00.000Z", "updated_at": "2026-04-08T15:00:00.000Z"},
+  {"id": 4,  "turn_id": 1, "user_id": 4, "watched": true, "rating": 8.0, "review": "Great movie, but 3 hours is a long time.",    "created_at": "2026-04-08T21:00:00.000Z", "updated_at": "2026-04-08T21:00:00.000Z"},
+  {"id": 5,  "turn_id": 2, "user_id": 1, "watched": true, "rating": 6.0, "review": "I have no idea what I just watched. 6/10.",   "created_at": "2026-04-15T22:00:00.000Z", "updated_at": "2026-04-15T22:00:00.000Z"},
+  {"id": 6,  "turn_id": 2, "user_id": 2, "watched": true, "rating": 9.5, "review": null,                                          "created_at": "2026-04-14T19:00:00.000Z", "updated_at": "2026-04-14T19:00:00.000Z"},
+  {"id": 7,  "turn_id": 2, "user_id": 3, "watched": true, "rating": 9.8, "review": "Lynch at his most Lynch. Unforgettable.",     "created_at": "2026-04-13T20:00:00.000Z", "updated_at": "2026-04-13T20:00:00.000Z"},
+  {"id": 8,  "turn_id": 2, "user_id": 4, "watched": true, "rating": 6.5, "review": "Didn't get it. Might rewatch.",               "created_at": "2026-04-15T21:00:00.000Z", "updated_at": "2026-04-15T21:00:00.000Z"},
+  {"id": 9,  "turn_id": 5, "user_id": 2, "watched": true, "rating": 9.0, "review": "Kurtz understood the assignment.",            "created_at": "2026-04-14T18:00:00.000Z", "updated_at": "2026-04-14T18:00:00.000Z"},
+  {"id": 10, "turn_id": 5, "user_id": 1, "watched": true, "rating": 8.0, "review": "The horror... the horror.",                   "created_at": "2026-04-14T20:00:00.000Z", "updated_at": "2026-04-14T20:00:00.000Z"},
+  {"id": 11, "turn_id": 5, "user_id": 5, "watched": true, "rating": 7.5, "review": null,                                          "created_at": "2026-04-14T16:00:00.000Z", "updated_at": "2026-04-14T16:00:00.000Z"},
+  {"id": 12, "turn_id": 5, "user_id": 4, "watched": true, "rating": 8.5, "review": "Coppola doing it again.",                     "created_at": "2026-04-14T19:00:00.000Z", "updated_at": "2026-04-14T19:00:00.000Z"},
+  {"id": 13, "turn_id": 8, "user_id": 3, "watched": true, "rating": 9.5, "review": "HAL did nothing wrong.",                      "created_at": "2026-04-12T20:00:00.000Z", "updated_at": "2026-04-12T20:00:00.000Z"},
+  {"id": 14, "turn_id": 8, "user_id": 4, "watched": true, "rating": 8.0, "review": null,                                          "created_at": "2026-04-12T18:00:00.000Z", "updated_at": "2026-04-12T18:00:00.000Z"},
+  {"id": 15, "turn_id": 8, "user_id": 5, "watched": true, "rating": 8.8, "review": "The monolith gave me chills.",                "created_at": "2026-04-12T21:00:00.000Z", "updated_at": "2026-04-12T21:00:00.000Z"},
+  {"id": 16, "turn_id": 3, "user_id": 4, "watched": true, "rating": null, "review": null,                                         "created_at": "2026-04-16T10:00:00.000Z", "updated_at": "2026-04-16T10:00:00.000Z"},
+  {"id": 17, "turn_id": 6, "user_id": 2, "watched": true, "rating": null, "review": null,                                         "created_at": "2026-04-16T09:00:00.000Z", "updated_at": "2026-04-16T09:00:00.000Z"}
+]
