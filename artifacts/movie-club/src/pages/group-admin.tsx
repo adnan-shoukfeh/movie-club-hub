@@ -3,13 +3,16 @@ import { useParams, useLocation } from "wouter";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import {
   useGetGroup,
+  useGetMe,
   getGetGroupQueryKey,
   getGetGroupStatusQueryKey,
   getGetDashboardQueryKey,
 } from "@workspace/api-client-react";
-import { ArrowLeft, Shield, Menu, Clapperboard, Trophy, Sticker, Plus, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { ArrowLeft, Shield, Menu, Clapperboard, Trophy, Sticker, Plus, ChevronDown, ChevronUp, Loader2, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserLink } from "@/domains/profiles/components/UserLink";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +39,7 @@ export default function GroupAdmin() {
     {},
     { query: { queryKey: getGetGroupQueryKey(groupId), enabled: !!groupId } }
   );
+  const { data: me } = useGetMe();
 
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
@@ -148,33 +152,54 @@ export default function GroupAdmin() {
               <span className="text-xs text-muted-foreground">{group.name}</span>
             </div>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-muted-foreground"
-              >
-                <Menu className="w-4 h-4" />
-                Menu
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => setLocation(`/groups/${groupId}`)}>
-                <Clapperboard className="w-4 h-4 mr-2" />
-                Back to Group
-              </DropdownMenuItem>
-              {group.resultsAvailable && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setLocation(`/groups/${groupId}/results`)}>
-                    <Trophy className="w-4 h-4 mr-2" />
-                    Results
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-muted-foreground"
+                >
+                  <Menu className="w-4 h-4" />
+                  Menu
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setLocation(`/groups/${groupId}`)}>
+                  <Clapperboard className="w-4 h-4 mr-2" />
+                  Back to Group
+                </DropdownMenuItem>
+                {group.resultsAvailable && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setLocation(`/groups/${groupId}/results`)}>
+                      <Trophy className="w-4 h-4 mr-2" />
+                      Results
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setLocation("/settings")}
+              title="Settings"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+            {me && (
+              <UserLink userId={me.id}>
+                <Avatar className="w-8 h-8 border border-border hover:border-primary transition-all cursor-pointer">
+                  <AvatarImage src={me.avatarUrl ?? undefined} alt={me.username} />
+                  <AvatarFallback className="bg-primary text-secondary text-xs font-black">
+                    {me.username.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </UserLink>
+            )}
+          </div>
         </div>
       </header>
 

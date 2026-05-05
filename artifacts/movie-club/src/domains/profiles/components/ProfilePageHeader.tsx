@@ -1,12 +1,15 @@
 import { Film, LogOut, Settings } from "lucide-react";
 import { useLocation } from "wouter";
-import { useLogout } from "@workspace/api-client-react";
+import { useLogout, useGetMe } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserLink } from "@/domains/profiles/components/UserLink";
 
 export function ProfilePageHeader() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const logoutMutation = useLogout();
+  const { data: me } = useGetMe();
 
   const handleLogout = () => {
     logoutMutation.mutate(undefined, {
@@ -40,6 +43,16 @@ export function ProfilePageHeader() {
             >
               <Settings className="w-5 h-5" />
             </button>
+            {me && (
+              <UserLink userId={me.id}>
+                <Avatar className="w-9 h-9 border-2 border-white/30 hover:border-primary transition-all">
+                  <AvatarImage src={me.avatarUrl ?? undefined} alt={me.username} />
+                  <AvatarFallback className="bg-primary text-secondary text-sm font-black">
+                    {me.username.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </UserLink>
+            )}
             <button
               onClick={handleLogout}
               className="px-3 py-2 border-2 border-white/30 hover:border-primary bg-secondary text-white hover:text-primary transition-all font-bold uppercase text-sm flex items-center gap-2"

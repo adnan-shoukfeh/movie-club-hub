@@ -21,11 +21,19 @@ import {
   Clock,
   Calendar,
   Lightbulb,
+  LayoutList,
   Settings,
+  Shield,
   X,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { formatShortDateET } from "@/lib/utils";
 import { TurnStatusBanner } from "@/domains/turns/components/TurnStatusBanner";
@@ -198,42 +206,59 @@ export default function GroupDetail() {
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-              <button
-                onClick={() => setPickerScheduleOpen(true)}
-                className={`p-2 sm:p-2.5 border-2 transition-all ${
-                  pickerScheduleOpen
-                    ? "bg-primary text-secondary border-primary"
-                    : "bg-secondary text-white border-white/30 hover:border-primary"
-                }`}
-              >
-                <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-              <button
-                onClick={() => setNominationsOpen(true)}
-                className={`p-2 sm:p-2.5 border-2 transition-all ${
-                  nominationsOpen
-                    ? "bg-primary text-secondary border-primary"
-                    : "bg-secondary text-white border-white/30 hover:border-primary"
-                }`}
-              >
-                <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className={`p-2 sm:p-2.5 border-2 transition-all ${
+                      pickerScheduleOpen || nominationsOpen
+                        ? "bg-primary text-secondary border-primary"
+                        : "bg-secondary text-white border-white/30 hover:border-primary"
+                    }`}
+                  >
+                    <LayoutList className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-secondary border-2 border-primary">
+                  <DropdownMenuItem
+                    onClick={() => setPickerScheduleOpen(true)}
+                    className="font-bold uppercase text-sm cursor-pointer text-white hover:bg-primary hover:text-secondary focus:bg-primary focus:text-secondary"
+                  >
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Picker Schedule
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setNominationsOpen(true)}
+                    className="font-bold uppercase text-sm cursor-pointer text-white hover:bg-primary hover:text-secondary focus:bg-primary focus:text-secondary"
+                  >
+                    <Lightbulb className="w-4 h-4 mr-2" />
+                    Nominations Pool
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               {isAdminOrOwner && (
                 <button
                   onClick={() => setLocation(`/groups/${groupId}/admin`)}
                   className="p-2 sm:p-2.5 border-2 border-white/30 hover:border-primary bg-secondary text-white hover:text-primary transition-all"
                 >
-                  <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               )}
-              {canEditMovie && (
-                <button
-                  onClick={() => setShowMovieInput(true)}
-                  className="p-2 sm:px-4 sm:py-2 bg-primary text-secondary border-2 border-secondary hover:bg-secondary hover:text-primary hover:border-primary transition-all font-black uppercase text-sm"
-                >
-                  <Clapperboard className="w-4 h-4 sm:hidden" />
-                  <span className="hidden sm:inline">Select Movie</span>
-                </button>
+              <button
+                onClick={() => setLocation("/settings")}
+                className="p-2 sm:p-2.5 border-2 border-white/30 hover:border-primary bg-secondary text-white hover:text-primary transition-all"
+                title="Settings"
+              >
+                <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+              {me && (
+                <UserLink userId={me.id}>
+                  <Avatar className="w-8 h-8 sm:w-9 sm:h-9 border-2 border-white/30 hover:border-primary transition-all">
+                    <AvatarImage src={me.avatarUrl ?? undefined} alt={me.username} />
+                    <AvatarFallback className="bg-primary text-secondary text-xs font-black">
+                      {me.username.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </UserLink>
               )}
             </div>
           </div>
