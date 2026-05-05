@@ -282,6 +282,15 @@ func toFloat64(v interface{}) float64 {
 		f := 0.0
 		fmt.Sscanf(val, "%f", &f)
 		return f
+	case pgtype.Numeric:
+		if !val.Valid {
+			return 0
+		}
+		f8, err := val.Float64Value()
+		if err != nil || !f8.Valid {
+			return 0
+		}
+		return f8.Float64
 	}
 	return 0
 }
