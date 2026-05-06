@@ -163,7 +163,7 @@ export function NominationSheet({
           <img src={nom.poster} alt={nom.title} className="w-8 h-11 object-cover rounded shrink-0" />
         )
       ) : (
-        <div className="w-8 h-11 bg-muted rounded shrink-0 items-center justify-center">
+        <div className="w-8 h-11 bg-muted rounded shrink-0 flex items-center justify-center">
           <Film className="w-3.5 h-3.5 text-muted-foreground" />
         </div>
       )}
