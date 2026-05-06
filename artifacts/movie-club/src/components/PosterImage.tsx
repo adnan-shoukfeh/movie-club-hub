@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Film } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +20,10 @@ export function PosterImage({
   loading = "lazy",
 }: PosterImageProps) {
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
 
   if (src && !failed) {
     return (
