@@ -155,15 +155,15 @@ export function NominationSheet({
             href={`https://www.imdb.com/title/${nom.imdbId}/`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-shrink-0"
+            className="shrink-0"
           >
             <img src={nom.poster} alt={nom.title} className="w-8 h-11 object-cover rounded hover:opacity-80 transition-opacity" />
           </a>
         ) : (
-          <img src={nom.poster} alt={nom.title} className="w-8 h-11 object-cover rounded flex-shrink-0" />
+          <img src={nom.poster} alt={nom.title} className="w-8 h-11 object-cover rounded shrink-0" />
         )
       ) : (
-        <div className="w-8 h-11 bg-muted rounded flex-shrink-0 flex items-center justify-center">
+        <div className="w-8 h-11 bg-muted rounded shrink-0 flex items-center justify-center">
           <Film className="w-3.5 h-3.5 text-muted-foreground" />
         </div>
       )}
@@ -243,9 +243,9 @@ export function NominationSheet({
                         onClick={() => { setNomSelectedMovie(result); setNomShowDropdown(false); }}
                       >
                         {result.poster ? (
-                          <img src={result.poster} alt={result.title} className="w-9 h-12 object-cover rounded flex-shrink-0" />
+                          <img src={result.poster} alt={result.title} className="w-9 h-12 object-cover rounded shrink-0" />
                         ) : (
-                          <div className="w-9 h-12 bg-muted rounded flex-shrink-0 flex items-center justify-center">
+                          <div className="w-9 h-12 bg-muted rounded shrink-0 flex items-center justify-center">
                             <Film className="w-4 h-4 text-muted-foreground" />
                           </div>
                         )}
@@ -265,9 +265,9 @@ export function NominationSheet({
             {nomSelectedMovie && (
               <div className="flex items-center gap-3 bg-primary/10 border border-primary/20 rounded-lg p-3">
                 {nomSelectedMovie.poster ? (
-                  <img src={nomSelectedMovie.poster} alt={nomSelectedMovie.title} className="w-10 h-14 object-cover rounded flex-shrink-0" />
+                  <img src={nomSelectedMovie.poster} alt={nomSelectedMovie.title} className="w-10 h-14 object-cover rounded shrink-0" />
                 ) : (
-                  <div className="w-10 h-14 bg-muted rounded flex-shrink-0 flex items-center justify-center">
+                  <div className="w-10 h-14 bg-muted rounded shrink-0 flex items-center justify-center">
                     <Film className="w-4 h-4 text-muted-foreground" />
                   </div>
                 )}

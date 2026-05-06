@@ -1,6 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { UserProfile } from "@workspace/api-client-react";
+import { ProfilePictureDialog } from "./ProfilePictureDialog";
 
 interface ProfileIdentityCardProps {
   profile: UserProfile;
@@ -17,12 +18,20 @@ export function ProfileIdentityCard({ profile, isSelf }: ProfileIdentityCardProp
     <div className="bg-card/50 border border-border/30 p-5 lg:p-6">
       {/* Mobile: avatar + identity inline. Desktop: stacked. */}
       <div className="flex items-center gap-4 lg:flex-col lg:items-start lg:gap-0">
-        <Avatar className="w-[72px] h-[72px] lg:w-full lg:h-auto lg:aspect-square border-2 border-primary lg:rounded-none">
-          <AvatarImage src={profile.avatarUrl ?? undefined} alt={profile.username} />
-          <AvatarFallback className="bg-primary text-secondary text-2xl lg:text-5xl font-black lg:rounded-none">
-            {profile.username.slice(0, 2).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        <ProfilePictureDialog avatarUrl={profile.avatarUrl} username={profile.username}>
+          <button
+            type="button"
+            className="shrink-0 cursor-zoom-in transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:w-full"
+            aria-label={`Enlarge ${profile.username}'s profile picture`}
+          >
+            <Avatar className="w-[72px] h-[72px] lg:w-full lg:h-auto lg:aspect-square border-2 border-primary lg:rounded-none">
+              <AvatarImage src={profile.avatarUrl ?? undefined} alt={profile.username} />
+              <AvatarFallback className="bg-primary text-secondary text-2xl lg:text-5xl font-black lg:rounded-none">
+                {profile.username.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          </button>
+        </ProfilePictureDialog>
 
         <div className="min-w-0 lg:mt-4">
           <h2 className="text-lg lg:text-2xl font-black text-foreground truncate">
