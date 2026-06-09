@@ -55,7 +55,15 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		}
 		groupConfigs[g.ID] = config
 
-		weekOf := getCurrentTurnWeekOf(config)
+		// Resolve the current turn from the turns table so an admin-extended turn
+		// stays current (matches ListGroups/GetGroup). Fall back to the computed
+		// schedule only when no turn row covers today.
+		var weekOf string
+		if currentTurn, err := h.q.GetCurrentTurn(r.Context(), g.ID); err == nil {
+			weekOf = pgDateToString(currentTurn.WeekOf)
+		} else {
+			weekOf = getCurrentTurnWeekOf(config)
+		}
 		movie, err := h.q.GetMovieByGroupWeek(r.Context(), db.GetMovieByGroupWeekParams{
 			GroupID: g.ID, WeekOf: timeToPgDate(weekOf),
 		})

@@ -89,6 +89,7 @@ SELECT id, group_id, turn_index, week_of, picker_user_id, start_date, end_date,
        movie_unlocked, reviews_unlocked, created_at, updated_at
 FROM turns
 WHERE group_id = $1 AND start_date <= CURRENT_DATE AND end_date >= CURRENT_DATE
+ORDER BY turn_index
 LIMIT 1
 `
 
