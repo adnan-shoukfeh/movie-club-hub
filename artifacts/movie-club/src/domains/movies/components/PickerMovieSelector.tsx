@@ -91,19 +91,6 @@ export function PickerMovieSelector({
           },
         }
       );
-    } else if (searchQuery.trim()) {
-      setMovie.mutate(
-        { groupId, data: { title: searchQuery.trim(), weekOf: selectedWeek } },
-        {
-          onSuccess: () => {
-            invalidate();
-            onSuccess();
-          },
-          onError: (e: any) => {
-            toast({ title: "Error", description: e.data?.error ?? "Could not set movie", variant: "destructive" });
-          },
-        }
-      );
     }
   };
 
@@ -160,7 +147,7 @@ export function PickerMovieSelector({
               ))
             ) : (
               <div className="px-4 py-3 text-sm text-muted-foreground text-center">
-                No results. Try a different title, or press Set to use your search term directly.
+                No results. Try a different title or IMDb ID.
               </div>
             )}
           </div>
@@ -242,7 +229,7 @@ export function PickerMovieSelector({
         <Button
           size="sm"
           onClick={handleSetMovie}
-          disabled={setMovie.isPending || (!selectedMovie && !searchQuery.trim())}
+          disabled={setMovie.isPending || !selectedMovie}
           className="bg-primary hover:bg-primary/90"
         >
           {setMovie.isPending ? "Setting..." : "Set Movie"}

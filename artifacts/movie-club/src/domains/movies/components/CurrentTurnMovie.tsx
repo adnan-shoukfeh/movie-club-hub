@@ -190,6 +190,18 @@ export function CurrentTurnMovie({
               )}
             </div>
           )}
+
+          {movie && canEditMovie && (!status || !isCurrentWeek) && (
+            <div className="mt-6 pt-4 border-t-4 border-secondary">
+              <button
+                onClick={onEditMovie}
+                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-secondary border-2 border-white/30 hover:border-primary text-white hover:text-primary transition-all font-bold uppercase text-xs sm:text-sm flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Change
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

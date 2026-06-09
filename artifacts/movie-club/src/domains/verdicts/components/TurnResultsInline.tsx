@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useGetVerdicts, getGetResultsQueryKey } from "@workspace/api-client-react";
 import type { Member } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Star,
   Award,
@@ -9,12 +10,15 @@ import {
   Skull,
   ChevronDown,
   ChevronUp,
+  MessageCircle,
+  Send,
 } from "lucide-react";
 import { UserLink } from "@/domains/profiles/components/UserLink";
 import { ReactionBar } from "@/domains/reactions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StarRating } from "@/components/ui/star-rating";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useToast } from "@/hooks/use-toast";
 import {
   BarChart,
   Bar,
@@ -29,6 +33,135 @@ interface TurnResultsInlineProps {
   groupId: number;
   selectedWeek: string;
   members: Member[];
+}
+
+interface ReviewReply {
+  id: number;
+  verdictId: number;
+  userId: number;
+  username: string;
+  body: string;
+  createdAt: string;
+  avatarUrl?: string | null;
+}
+
+function ReviewReplies({
+  groupId,
+  selectedWeek,
+  verdictId,
+  replies,
+}: {
+  groupId: number;
+  selectedWeek: string;
+  verdictId: number;
+  replies: ReviewReply[];
+}) {
+  const [replying, setReplying] = useState(false);
+  const [body, setBody] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const submitReply = async () => {
+    const trimmed = body.trim();
+    if (!trimmed || submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/groups/${groupId}/verdicts/${verdictId}/replies`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: trimmed }),
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Could not add reply");
+      }
+      setBody("");
+      setReplying(false);
+      queryClient.invalidateQueries({ queryKey: [...getGetResultsQueryKey(groupId), selectedWeek] });
+    } catch (err) {
+      toast({
+        title: "Reply failed",
+        description: err instanceof Error ? err.message : "Could not add reply",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="pl-16 mt-3 space-y-3">
+      {replies.length > 0 && (
+        <div className="space-y-2 border-l-2 border-white/20 pl-3">
+          {replies.map((reply) => (
+            <div key={reply.id} className="flex items-start gap-2">
+              <UserLink userId={reply.userId}>
+                <Avatar className="w-7 h-7 border border-primary">
+                  <AvatarImage src={reply.avatarUrl ?? undefined} alt={reply.username} />
+                  <AvatarFallback className="bg-primary text-secondary text-[10px] font-bold">
+                    {reply.username.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </UserLink>
+              <div className="min-w-0 flex-1">
+                <UserLink userId={reply.userId} className="inline-block">
+                  <span className="text-xs font-black text-white hover:text-primary transition-colors">
+                    {reply.username}
+                  </span>
+                </UserLink>
+                <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap break-words">
+                  {reply.body}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {replying ? (
+        <div className="space-y-2">
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            maxLength={1000}
+            rows={2}
+            className="w-full bg-card border-2 border-white/20 text-white text-sm p-2 focus:outline-none focus:border-primary resize-none"
+            placeholder="Reply..."
+            autoFocus
+          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={submitReply}
+              disabled={submitting || body.trim().length === 0}
+              className="px-3 py-1.5 bg-primary text-secondary font-black uppercase text-xs border-2 border-primary disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <Send className="w-3 h-3" />
+              Send
+            </button>
+            <button
+              onClick={() => {
+                setReplying(false);
+                setBody("");
+              }}
+              className="px-3 py-1.5 text-white/70 hover:text-white text-xs font-bold uppercase"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setReplying(true)}
+          className="text-xs text-white/60 hover:text-primary font-bold uppercase flex items-center gap-1.5"
+        >
+          <MessageCircle className="w-3.5 h-3.5" />
+          Reply
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function TurnResultsInline({ groupId, selectedWeek, members }: TurnResultsInlineProps) {
@@ -228,6 +361,12 @@ export function TurnResultsInline({ groupId, selectedWeek, members }: TurnResult
                     groupId={groupId}
                   />
                 </div>
+                <ReviewReplies
+                  groupId={groupId}
+                  selectedWeek={selectedWeek}
+                  verdictId={vote.id}
+                  replies={((vote as unknown as { replies?: ReviewReply[] }).replies ?? [])}
+                />
               </div>
             ))}
           </div>

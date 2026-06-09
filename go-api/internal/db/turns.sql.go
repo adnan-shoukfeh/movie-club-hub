@@ -270,7 +270,7 @@ func (q *Queries) GetTurnsForGroup(ctx context.Context, groupID int32) ([]Turn, 
 
 const updateTurnDates = `-- name: UpdateTurnDates :exec
 UPDATE turns
-SET start_date = $2, end_date = $3, updated_at = now()
+SET week_of = $2, start_date = $2, end_date = $3, updated_at = now()
 WHERE id = $1
 `
 

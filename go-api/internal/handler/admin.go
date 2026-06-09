@@ -55,8 +55,10 @@ func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 
 	// Use turns table directly for current turn
 	var currentWeekOf string
+	realCurrent := false
 	if currentTurn, err := h.q.GetCurrentTurn(r.Context(), groupID); err == nil {
 		currentWeekOf = pgDateToString(currentTurn.WeekOf)
+		realCurrent = true
 	} else {
 		currentWeekOf = getCurrentTurnWeekOf(config)
 	}
@@ -64,6 +66,14 @@ func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 	centerWeekOf := queryString(r, "centerWeekOf")
 	if centerWeekOf == "" || !isValidDateStr(centerWeekOf) {
 		centerWeekOf = currentWeekOf
+		// When no real turn covers today (the club is between cycles), center on the
+		// latest real turn so the admin sees actual turns instead of only empty
+		// synthesized future weeks.
+		if !realCurrent {
+			if last, err := h.q.GetLatestTurnForGroup(r.Context(), groupID); err == nil {
+				centerWeekOf = pgDateToString(last.WeekOf)
+			}
+		}
 	}
 
 	memberCount, _ := h.q.GetGroupMemberCount(r.Context(), groupID)
@@ -78,22 +88,44 @@ func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 		memberList = append(memberList, memberResp{ID: m.UserID, Username: m.Username})
 	}
 
-	// Build schedule: 4 past + current + memberCount future
-	pickerAssignments, _ := h.q.GetPickerAssignmentsForGroup(r.Context(), groupID)
-	paMap := make(map[string]db.GetPickerAssignmentsForGroupRow)
-	for _, pa := range pickerAssignments {
-		paMap[pa.WeekOf] = pa
+	// Build the schedule from the turns table (source of truth) so non-uniform
+	// turn lengths stay aligned with reality. Not-yet-created future turns are
+	// synthesized at the configured turn_length_days. The legacy config walk
+	// computed week_of from turn_length_days alone, which desynced from the table
+	// whenever a turn's real length differed (e.g. the base length was changed
+	// after the turns were created), producing phantom weeks that no edit matched.
+	allTurns, _ := h.q.GetTurnsForGroup(r.Context(), groupID)
+	turnByIdx := make(map[int]db.Turn, len(allTurns))
+	maxIdx := -1
+	for _, t := range allTurns {
+		turnByIdx[int(t.TurnIndex)] = t
+		if int(t.TurnIndex) > maxIdx {
+			maxIdx = int(t.TurnIndex)
+		}
+	}
+	usernameByID := make(map[int32]string, len(members))
+	for _, m := range members {
+		usernameByID[m.UserID] = m.Username
 	}
 
-	overrides, _ := h.q.GetTurnOverridesForGroup(r.Context(), groupID)
-	overrideMap := make(map[string]db.GetTurnOverridesForGroupRow)
-	for _, o := range overrides {
-		overrideMap[pgDateToString(o.WeekOf)] = o
-	}
+	loc, _ := time.LoadLocation("America/New_York")
+	turnLen := int(group.TurnLengthDays)
 
+	// Center on the real turn whose week_of matches centerWeekOf when possible.
 	centerIdx := getTurnIndexForDate(centerWeekOf, config)
+	for _, t := range allTurns {
+		if pgDateToString(t.WeekOf) == centerWeekOf {
+			centerIdx = int(t.TurnIndex)
+			break
+		}
+	}
 	startIdx := max(centerIdx-4, 0)
 	endIdx := centerIdx + int(memberCount) + 1
+
+	var lastRealEnd time.Time
+	if maxIdx >= 0 {
+		lastRealEnd = pgDateToTime(turnByIdx[maxIdx].EndDate)
+	}
 
 	type scheduleEntry struct {
 		WeekOf                string  `json:"weekOf"`
@@ -109,16 +141,40 @@ func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 
 	schedule := make([]scheduleEntry, 0, endIdx-startIdx)
 	for i := startIdx; i < endIdx; i++ {
-		wof := getTurnStartDate(i, config)
-		entry := scheduleEntry{WeekOf: wof}
+		var entry scheduleEntry
+		var startT, endT time.Time
 
-		if pa, ok := paMap[wof]; ok {
-			entry.PickerUserID = &pa.UserID
-			entry.PickerUsername = &pa.PickerUsername
+		if t, ok := turnByIdx[i]; ok {
+			entry.WeekOf = pgDateToString(t.WeekOf)
+			startT = pgDateToTime(t.StartDate)
+			endT = pgDateToTime(t.EndDate)
+			if uname, ok := usernameByID[t.PickerUserID]; ok {
+				pid := t.PickerUserID
+				uu := uname
+				entry.PickerUserID = &pid
+				entry.PickerUsername = &uu
+			}
+			entry.MovieUnlockedByAdmin = t.MovieUnlocked
+			entry.ReviewUnlockedByAdmin = t.ReviewsUnlocked
+		} else if maxIdx >= 0 && i > maxIdx {
+			// Synthesized future turn (only past the last real turn): starts the day
+			// after the previous one ends.
+			startT = lastRealEnd.AddDate(0, 0, 1+(i-maxIdx-1)*turnLen)
+			endT = startT.AddDate(0, 0, turnLen-1)
+			entry.WeekOf = startT.Format("2006-01-02")
+		} else if maxIdx < 0 {
+			// No turns exist yet; fall back to the computed schedule.
+			entry.WeekOf = getTurnStartDate(i, config)
+			startT = timeToPgDate(entry.WeekOf).Time
+			endT = startT.AddDate(0, 0, turnLen-1)
+		} else {
+			// Gap in the index sequence (no real turn here, and it's before the last
+			// real turn) — skip so nothing renders out of chronological order.
+			continue
 		}
 
 		if movie, err := h.q.GetMovieByGroupWeek(r.Context(), db.GetMovieByGroupWeekParams{
-			GroupID: groupID, WeekOf: timeToPgDate(wof),
+			GroupID: groupID, WeekOf: timeToPgDate(entry.WeekOf),
 		}); err == nil {
 			entry.Movie = map[string]any{
 				"id": movie.ID, "title": movie.Title,
@@ -126,18 +182,14 @@ func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		adminExt := 0
-		startOffset := 0
-		if o, ok := overrideMap[wof]; ok {
-			entry.ReviewUnlockedByAdmin = o.ReviewUnlockedByAdmin
-			entry.MovieUnlockedByAdmin = o.MovieUnlockedByAdmin
-			entry.ExtendedDays = o.ExtendedDays
-			entry.StartOffsetDays = o.StartOffsetDays
-			adminExt = int(o.ExtendedDays)
-			startOffset = int(o.StartOffsetDays)
-		}
+		// Express the real start/end as the offsets the calendar UI expects:
+		// start = weekOf + startOffset; deadline last day = weekOf + turnLen + extDays - 1.
+		wofT, _ := time.Parse("2006-01-02", entry.WeekOf)
+		entry.StartOffsetDays = int32(math.Round(startT.Sub(wofT).Hours() / 24))
+		endDays := int(math.Round(endT.Sub(wofT).Hours() / 24))
+		entry.ExtendedDays = int32(endDays - turnLen + 1)
+		entry.DeadlineMs = time.Date(endT.Year(), endT.Month(), endT.Day()+1, 0, 0, 0, 0, loc).UnixMilli()
 
-		entry.DeadlineMs = getDeadlineMs(wof, config, adminExt, startOffset)
 		schedule = append(schedule, entry)
 	}
 
@@ -248,32 +300,55 @@ func (h *Handler) AdminExtendTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svcConfig, _ := h.turnSvc.BuildTurnConfig(r.Context(), group)
-	config := toTurnConfig(svcConfig)
-
 	weekOfPgDate := timeToPgDate(req.WeekOf)
 	h.q.UpsertTurnOverrideExtendedDays(r.Context(), db.UpsertTurnOverrideExtendedDaysParams{
 		GroupID: groupID, WeekOf: weekOfPgDate, ExtendedDays: req.ExtendedDays,
 	})
 
-	deadlineMs := getDeadlineMs(req.WeekOf, config, int(req.ExtendedDays), int(existing.StartOffsetDays))
-
-	// Cascade: the next turn's start adjusts to match this turn's new deadline.
+	// Read back the turn's real new end date, then cascade off the turns table.
 	loc, _ := time.LoadLocation("America/New_York")
-	deadlineDateStr := time.UnixMilli(deadlineMs).In(loc).Format("2006-01-02")
-	turnIdx := getTurnIndexForDate(req.WeekOf, config)
-	nextWeekOf := getTurnStartDate(turnIdx+1, config)
-	deadlineDate, _ := time.Parse("2006-01-02", deadlineDateStr)
-	nextBase, _ := time.Parse("2006-01-02", nextWeekOf)
-	nextStartOffset := int32(math.Round(deadlineDate.Sub(nextBase).Hours() / 24))
-	nextOverride, _ := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
-		GroupID: groupID, WeekOf: timeToPgDate(nextWeekOf),
-	})
-	nextEffectiveDays := int32(group.TurnLengthDays) + nextOverride.ExtendedDays
-	if nextStartOffset < nextEffectiveDays {
-		h.q.UpsertTurnOverrideStartOffset(r.Context(), db.UpsertTurnOverrideStartOffsetParams{
-			GroupID: groupID, WeekOf: timeToPgDate(nextWeekOf), StartOffsetDays: nextStartOffset,
-		})
+	var deadlineMs int64
+	if extended, err := h.q.GetTurn(r.Context(), db.GetTurnParams{GroupID: groupID, WeekOf: weekOfPgDate}); err == nil {
+		endT := pgDateToTime(extended.EndDate)
+		deadlineMs = time.Date(endT.Year(), endT.Month(), endT.Day()+1, 0, 0, 0, 0, loc).UnixMilli()
+
+		// Cascade through EVERY later turn so the whole schedule stays contiguous:
+		// each turn starts the day after the previous turn's deadline and keeps its
+		// own length. The shift propagates all the way down, not just one turn.
+		// GetTurnsForGroup is ordered by turn_index, so this tolerates gaps in the
+		// index sequence.
+		type shift struct {
+			id         int64
+			start, end time.Time
+		}
+		var shifts []shift
+		prevEnd := endT
+		allTurns, _ := h.q.GetTurnsForGroup(r.Context(), groupID)
+		for _, next := range allTurns {
+			if next.TurnIndex <= extended.TurnIndex {
+				continue
+			}
+			spanDays := int(math.Round(pgDateToTime(next.EndDate).Sub(pgDateToTime(next.StartDate)).Hours() / 24))
+			ns := prevEnd.AddDate(0, 0, 1)
+			ne := ns.AddDate(0, 0, spanDays)
+			shifts = append(shifts, shift{id: next.ID, start: ns, end: ne})
+			prevEnd = ne
+		}
+		// Two passes (park on far-future unique dates, then set final dates) so the
+		// week_of unique constraint never trips while the turns reshuffle.
+		for i, s := range shifts {
+			park := time.Date(9000, 1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, i).Format("2006-01-02")
+			h.q.UpdateTurnDates(r.Context(), db.UpdateTurnDatesParams{
+				ID: s.id, StartDate: timeToPgDate(park), EndDate: timeToPgDate(park),
+			})
+		}
+		for _, s := range shifts {
+			h.q.UpdateTurnDates(r.Context(), db.UpdateTurnDatesParams{
+				ID:        s.id,
+				StartDate: timeToPgDate(s.start.Format("2006-01-02")),
+				EndDate:   timeToPgDate(s.end.Format("2006-01-02")),
+			})
+		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -310,51 +385,37 @@ func (h *Handler) AdminSetTurnStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	group, err := h.q.GetGroupByID(r.Context(), groupID)
-	if err != nil {
+	if _, err := h.q.GetGroupByID(r.Context(), groupID); err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to fetch group")
 		return
 	}
 
-	// Deadline must remain at least 1 day after the new start.
-	existing, _ := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
+	// Turns stay contiguous automatically: every turn after the first starts the
+	// day after the previous turn's deadline, so there's never an overlap to
+	// reject. Only the very first turn honors an explicit start offset.
+	offset := req.StartOffsetDays
+	if this, err := h.q.GetTurn(r.Context(), db.GetTurnParams{
 		GroupID: groupID, WeekOf: timeToPgDate(req.WeekOf),
-	})
-	effectiveTurnDays := int(group.TurnLengthDays) + int(existing.ExtendedDays)
-	if int(req.StartOffsetDays) >= effectiveTurnDays {
-		writeError(w, http.StatusBadRequest, "start date must be before the turn's deadline")
-		return
-	}
-
-	// Start must not overlap with the previous turn's active period.
-	svcConfig, _ := h.turnSvc.BuildTurnConfig(r.Context(), group)
-	config := toTurnConfig(svcConfig)
-	turnIdx := getTurnIndexForDate(req.WeekOf, config)
-	if turnIdx > 0 {
-		prevWeekOf := getTurnStartDate(turnIdx-1, config)
-		prevOverride, _ := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
-			GroupID: groupID, WeekOf: timeToPgDate(prevWeekOf),
-		})
-		prevDeadlineMs := getDeadlineMs(prevWeekOf, config, int(prevOverride.ExtendedDays), int(prevOverride.StartOffsetDays))
-		loc, _ := time.LoadLocation("America/New_York")
-		thisStart, _ := time.ParseInLocation("2006-01-02", req.WeekOf, loc)
-		thisEffectiveStartMs := thisStart.AddDate(0, 0, int(req.StartOffsetDays)).UnixMilli()
-		if thisEffectiveStartMs < prevDeadlineMs {
-			writeError(w, http.StatusBadRequest, "start date overlaps with the previous turn's active period")
-			return
+	}); err == nil && this.TurnIndex > 0 {
+		if prev, err := h.q.GetTurnByIndex(r.Context(), db.GetTurnByIndexParams{
+			GroupID: groupID, TurnIndex: this.TurnIndex - 1,
+		}); err == nil {
+			weekT, _ := time.Parse("2006-01-02", req.WeekOf)
+			desiredStart := pgDateToTime(prev.EndDate).AddDate(0, 0, 1)
+			offset = int32(math.Round(desiredStart.Sub(weekT).Hours() / 24))
 		}
 	}
 
 	h.q.UpsertTurnOverrideStartOffset(r.Context(), db.UpsertTurnOverrideStartOffsetParams{
 		GroupID:         groupID,
 		WeekOf:          timeToPgDate(req.WeekOf),
-		StartOffsetDays: req.StartOffsetDays,
+		StartOffsetDays: offset,
 	})
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"message":         "Turn start updated",
 		"weekOf":          req.WeekOf,
-		"startOffsetDays": req.StartOffsetDays,
+		"startOffsetDays": offset,
 	})
 }
 
@@ -431,23 +492,8 @@ func (h *Handler) AdminUnlockReviews(w http.ResponseWriter, r *http.Request) {
 
 	weekOfPgDate := timeToPgDate(req.WeekOf)
 
-	// Prevent unlocking reviews for a turn whose deadline hasn't passed
-	if req.Unlocked {
-		turn, err := h.q.GetTurn(r.Context(), db.GetTurnParams{
-			GroupID: groupID, WeekOf: weekOfPgDate,
-		})
-		if err == nil {
-			deadlineTime := pgDateToTime(turn.EndDate).Add(24 * time.Hour)
-			if time.Now().Before(deadlineTime) {
-				writeError(w, http.StatusBadRequest, fmt.Sprintf(
-					"Cannot unlock reviews: turn deadline (%s) has not passed yet",
-					deadlineTime.Format("2006-01-02 15:04 MST"),
-				))
-				return
-			}
-		}
-	}
-
+	// Admins may open the review window at any time, even before the turn's
+	// deadline has passed.
 	if err := h.q.UpsertTurnOverrideReviewUnlocked(r.Context(), db.UpsertTurnOverrideReviewUnlockedParams{
 		GroupID: groupID, WeekOf: weekOfPgDate, ReviewUnlockedByAdmin: req.Unlocked,
 	}); err != nil {

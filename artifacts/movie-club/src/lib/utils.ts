@@ -6,9 +6,8 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Format a UTC timestamp (ms) as a human-readable date/time in Eastern Time (ET).
+ * Format a UTC timestamp (ms) as a human-readable date/time in Eastern Time.
  * Automatically handles EST/EDT transitions.
- * Appends " ET" to the formatted string.
  */
 export function formatDeadlineET(ms: number): string {
   const d = new Date(ms);
@@ -19,32 +18,33 @@ export function formatDeadlineET(ms: number): string {
     hour: "numeric",
     minute: "2-digit",
     timeZone: "America/New_York",
-  }) + " ET";
+  });
 }
 
 /**
- * Format a date string (YYYY-MM-DD) as a full date label in Eastern Time.
- * Returns e.g. "Apr 13, 2025 ET"
+ * Format a calendar date string (YYYY-MM-DD) as a full date label.
+ * Returns e.g. "Apr 13, 2025". Parsed at noon UTC and formatted in UTC so the
+ * displayed day always matches the literal date (no timezone shift).
  */
 export function formatDateET(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00.000Z");
+  const d = new Date(dateStr + "T12:00:00.000Z");
   return d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
-    timeZone: "America/New_York",
-  }) + " ET";
+    timeZone: "UTC",
+  });
 }
 
 /**
- * Format a date string (YYYY-MM-DD) as a short date label (no year) in Eastern Time.
- * Returns e.g. "Apr 13 ET"
+ * Format a calendar date string (YYYY-MM-DD) as a short date label (no year).
+ * Returns e.g. "Apr 13". Same no-shift convention as formatDateET.
  */
 export function formatShortDateET(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00.000Z");
+  const d = new Date(dateStr + "T12:00:00.000Z");
   return d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
-    timeZone: "America/New_York",
-  }) + " ET";
+    timeZone: "UTC",
+  });
 }

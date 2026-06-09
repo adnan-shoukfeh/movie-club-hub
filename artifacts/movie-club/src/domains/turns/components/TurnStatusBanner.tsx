@@ -1,15 +1,22 @@
 import { ChevronLeft, ChevronRight, CalendarCheck } from "lucide-react";
-import { formatDateET } from "@/lib/utils";
-import { offsetWeekOf, getTurnIndexForDate, getTurnStartDate, normalizeWeekOf } from "../turnUtils";
+import { formatDateET, formatShortDateET } from "@/lib/utils";
+import { normalizeWeekOf } from "../turnUtils";
 import type { GroupDetail } from "@workspace/api-client-react";
 
 interface TurnStatusBannerProps {
   group: GroupDetail;
   selectedWeek: string;
   onWeekChange: (week: string) => void;
+  /** Deadline (ms) of the selected turn; the turn ends the day before it. */
+  deadlineMs?: number | null;
 }
 
-export function TurnStatusBanner({ group, selectedWeek, onWeekChange }: TurnStatusBannerProps) {
+export function TurnStatusBanner({ group, selectedWeek, onWeekChange, deadlineMs }: TurnStatusBannerProps) {
+  // deadlineMs is midnight at the end of the turn's last day, so the turn's
+  // end date is the day before it.
+  const endDateStr = deadlineMs
+    ? new Date(deadlineMs - 86400000).toISOString().slice(0, 10)
+    : null;
   const currentTurnWeekOf = group.currentTurnWeekOf;
 
   const selectedNorm = normalizeWeekOf(selectedWeek);
@@ -17,21 +24,18 @@ export function TurnStatusBanner({ group, selectedWeek, onWeekChange }: TurnStat
 
   const isCurrentWeek = selectedNorm === currentNorm;
   const isPastWeek = selectedNorm < currentNorm;
-  const isAdminOrOwner = group.myRole === "owner" || group.myRole === "admin";
 
-  const config = group.turnConfig;
-  const selectedIdx = getTurnIndexForDate(selectedWeek, config);
-  const _currentIdx = getTurnIndexForDate(currentTurnWeekOf, config);
-  const nextTurnWeekOf = getTurnStartDate(_currentIdx + 1, config);
-  const _maxAllowedWeekOf = getTurnStartDate(_currentIdx + group.members.length, config);
-  const isAtFutureCap = normalizeWeekOf(selectedWeek) >= normalizeWeekOf(_maxAllowedWeekOf);
-  const isAtTurn0 = selectedIdx === 0;
+  // Adjacent turns come from the real schedule (backend), so the arrows step
+  // through the actual turn dates and match the admin picker schedule.
+  const nav = group as GroupDetail & { prevWeekOf?: string; nextWeekOf?: string };
+  const prevWeekOf = nav.prevWeekOf || "";
+  const nextWeekOf = nav.nextWeekOf || "";
 
   return (
     <div className="flex items-center justify-between mb-8">
       <button
-        onClick={() => onWeekChange(offsetWeekOf(selectedWeek, -1, config))}
-        disabled={isAtTurn0}
+        onClick={() => prevWeekOf && onWeekChange(prevWeekOf)}
+        disabled={!prevWeekOf}
         className="p-3 bg-card border-4 border-secondary disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-all"
       >
         <ChevronLeft className="w-6 h-6 text-primary" />
@@ -41,6 +45,11 @@ export function TurnStatusBanner({ group, selectedWeek, onWeekChange }: TurnStat
         <p className="text-sm text-secondary font-bold mb-1">
           {formatDateET(selectedWeek)}
         </p>
+        {endDateStr && (
+          <p className="text-[11px] text-secondary/80 font-bold uppercase tracking-wide mb-1">
+            {isPastWeek ? "Ended" : "Ends"} {formatShortDateET(endDateStr)}
+          </p>
+        )}
         {isCurrentWeek && (
           <span className="inline-block px-4 py-1 bg-secondary text-primary text-xs font-black uppercase tracking-wider">
             Active Turn
@@ -51,16 +60,11 @@ export function TurnStatusBanner({ group, selectedWeek, onWeekChange }: TurnStat
             Past Turn
           </span>
         )}
-        {!isCurrentWeek && !isPastWeek && (
-          <span className="inline-block px-4 py-1 bg-secondary text-white/70 text-xs font-black uppercase tracking-wider">
-            Future Turn
-          </span>
-        )}
       </div>
 
       <button
-        onClick={() => onWeekChange(offsetWeekOf(selectedWeek, 1, config))}
-        disabled={(!isAdminOrOwner && normalizeWeekOf(selectedWeek) >= normalizeWeekOf(nextTurnWeekOf)) || isAtFutureCap}
+        onClick={() => nextWeekOf && onWeekChange(nextWeekOf)}
+        disabled={!nextWeekOf}
         className="p-3 bg-card border-4 border-secondary disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-all"
       >
         <ChevronRight className="w-6 h-6 text-primary" />

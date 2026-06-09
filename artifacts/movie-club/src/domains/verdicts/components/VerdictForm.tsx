@@ -11,6 +11,7 @@ import {
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { WheelPicker, INT_ITEMS, DEC_ITEMS } from "@/components/ui/wheel-picker";
+import { formatShortDateET } from "@/lib/utils";
 import type { GroupDetail, GroupStatus } from "@workspace/api-client-react";
 
 interface VerdictFormProps {
@@ -33,6 +34,14 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
 
   const intValue = intIdx + 1;
   const effectiveRating = intValue === 10 ? 10 : intValue + decIdx / 10;
+
+  // Results unlock when the turn's deadline passes; show that actual date (the
+  // same date the picker schedule / movie page show as the deadline) instead of
+  // a hardcoded day. deadlineMs is midnight after the last day, so subtract one.
+  const resultsUnlockStr =
+    status.deadlineMs != null
+      ? formatShortDateET(new Date(status.deadlineMs - 86400000).toISOString().slice(0, 10))
+      : null;
 
   useEffect(() => {
     if (intIdx === 9) setDecIdx(0);
@@ -192,7 +201,7 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
       {showVoteSuccess && (
         <div className="mb-6 p-4 bg-primary border-4 border-secondary text-secondary font-black uppercase flex items-center gap-2">
           <Check className="w-5 h-5" />
-          Rating saved! Results unlock Monday.
+          Rating saved!{resultsUnlockStr ? ` Results unlock ${resultsUnlockStr}.` : ""}
         </div>
       )}
 

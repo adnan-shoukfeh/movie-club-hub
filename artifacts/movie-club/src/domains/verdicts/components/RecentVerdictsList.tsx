@@ -39,10 +39,12 @@ export function RecentVerdictsList({ results }: RecentVerdictsListProps) {
                   <Film className="w-12 h-12 text-secondary/30" />
                 </div>
               )}
-              <div className="absolute top-2 right-2 bg-primary text-secondary px-2.5 py-1.5 flex items-center gap-1.5 border-2 border-secondary">
-                <Star className="w-3.5 h-3.5 fill-secondary text-secondary" />
-                <span className="font-black text-sm">{result.averageRating.toFixed(1)}</span>
-              </div>
+              {result.reviewsUnlocked === false && result.averageRating != null && (
+                <div className="absolute top-2 right-2 bg-primary text-secondary px-2.5 py-1.5 flex items-center gap-1.5 border-2 border-secondary">
+                  <Star className="w-3.5 h-3.5 fill-secondary text-secondary" />
+                  <span className="font-black text-sm">{result.averageRating.toFixed(1)}</span>
+                </div>
+              )}
             </div>
             <h4 className="font-bold text-white truncate">{result.movie}</h4>
             <p className="text-sm text-white/70">{result.groupName}</p>

@@ -124,3 +124,12 @@ type Verdict struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
+
+type VerdictReply struct {
+	ID        int64              `json:"id"`
+	VerdictID int64              `json:"verdict_id"`
+	UserID    int32              `json:"user_id"`
+	Body      string             `json:"body"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}

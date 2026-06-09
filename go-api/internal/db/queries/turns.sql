@@ -66,8 +66,11 @@ SET picker_user_id = $2, updated_at = now()
 WHERE id = $1;
 
 -- name: UpdateTurnDates :exec
+-- Keeps week_of aligned with start_date. The deadline math (extendedDays) is
+-- computed relative to week_of, so a turn whose week_of drifts from its real
+-- start produces wrong deadlines; keeping them equal avoids that.
 UPDATE turns
-SET start_date = $2, end_date = $3, updated_at = now()
+SET week_of = $2, start_date = $2, end_date = $3, updated_at = now()
 WHERE id = $1;
 
 -- name: UpdateTurnMovieUnlocked :exec
