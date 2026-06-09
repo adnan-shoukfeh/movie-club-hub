@@ -78,9 +78,6 @@ interface TurnDateRangeInputProps {
   turnLengthDays: number;
   extendedDays: number;
   startOffsetDays: number;
-  prevDeadlineMs: number | null;
-  nextTurnDeadlineMs: number | null;
-  onStartChange: (offsetDays: number) => void;
   onDeadlineChange: (extendedDays: number) => void;
 }
 
@@ -89,39 +86,19 @@ export function TurnDateRangeInput({
   turnLengthDays,
   extendedDays,
   startOffsetDays,
-  prevDeadlineMs,
-  nextTurnDeadlineMs,
-  onStartChange,
   onDeadlineChange,
 }: TurnDateRangeInputProps) {
   const [open, setOpen] = useState(false);
-  const [activeField, setActiveField] = useState<"start" | "deadline">("start");
 
+  // The start date is derived automatically (the day after the previous turn's
+  // deadline), so it is shown read-only here and only the deadline is editable.
   const startDateStr = addDaysToDateStr(weekOf, startOffsetDays);
   const baseDeadlineExclusiveStr = addDaysToDateStr(weekOf, turnLengthDays);
   const deadlineLastDayStr = addDaysToDateStr(weekOf, turnLengthDays + extendedDays - 1);
 
-  const startMinDate = prevDeadlineMs
-    ? new Date(new Date(prevDeadlineMs).toISOString().slice(0, 10) + "T00:00:00")
-    : new Date(weekOf + "T00:00:00");
-  const startMaxDate = new Date(deadlineLastDayStr + "T00:00:00");
   const deadlineMinDate = new Date(addDaysToDateStr(startDateStr, 1) + "T00:00:00");
   const baseDeadlineMaxStr = addDaysToDateStr(weekOf, turnLengthDays + 364);
-  const nextTurnDeadlineDateStr = nextTurnDeadlineMs
-    ? new Date(nextTurnDeadlineMs).toISOString().slice(0, 10)
-    : null;
-  const nextTurnCapStr = nextTurnDeadlineDateStr ? addDaysToDateStr(nextTurnDeadlineDateStr, -2) : null;
-  const deadlineMaxStr = nextTurnCapStr && nextTurnCapStr < baseDeadlineMaxStr ? nextTurnCapStr : baseDeadlineMaxStr;
-  const deadlineMaxDate = new Date(deadlineMaxStr + "T00:00:00");
-
-  const handleStartSelect = (date: Date | undefined) => {
-    if (!date) return;
-    const selectedStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    const base = new Date(weekOf + "T00:00:00.000Z");
-    const selected = new Date(selectedStr + "T00:00:00.000Z");
-    onStartChange(Math.round((selected.getTime() - base.getTime()) / 86400000));
-    setActiveField("deadline");
-  };
+  const deadlineMaxDate = new Date(baseDeadlineMaxStr + "T00:00:00");
 
   const handleDeadlineSelect = (date: Date | undefined) => {
     if (!date) return;
@@ -134,7 +111,7 @@ export function TurnDateRangeInput({
   };
 
   return (
-    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) setActiveField("start"); }}>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -145,49 +122,19 @@ export function TurnDateRangeInput({
         </button>
       </PopoverTrigger>
       <PopoverContent className="p-0 overflow-hidden" align="start">
-        <div className="flex gap-1.5 px-3 pt-2 pb-1">
-          <button
-            type="button"
-            onClick={() => setActiveField("start")}
-            className={`flex-1 text-center px-2 py-1.5 rounded-md transition-colors ${
-              activeField === "start"
-                ? "bg-primary/20 border border-primary/40 text-primary"
-                : "bg-muted/30 border border-border/40 text-muted-foreground hover:bg-muted/50"
-            }`}
-          >
-            <span className="block text-[10px] uppercase tracking-wide opacity-70">Start</span>
-            <span className="text-xs font-semibold">{formatCalendarDate(startDateStr)}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveField("deadline")}
-            className={`flex-1 text-center px-2 py-1.5 rounded-md transition-colors ${
-              activeField === "deadline"
-                ? "bg-primary/20 border border-primary/40 text-primary"
-                : "bg-muted/30 border border-border/40 text-muted-foreground hover:bg-muted/50"
-            }`}
-          >
+        <div className="px-3 pt-2 pb-1">
+          <div className="text-center px-2 py-1.5 rounded-md bg-primary/20 border border-primary/40 text-primary">
             <span className="block text-[10px] uppercase tracking-wide opacity-70">Deadline</span>
             <span className="text-xs font-semibold">{formatCalendarDate(deadlineLastDayStr)}</span>
-          </button>
+          </div>
         </div>
-        {activeField === "start" ? (
-          <Calendar
-            mode="single"
-            selected={new Date(startDateStr + "T12:00:00")}
-            onSelect={handleStartSelect}
-            disabled={(date) => date < startMinDate || date > startMaxDate}
-            classNames={{ root: "w-full" }}
-          />
-        ) : (
-          <Calendar
-            mode="single"
-            selected={new Date(deadlineLastDayStr + "T12:00:00")}
-            onSelect={handleDeadlineSelect}
-            disabled={(date) => date < deadlineMinDate || date > deadlineMaxDate}
-            classNames={{ root: "w-full" }}
-          />
-        )}
+        <Calendar
+          mode="single"
+          selected={new Date(deadlineLastDayStr + "T12:00:00")}
+          onSelect={handleDeadlineSelect}
+          disabled={(date) => date < deadlineMinDate || date > deadlineMaxDate}
+          classNames={{ root: "w-full" }}
+        />
       </PopoverContent>
     </Popover>
   );

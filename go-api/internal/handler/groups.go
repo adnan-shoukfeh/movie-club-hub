@@ -171,6 +171,9 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 	if weekOf == "" || !isValidDateStr(weekOf) {
 		weekOf = currentWeekOf
 	}
+	if weekOf > currentWeekOf {
+		weekOf = currentWeekOf
+	}
 
 	memberCount, err := h.q.GetGroupMemberCount(r.Context(), groupID)
 	if err != nil {
@@ -181,6 +184,55 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 	if !isTurnWithinCap(weekOf, config, int(memberCount)) {
 		writeError(w, http.StatusBadRequest, "Requested turn is beyond the allowed future range.")
 		return
+	}
+
+	// Previous/next turn week_of for the movie-page navigation arrows, read from
+	// the real turns table so they step through the actual schedule (matching the
+	// admin picker schedule) rather than a uniform config walk. Future turns past
+	// the last real turn are synthesized contiguously at the base length.
+	var prevWeekOf, nextWeekOf string
+	{
+		navTurns, _ := h.q.GetTurnsForGroup(r.Context(), groupID) // ordered by turn_index
+		navLen := int(group.TurnLengthDays)
+		if navLen < 1 {
+			navLen = 7
+		}
+		posOf := func(wof string) int {
+			for i, t := range navTurns {
+				if pgDateToString(t.WeekOf) == wof {
+					return i
+				}
+			}
+			if len(navTurns) > 0 {
+				firstSynth := pgDateToTime(navTurns[len(navTurns)-1].EndDate).AddDate(0, 0, 1)
+				if sel, err := time.Parse("2006-01-02", wof); err == nil {
+					k := int(sel.Sub(firstSynth)/(24*time.Hour)) / navLen
+					if k < 0 {
+						k = 0
+					}
+					return len(navTurns) + k
+				}
+			}
+			return 0
+		}
+		weekOfAtPos := func(pos int) string {
+			if pos < 0 || len(navTurns) == 0 {
+				return ""
+			}
+			if pos < len(navTurns) {
+				return pgDateToString(navTurns[pos].WeekOf)
+			}
+			firstSynth := pgDateToTime(navTurns[len(navTurns)-1].EndDate).AddDate(0, 0, 1)
+			return firstSynth.AddDate(0, 0, (pos-len(navTurns))*navLen).Format("2006-01-02")
+		}
+		selPos := posOf(weekOf)
+		curPos := posOf(currentWeekOf)
+		if selPos > 0 {
+			prevWeekOf = weekOfAtPos(selPos - 1)
+		}
+		if selPos+1 <= curPos {
+			nextWeekOf = weekOfAtPos(selPos + 1)
+		}
 	}
 
 	members, err := h.q.GetGroupMembers(r.Context(), groupID)
@@ -274,6 +326,7 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 	if selectedTurn, err := h.q.GetTurn(r.Context(), db.GetTurnParams{
 		GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 	}); err == nil {
+		movieUnlocked = selectedTurn.MovieUnlocked
 		reviewUnlocked = selectedTurn.ReviewsUnlocked
 		deadlineTime = pgDateToTime(selectedTurn.EndDate).Add(24 * time.Hour) // End of end_date
 	} else {
@@ -294,7 +347,9 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 		isCurrentTurn := weekOf == currentWeekOf
 		votingOpen = (time.Now().Before(deadlineTime) && isCurrentTurn) || reviewUnlocked
 	}
-	resultsAvail := (movieErr == nil && time.Now().After(deadlineTime)) || reviewUnlocked
+	// While reviews are open the rating window is active, so scores stay hidden;
+	// results are only final once the deadline has passed and reviews are closed.
+	resultsAvail := movieErr == nil && time.Now().After(deadlineTime) && !reviewUnlocked
 
 	// My vote
 	userID := h.userID(r)
@@ -334,7 +389,10 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 	scheduleCount := int(memberCount)
 	schedule := make([]scheduleEntry, 0, scheduleCount)
 	for i := 0; i < scheduleCount; i++ {
-		idx := currentIdx + i
+		idx := currentIdx - scheduleCount + 1 + i
+		if idx < 0 {
+			continue
+		}
 		wof := getTurnStartDate(idx, config)
 
 		// Calculate actual end date including overrides
@@ -350,7 +408,7 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 		entry := scheduleEntry{
 			WeekOf:    wof,
 			EndDate:   endDate,
-			IsCurrent: i == 0,
+			IsCurrent: wof == currentWeekOf,
 		}
 		if pa, ok := paMap[wof]; ok {
 			entry.PickerUserID = &pa.UserID
@@ -373,6 +431,8 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 		"myRole": mem.Role, "myVote": myVote, "myReview": myReview, "myWatched": myWatched,
 		"turnLengthDays": group.TurnLengthDays, "startDate": pgDateToString(group.StartDate),
 		"pickerSchedule": schedule, "movieUnlockedByAdmin": movieUnlocked,
+		"prevWeekOf": prevWeekOf, "nextWeekOf": nextWeekOf,
+		"reviewsUnlocked": reviewUnlocked,
 	})
 }
 
@@ -406,15 +466,16 @@ func (h *Handler) GetGroupStatus(w http.ResponseWriter, r *http.Request) {
 
 	// Use turns table directly for current turn
 	var currentWeekOf string
-	var currentTurnFromDB *db.Turn
 	if ct, err := h.q.GetCurrentTurn(r.Context(), groupID); err == nil {
 		currentWeekOf = pgDateToString(ct.WeekOf)
-		currentTurnFromDB = &ct
 	} else {
 		currentWeekOf = getCurrentTurnWeekOf(config)
 	}
 	weekOf := queryString(r, "weekOf")
 	if weekOf == "" || !isValidDateStr(weekOf) {
+		weekOf = currentWeekOf
+	}
+	if weekOf > currentWeekOf {
 		weekOf = currentWeekOf
 	}
 
@@ -475,7 +536,9 @@ func (h *Handler) GetGroupStatus(w http.ResponseWriter, r *http.Request) {
 		isCurrentTurn := weekOf == currentWeekOf
 		votingOpen = (time.Now().Before(deadlineTime) && isCurrentTurn) || reviewUnlocked
 	}
-	resultsAvail := (movieErr == nil && time.Now().After(deadlineTime)) || (currentTurnFromDB != nil && currentTurnFromDB.ReviewsUnlocked)
+	// While reviews are open the rating window is active, so scores stay hidden;
+	// results are only final once the deadline has passed and reviews are closed.
+	resultsAvail := movieErr == nil && time.Now().After(deadlineTime) && !reviewUnlocked
 
 	var deadlineMs *int64
 	if movieErr == nil {

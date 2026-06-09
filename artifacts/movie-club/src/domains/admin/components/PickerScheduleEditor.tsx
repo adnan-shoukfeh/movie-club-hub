@@ -29,6 +29,13 @@ import {
 } from "./shared";
 import { UnlockControls } from "./UnlockControls";
 import { UserLink } from "@/domains/profiles/components/UserLink";
+import { PickerMovieSelector } from "@/domains/movies/components/PickerMovieSelector";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  getGetGroupQueryKey,
+  getGetGroupStatusQueryKey,
+  getGetDashboardQueryKey,
+} from "@workspace/api-client-react";
 
 interface PickerScheduleEditorProps {
   groupId: number;
@@ -53,6 +60,7 @@ export function PickerScheduleEditor({
   reloadKey,
 }: PickerScheduleEditorProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [members, setMembers] = useState<AdminMember[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
@@ -61,8 +69,8 @@ export function PickerScheduleEditor({
   const [confirm, setConfirm] = useState<{ message: string; action: () => void; variant?: "destructive" | "warning" } | null>(null);
 
   const [extendDaysInput, setExtendDaysInput] = useState<{ [weekOf: string]: string }>({});
-  const [startOffsetInput, setStartOffsetInput] = useState<{ [weekOf: string]: number }>({});
   const [pickerWeekEdit, setPickerWeekEdit] = useState<string | null>(null);
+  const [movieEditWeek, setMovieEditWeek] = useState<string | null>(null);
   const [pendingPickerMap, setPendingPickerMap] = useState<Record<string, string>>({});
   const [expandedNominationsWeek, setExpandedNominationsWeek] = useState<string | null>(null);
   const [nominationsCache, setNominationsCache] = useState<{ [weekOf: string]: { id: number; title: string; nominatorUserId?: number | null; nominatorUsername?: string }[] }>({});
@@ -121,6 +129,12 @@ export function PickerScheduleEditor({
     try {
       await action();
       loadSchedule(scheduleCenterWeekOf);
+      // Schedule edits change the current turn / deadlines; refresh the views that
+      // render them (group detail banner, status, dashboard) so they don't show
+      // stale "current" data.
+      queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
+      queryClient.invalidateQueries({ queryKey: getGetGroupStatusQueryKey(groupId) });
+      queryClient.invalidateQueries({ queryKey: getGetDashboardQueryKey() });
     } catch (e: unknown) {
       toast({ title: "Error", description: e instanceof Error ? e.message : "Request failed", variant: "destructive" });
     }
@@ -140,23 +154,20 @@ export function PickerScheduleEditor({
 
   const handleSetTurnDates = async (weekOf: string) => {
     const entry = schedule.find((e) => e.weekOf === weekOf);
-    const startOffset = startOffsetInput[weekOf] ?? entry?.startOffsetDays ?? 0;
     const extDays = parseInt(String(extendDaysInput[weekOf] ?? entry?.extendedDays ?? 0), 10);
     withConfirm(
-      `Update start and deadline for turn starting ${formatWeekLabel(weekOf)}? This adjusts when the turn opens and when rating closes.`,
+      `Update the deadline for the turn starting ${formatWeekLabel(weekOf)}? Every turn after it shifts to stay back-to-back, each starting the day after the previous deadline.`,
       async () => {
         await doAction(async () => {
-          await apiCall(`/api/admin/groups/${groupId}/turn-start`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ weekOf, startOffsetDays: startOffset }),
-          });
+          // Setting the deadline cascades every later turn's start to the day after
+          // the previous deadline; this turn's own start stays where the previous
+          // cascade put it, so no separate start call is needed.
           await apiCall(`/api/admin/groups/${groupId}/extend-turn`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ weekOf, extendedDays: extDays }),
           });
-          toast({ title: "Turn dates updated" });
+          toast({ title: "Deadline updated" });
         });
       },
       "warning"
@@ -166,7 +177,7 @@ export function PickerScheduleEditor({
   const handleUnlockMovie = async (weekOf: string, unlocked: boolean) => {
     if (unlocked) {
       withConfirm(
-        `Unlock movie selection for turn starting ${formatWeekLabel(weekOf)}? Only the assigned picker will be able to change it.`,
+        `Unlock movie selection for turn starting ${formatWeekLabel(weekOf)}? Group members will be able to change it.`,
         async () => {
           await doAction(async () => {
             await apiCall(`/api/admin/groups/${groupId}/unlock-movie`, {
@@ -174,7 +185,7 @@ export function PickerScheduleEditor({
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ weekOf, unlocked: true }),
             });
-            toast({ title: "Movie unlocked", description: "The assigned picker can now update the movie" });
+            toast({ title: "Movie unlocked", description: "Group members can now update the movie" });
           });
         },
         "warning"
@@ -303,7 +314,7 @@ export function PickerScheduleEditor({
               <div className="divide-y divide-border/10">
                 {schedule.map((entry, i) => {
                   const isCurrent = entry.weekOf === currentTurnWeekOf;
-                  const startOffset = startOffsetInput[entry.weekOf] ?? entry.startOffsetDays ?? 0;
+                  const startOffset = entry.startOffsetDays ?? 0;
                   const extDays = parseInt(String(extendDaysInput[entry.weekOf] ?? entry.extendedDays), 10);
                   const effectiveStartStr = addDaysToDateStr(entry.weekOf, startOffset);
                   const effectiveDeadlineLastDayStr = addDaysToDateStr(entry.weekOf, turnLengthDays + extDays - 1);
@@ -322,21 +333,40 @@ export function PickerScheduleEditor({
                       </div>
 
                       {/* Movie */}
-                      <div className="flex items-center gap-2 text-xs">
-                        <Film className="w-3.5 h-3.5 text-muted-foreground" />
-                        {entry.movie ? (
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs">
+                          <Film className="w-3.5 h-3.5 text-muted-foreground" />
+                          {entry.movie ? (
                             <span className="text-foreground truncate">{entry.movie.title}</span>
+                          ) : (
+                            <span className="text-muted-foreground/60 italic">No movie set</span>
+                          )}
+                          <button
+                            className="text-muted-foreground hover:text-foreground shrink-0"
+                            title={entry.movie ? "Change movie" : "Set movie"}
+                            onClick={() => setMovieEditWeek(movieEditWeek === entry.weekOf ? null : entry.weekOf)}
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                          {entry.movie && (
                             <button
-                              className="text-destructive/70 hover:text-destructive flex-shrink-0"
+                              className="text-destructive/70 hover:text-destructive shrink-0"
                               title="Clear selected movie"
                               onClick={() => handleRemoveMovie(entry.weekOf)}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
+                          )}
+                        </div>
+                        {movieEditWeek === entry.weekOf && (
+                          <div className="border border-border/40 rounded-lg p-3 bg-background/40">
+                            <PickerMovieSelector
+                              groupId={groupId}
+                              selectedWeek={entry.weekOf}
+                              onCancel={() => setMovieEditWeek(null)}
+                              onSuccess={() => { setMovieEditWeek(null); loadSchedule(scheduleCenterWeekOf); }}
+                            />
                           </div>
-                        ) : (
-                          <span className="text-muted-foreground/60 italic">No movie set</span>
                         )}
                       </div>
 
@@ -370,7 +400,7 @@ export function PickerScheduleEditor({
                                   <div key={nom.id} className="flex items-center gap-2">
                                     <span className="text-foreground truncate flex-1">{nom.title}</span>
                                     {nom.nominatorUsername && (
-                                      <span className="text-muted-foreground/60 flex-shrink-0">
+                                      <span className="text-muted-foreground/60 shrink-0">
                                         by{" "}
                                         {nom.nominatorUserId ? (
                                           <UserLink userId={nom.nominatorUserId} className="inline">
@@ -382,7 +412,7 @@ export function PickerScheduleEditor({
                                       </span>
                                     )}
                                     <button
-                                      className="text-destructive/70 hover:text-destructive flex-shrink-0"
+                                      className="text-destructive/70 hover:text-destructive shrink-0"
                                       title="Remove nomination"
                                       onClick={() => handleRemoveNomination(nom.id, nom.title)}
                                     >
@@ -398,7 +428,7 @@ export function PickerScheduleEditor({
 
                       {/* Picker */}
                       <div className="flex items-center gap-2">
-                        <UserCheck className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        <UserCheck className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                         {pickerWeekEdit === entry.weekOf ? (
                           <div className="flex items-center gap-2 flex-wrap">
                             <select
@@ -470,16 +500,13 @@ export function PickerScheduleEditor({
                             weekOf={entry.weekOf}
                             turnLengthDays={turnLengthDays}
                             extendedDays={parseInt(String(extendDaysInput[entry.weekOf] ?? entry.extendedDays), 10)}
-                            startOffsetDays={startOffsetInput[entry.weekOf] ?? entry.startOffsetDays ?? 0}
-                            prevDeadlineMs={i > 0 ? schedule[i - 1].deadlineMs : null}
-                            nextTurnDeadlineMs={i < schedule.length - 1 ? schedule[i + 1].deadlineMs : null}
-                            onStartChange={(offset) => setStartOffsetInput((prev) => ({ ...prev, [entry.weekOf]: offset }))}
+                            startOffsetDays={entry.startOffsetDays ?? 0}
                             onDeadlineChange={(days) => setExtendDaysInput((prev) => ({ ...prev, [entry.weekOf]: String(days) }))}
                           />
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-7 text-xs flex-shrink-0"
+                            className="h-7 text-xs shrink-0"
                             onClick={() => handleSetTurnDates(entry.weekOf)}
                           >
                             Set

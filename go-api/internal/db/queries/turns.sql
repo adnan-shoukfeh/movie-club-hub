@@ -24,10 +24,15 @@ WHERE group_id = $1
 ORDER BY turn_index;
 
 -- name: GetCurrentTurn :one
+-- When an admin extends a turn, only that turn's end_date grows; the next turn's
+-- start_date is unchanged, so their windows overlap and both rows match the
+-- predicate below. Ordering by turn_index keeps the extended (in-progress) turn
+-- current until its extended end_date passes, instead of jumping to the next turn.
 SELECT id, group_id, turn_index, week_of, picker_user_id, start_date, end_date,
        movie_unlocked, reviews_unlocked, created_at, updated_at
 FROM turns
 WHERE group_id = $1 AND start_date <= CURRENT_DATE AND end_date >= CURRENT_DATE
+ORDER BY turn_index
 LIMIT 1;
 
 -- name: CreateTurn :one
@@ -61,8 +66,11 @@ SET picker_user_id = $2, updated_at = now()
 WHERE id = $1;
 
 -- name: UpdateTurnDates :exec
+-- Keeps week_of aligned with start_date. The deadline math (extendedDays) is
+-- computed relative to week_of, so a turn whose week_of drifts from its real
+-- start produces wrong deadlines; keeping them equal avoids that.
 UPDATE turns
-SET start_date = $2, end_date = $3, updated_at = now()
+SET week_of = $2, start_date = $2, end_date = $3, updated_at = now()
 WHERE id = $1;
 
 -- name: UpdateTurnMovieUnlocked :exec

@@ -18,9 +18,9 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	_ "time/tzdata"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/time/rate"
+	_ "time/tzdata"
 
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/handler"
@@ -33,6 +33,9 @@ import (
 var staticFS embed.FS
 
 func main() {
+	loadDotEnv(".env")
+	loadDotEnv("../.env")
+
 	// Logger
 	level := slog.LevelInfo
 	if l := os.Getenv("LOG_LEVEL"); l != "" {
@@ -100,8 +103,8 @@ func main() {
 
 	// Per-instance in-memory limiters. Under Cloud Run autoscaling the effective limit is
 	// higher (each instance has its own budget). Acceptable for a small private club app.
-	authLimiter := middleware.NewRateLimiter(ctx, rate.Every(6*time.Second), 5)   // 10/min, burst 5
-	searchLimiter := middleware.NewRateLimiter(ctx, rate.Every(3*time.Second), 5) // 20/min, burst 5
+	authLimiter := middleware.NewRateLimiter(ctx, rate.Every(6*time.Second), 5)      // 10/min, burst 5
+	searchLimiter := middleware.NewRateLimiter(ctx, rate.Every(3*time.Second), 5)    // 20/min, burst 5
 	feedbackLimiter := middleware.NewRateLimiter(ctx, rate.Every(20*time.Minute), 3) // 3/hour, burst 3
 
 	// Router
@@ -157,6 +160,7 @@ func main() {
 			r.Post("/groups/{groupId}/verdict", h.SubmitVerdict)
 			r.Delete("/groups/{groupId}/verdict", h.DeleteVerdict)
 			r.Get("/groups/{groupId}/verdicts", h.GetVerdicts)
+			r.Post("/groups/{groupId}/verdicts/{verdictId}/replies", h.CreateVerdictReply)
 
 			// Legacy aliases for backward compatibility with existing frontend
 			r.Post("/groups/{groupId}/vote", h.SubmitVerdict)
@@ -267,6 +271,28 @@ func main() {
 		slog.Error("server forced shutdown", "error", err)
 	}
 	slog.Info("server stopped")
+}
+
+func loadDotEnv(path string) {
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(string(body), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		value = strings.Trim(strings.TrimSpace(value), `"'`)
+		if key != "" && os.Getenv(key) == "" {
+			_ = os.Setenv(key, value)
+		}
+	}
 }
 
 func setupSPA(r chi.Router) {

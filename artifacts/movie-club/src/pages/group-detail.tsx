@@ -85,6 +85,12 @@ export default function GroupDetail() {
     }
   }, [group?.currentTurnWeekOf, selectedWeek, initialWeekOf]);
 
+  useEffect(() => {
+    if (group?.weekOf && selectedWeek && normalizeWeekOf(selectedWeek) !== normalizeWeekOf(group.weekOf)) {
+      setSelectedWeek(group.weekOf);
+    }
+  }, [group?.weekOf, selectedWeek]);
+
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
     queryClient.invalidateQueries({ queryKey: getGetGroupStatusQueryKey(groupId) });
@@ -176,16 +182,20 @@ export default function GroupDetail() {
 
   const isAdminOrOwner = group.myRole === "owner" || group.myRole === "admin";
   const currentTurnWeekOf = group.currentTurnWeekOf as string;
+  const effectiveSelectedWeek = (group.weekOf as string | undefined) || selectedWeek || currentTurnWeekOf;
   const movie = group.movieData;
   const pickerSchedule = group.pickerSchedule;
+  // When reviews are open (not locked by an admin), the aggregate ratings stay
+  // hidden and we show a lock instead, so members rate without seeing others'.
+  const reviewsUnlocked = (group as unknown as { reviewsUnlocked?: boolean }).reviewsUnlocked ?? false;
 
   const _config = group.turnConfig;
   const _currentIdx = getTurnIndexForDate(currentTurnWeekOf, _config);
   const nextTurnWeekOf = getTurnStartDate(_currentIdx + 1, _config);
   const isPickerForSelectedTurn = group.pickerUserId === me?.id;
   const canEditMovie = isAdminOrOwner
-    || (!!group.movieUnlockedByAdmin && isPickerForSelectedTurn)
-    || (normalizeWeekOf(selectedWeek) === normalizeWeekOf(nextTurnWeekOf) && isPickerForSelectedTurn);
+    || !!group.movieUnlockedByAdmin
+    || (normalizeWeekOf(effectiveSelectedWeek) === normalizeWeekOf(nextTurnWeekOf) && isPickerForSelectedTurn);
 
   return (
     <div className="min-h-screen bg-background flex relative">
@@ -269,15 +279,16 @@ export default function GroupDetail() {
 
         <TurnStatusBanner
           group={group}
-          selectedWeek={selectedWeek}
+          selectedWeek={effectiveSelectedWeek}
           onWeekChange={setSelectedWeek}
+          deadlineMs={status?.deadlineMs ?? null}
         />
 
         {showMovieInput ? (
           <div className="border-4 border-secondary bg-card p-6 mb-8">
             <PickerMovieSelector
               groupId={groupId}
-              selectedWeek={selectedWeek}
+              selectedWeek={effectiveSelectedWeek}
               onCancel={() => setShowMovieInput(false)}
               onSuccess={() => setShowMovieInput(false)}
             />
@@ -286,7 +297,7 @@ export default function GroupDetail() {
           <CurrentTurnMovie
             group={group}
             status={status}
-            selectedWeek={selectedWeek}
+            selectedWeek={effectiveSelectedWeek}
             canEditMovie={canEditMovie}
             onEditMovie={() => setShowMovieInput(true)}
           />
@@ -297,14 +308,26 @@ export default function GroupDetail() {
             group={group}
             status={status}
             groupId={groupId}
-            selectedWeek={selectedWeek}
+            selectedWeek={effectiveSelectedWeek}
           />
+        )}
+
+        {reviewsUnlocked && movie && (
+          <div className="border-4 border-secondary bg-card p-6 mb-6 flex items-center gap-4">
+            <span className="text-3xl" aria-hidden>🔒</span>
+            <div>
+              <p className="font-black text-primary uppercase">Ratings Locked</p>
+              <p className="text-sm text-white/70">
+                Hidden while reviews are open — they'll show once an admin locks reviews.
+              </p>
+            </div>
+          </div>
         )}
 
         {group.resultsAvailable && (
           <TurnResultsInline
             groupId={groupId}
-            selectedWeek={selectedWeek}
+            selectedWeek={effectiveSelectedWeek}
             members={group.members}
           />
         )}

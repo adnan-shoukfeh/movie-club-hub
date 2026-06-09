@@ -1757,8 +1757,11 @@ components:
         moviePoster:
           type: string
           nullable: true
+        reviewsUnlocked:
+          type: boolean
         averageRating:
           type: number
+          nullable: true
         totalVotes:
           type: integer
         weekOf:
@@ -1767,6 +1770,7 @@ components:
         - groupId
         - groupName
         - movie
+        - reviewsUnlocked
         - averageRating
         - totalVotes
         - weekOf

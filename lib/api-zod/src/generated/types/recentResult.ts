@@ -11,7 +11,8 @@ export interface RecentResult {
   groupName: string;
   movie: string;
   moviePoster?: string | null;
-  averageRating: number;
+  reviewsUnlocked: boolean;
+  averageRating: number | null;
   totalVotes: number;
   weekOf: string;
 }

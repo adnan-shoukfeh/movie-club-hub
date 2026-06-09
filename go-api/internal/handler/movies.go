@@ -91,7 +91,16 @@ func (h *Handler) SetMovie(w http.ResponseWriter, r *http.Request) {
 	}
 
 	config, _ := h.buildTurnConfig(r.Context(), group)
-	weekOf := getCurrentTurnWeekOf(config)
+	currentWeekOf := getCurrentTurnWeekOf(config)
+	var currentTurn db.Turn
+	var currentTurnOK bool
+	if ct, err := h.q.GetCurrentTurn(r.Context(), groupID); err == nil {
+		currentTurn = ct
+		currentTurnOK = true
+		currentWeekOf = pgDateToString(ct.WeekOf)
+	}
+
+	weekOf := currentWeekOf
 	if req.WeekOf != nil && isValidDateStr(*req.WeekOf) {
 		weekOf = *req.WeekOf
 	}
@@ -100,9 +109,17 @@ func (h *Handler) SetMovie(w http.ResponseWriter, r *http.Request) {
 
 	// Authorization
 	if mem.Role != "owner" && mem.Role != "admin" {
-		currentWeekOf := getCurrentTurnWeekOf(config)
 		currentIdx := getTurnIndexForDate(currentWeekOf, config)
 		nextWeekOf := getTurnStartDate(currentIdx+1, config)
+		if currentTurnOK {
+			if nextTurn, err := h.q.GetTurnByIndex(r.Context(), db.GetTurnByIndexParams{
+				GroupID: groupID, TurnIndex: currentTurn.TurnIndex + 1,
+			}); err == nil {
+				nextWeekOf = pgDateToString(nextTurn.WeekOf)
+			} else {
+				nextWeekOf = pgDateToTime(currentTurn.EndDate).AddDate(0, 0, 1).Format("2006-01-02")
+			}
+		}
 
 		pa, paErr := h.q.GetPickerAssignment(r.Context(), db.GetPickerAssignmentParams{
 			GroupID: groupID, WeekOf: timeToPgDate(weekOf),
@@ -117,10 +134,6 @@ func (h *Handler) SetMovie(w http.ResponseWriter, r *http.Request) {
 			})
 			if err != nil || !override.MovieUnlockedByAdmin {
 				writeError(w, http.StatusForbidden, "Only admins and owners can set the movie")
-				return
-			}
-			if !isAssignedPicker {
-				writeError(w, http.StatusForbidden, "Only the assigned picker can set the movie when it has been unlocked")
 				return
 			}
 		}
@@ -139,6 +152,14 @@ func (h *Handler) SetMovie(w http.ResponseWriter, r *http.Request) {
 				_ = h.q.DeleteNomination(r.Context(), nom.ID)
 			}
 		}
+	}
+
+	// Schedule weeks are computed (getTurnStartDate) and may not yet have a
+	// turns row — e.g. an admin backfilling a movie on a past or future week.
+	// Ensure the row exists so movieSvc.Select can attach the movie to it.
+	if _, err := h.turnSvc.EnsureTurnExists(r.Context(), groupID, weekOf); err != nil {
+		writeError(w, http.StatusBadRequest, "Could not resolve a turn for the selected week")
+		return
 	}
 
 	_, err = h.movieSvc.Select(r.Context(), groupID, weekOf, imdbID, nominatorUserID)

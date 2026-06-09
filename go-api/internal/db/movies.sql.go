@@ -89,7 +89,11 @@ func (q *Queries) GetMovieByGroupWeek(ctx context.Context, arg GetMovieByGroupWe
 
 const getRecentMoviesWithResults = `-- name: GetRecentMoviesWithResults :many
 SELECT m.group_id, g.name AS group_name, f.title AS movie, f.poster_url AS movie_poster, t.week_of,
-       COALESCE(AVG(v.rating), 0)::real AS average_rating,
+       t.reviews_unlocked,
+       CASE
+         WHEN t.reviews_unlocked THEN NULL
+         ELSE COALESCE(AVG(v.rating), 0)::real
+       END AS average_rating,
        COUNT(v.id)::int AS total_votes
 FROM movies m
 JOIN groups g ON g.id = m.group_id
@@ -98,7 +102,7 @@ JOIN films f ON f.id = m.film_id
 JOIN memberships mem ON mem.group_id = m.group_id AND mem.user_id = $1
 LEFT JOIN verdicts v ON v.turn_id = t.id
 WHERE t.end_date < CURRENT_DATE
-GROUP BY m.id, g.name, f.title, f.poster_url, t.week_of
+GROUP BY m.id, g.name, f.title, f.poster_url, t.week_of, t.reviews_unlocked
 ORDER BY t.week_of DESC
 LIMIT $2
 `
@@ -109,13 +113,14 @@ type GetRecentMoviesWithResultsParams struct {
 }
 
 type GetRecentMoviesWithResultsRow struct {
-	GroupID       int32       `json:"group_id"`
-	GroupName     string      `json:"group_name"`
-	Movie         string      `json:"movie"`
-	MoviePoster   *string     `json:"movie_poster"`
-	WeekOf        pgtype.Date `json:"week_of"`
-	AverageRating float32     `json:"average_rating"`
-	TotalVotes    int32       `json:"total_votes"`
+	GroupID         int32       `json:"group_id"`
+	GroupName       string      `json:"group_name"`
+	Movie           string      `json:"movie"`
+	MoviePoster     *string     `json:"movie_poster"`
+	WeekOf          pgtype.Date `json:"week_of"`
+	ReviewsUnlocked bool        `json:"reviews_unlocked"`
+	AverageRating   *float32    `json:"average_rating"`
+	TotalVotes      int32       `json:"total_votes"`
 }
 
 func (q *Queries) GetRecentMoviesWithResults(ctx context.Context, arg GetRecentMoviesWithResultsParams) ([]GetRecentMoviesWithResultsRow, error) {
@@ -133,6 +138,7 @@ func (q *Queries) GetRecentMoviesWithResults(ctx context.Context, arg GetRecentM
 			&i.Movie,
 			&i.MoviePoster,
 			&i.WeekOf,
+			&i.ReviewsUnlocked,
 			&i.AverageRating,
 			&i.TotalVotes,
 		); err != nil {

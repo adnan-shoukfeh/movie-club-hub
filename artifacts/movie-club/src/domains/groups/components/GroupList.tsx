@@ -93,14 +93,22 @@ export function GroupList({ groups, isLoading }: GroupListProps) {
   if (groups && groups.length > 0) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-12">
-        {groups.map((group, index) => (
-          <GroupCard
-            key={group.id}
-            group={group}
-            isLarge={index === 0}
-            onClick={() => setLocation(`/groups/${group.id}`)}
-          />
-        ))}
+        {groups.map((group, index) => {
+          // Open the exact turn this card is showing (its resolved week), so the
+          // user lands on the "Now Playing" movie they clicked rather than whatever
+          // the group page re-resolves as the current week.
+          const weekOf = (group as GroupSummary & { weekOf?: string }).weekOf;
+          return (
+            <GroupCard
+              key={group.id}
+              group={group}
+              isLarge={index === 0}
+              onClick={() =>
+                setLocation(weekOf ? `/groups/${group.id}?weekOf=${weekOf}` : `/groups/${group.id}`)
+              }
+            />
+          );
+        })}
       </div>
     );
   }

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/adnanshoukfeh/movie-club-hub/go-api/internal/db"
 )
@@ -33,6 +34,10 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		ResultsAvailable bool    `json:"resultsAvailable"`
 		TurnLengthDays   int32   `json:"turnLengthDays"`
 		StartDate        string  `json:"startDate"`
+		// WeekOf is the turn this card resolved to, so clicking it opens exactly that
+		// turn instead of letting the group page re-resolve to a possibly different
+		// "current" week.
+		WeekOf string `json:"weekOf"`
 	}
 
 	pendingVotes := 0
@@ -55,7 +60,25 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		}
 		groupConfigs[g.ID] = config
 
-		weekOf := getCurrentTurnWeekOf(config)
+		// Resolve the current turn from the turns table and use its real end_date
+		// for the deadline so voting/results match GetGroup/GetGroupStatus. The
+		// legacy config walk could compute a different deadline than the actual
+		// turn, which made the dashboard show "results ready" out of sync. Fall back
+		// to the computed schedule only when no turn row covers today.
+		var weekOf string
+		var deadlineTime time.Time
+		reviewUnlocked := false
+		realTurn := false
+		if currentTurn, err := h.q.GetCurrentTurn(r.Context(), g.ID); err == nil {
+			weekOf = pgDateToString(currentTurn.WeekOf)
+			deadlineTime = pgDateToTime(currentTurn.EndDate).Add(24 * time.Hour)
+			reviewUnlocked = currentTurn.ReviewsUnlocked
+			realTurn = true
+		} else {
+			weekOf = getCurrentTurnWeekOf(config)
+		}
+		item.WeekOf = weekOf
+
 		movie, err := h.q.GetMovieByGroupWeek(r.Context(), db.GetMovieByGroupWeekParams{
 			GroupID: g.ID, WeekOf: timeToPgDate(weekOf),
 		})
@@ -64,23 +87,28 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 			item.MoviePoster = movie.PosterUrl
 		}
 
-		adminExt := 0
-		startOffset := 0
-		reviewUnlocked := false
-		if override, err := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
-			GroupID: g.ID, WeekOf: timeToPgDate(weekOf),
-		}); err == nil {
-			adminExt = int(override.ExtendedDays)
-			startOffset = int(override.StartOffsetDays)
-			reviewUnlocked = override.ReviewUnlockedByAdmin
+		if !realTurn {
+			adminExt := 0
+			startOffset := 0
+			if override, err := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
+				GroupID: g.ID, WeekOf: timeToPgDate(weekOf),
+			}); err == nil {
+				adminExt = int(override.ExtendedDays)
+				startOffset = int(override.StartOffsetDays)
+				reviewUnlocked = override.ReviewUnlockedByAdmin
+			}
+			deadlineTime = time.UnixMilli(getDeadlineMs(weekOf, config, adminExt, startOffset))
 		}
 
 		votingOpen := false
 		if movie.Title != "" {
-			votingOpen = isVotingOpen(weekOf, config, adminExt, startOffset) || reviewUnlocked
+			votingOpen = time.Now().Before(deadlineTime) || reviewUnlocked
 		}
 		item.VotingOpen = votingOpen
-		item.ResultsAvailable = movie.Title != "" && isResultsAvailable(weekOf, config, adminExt, startOffset)
+		// While reviews are open the rating window is active, so results stay hidden
+		// (matches GetGroup/GetGroupStatus). Only final once the deadline has passed
+		// and reviews are closed.
+		item.ResultsAvailable = movie.Title != "" && time.Now().After(deadlineTime) && !reviewUnlocked
 
 		if voted, err := h.q.HasUserVoted(r.Context(), db.HasUserVotedParams{
 			UserID: userID, GroupID: g.ID, WeekOf: timeToPgDate(weekOf),
@@ -97,13 +125,14 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 
 	// Recent results
 	type recentResult struct {
-		GroupID       int32   `json:"groupId"`
-		GroupName     string  `json:"groupName"`
-		Movie         string  `json:"movie"`
-		MoviePoster   *string `json:"moviePoster"`
-		AverageRating float32 `json:"averageRating"`
-		TotalVotes    int32   `json:"totalVotes"`
-		WeekOf        string  `json:"weekOf"`
+		GroupID         int32    `json:"groupId"`
+		GroupName       string   `json:"groupName"`
+		Movie           string   `json:"movie"`
+		MoviePoster     *string  `json:"moviePoster"`
+		ReviewsUnlocked bool     `json:"reviewsUnlocked"`
+		AverageRating   *float32 `json:"averageRating"`
+		TotalVotes      int32    `json:"totalVotes"`
+		WeekOf          string   `json:"weekOf"`
 	}
 
 	recentRows, _ := h.q.GetRecentMoviesWithResults(r.Context(), db.GetRecentMoviesWithResultsParams{
@@ -116,8 +145,9 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		recentResults = append(recentResults, recentResult{
 			GroupID: row.GroupID, GroupName: row.GroupName,
 			Movie: row.Movie, MoviePoster: row.MoviePoster,
-			AverageRating: row.AverageRating,
-			TotalVotes: row.TotalVotes, WeekOf: rowWeekOf,
+			ReviewsUnlocked: row.ReviewsUnlocked,
+			AverageRating:   row.AverageRating,
+			TotalVotes:      row.TotalVotes, WeekOf: rowWeekOf,
 		})
 		if len(recentResults) == 5 {
 			break
