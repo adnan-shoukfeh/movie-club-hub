@@ -342,7 +342,7 @@ export function PickerScheduleEditor({
                             <span className="text-muted-foreground/60 italic">No movie set</span>
                           )}
                           <button
-                            className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                            className="text-muted-foreground hover:text-foreground shrink-0"
                             title={entry.movie ? "Change movie" : "Set movie"}
                             onClick={() => setMovieEditWeek(movieEditWeek === entry.weekOf ? null : entry.weekOf)}
                           >
@@ -350,7 +350,7 @@ export function PickerScheduleEditor({
                           </button>
                           {entry.movie && (
                             <button
-                              className="text-destructive/70 hover:text-destructive flex-shrink-0"
+                              className="text-destructive/70 hover:text-destructive shrink-0"
                               title="Clear selected movie"
                               onClick={() => handleRemoveMovie(entry.weekOf)}
                             >
