@@ -111,7 +111,14 @@ export function TurnDateRangeInput({
     ? new Date(nextTurnDeadlineMs).toISOString().slice(0, 10)
     : null;
   const nextTurnCapStr = nextTurnDeadlineDateStr ? addDaysToDateStr(nextTurnDeadlineDateStr, -2) : null;
-  const deadlineMaxStr = nextTurnCapStr && nextTurnCapStr < baseDeadlineMaxStr ? nextTurnCapStr : baseDeadlineMaxStr;
+  let deadlineMaxStr = nextTurnCapStr && nextTurnCapStr < baseDeadlineMaxStr ? nextTurnCapStr : baseDeadlineMaxStr;
+  // Always allow pulling a turn's deadline up to today, even when the next turn
+  // (also in the past, for an old turn) would otherwise cap it earlier. This is
+  // what lets an admin extend a past turn's deadline to make it the current cycle.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  if (deadlineMaxStr < todayStr && todayStr <= baseDeadlineMaxStr) {
+    deadlineMaxStr = todayStr;
+  }
   const deadlineMaxDate = new Date(deadlineMaxStr + "T00:00:00");
 
   const handleStartSelect = (date: Date | undefined) => {
