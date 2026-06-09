@@ -12,6 +12,7 @@ import {
   Pencil,
   Check,
   X,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,7 @@ import {
 } from "./shared";
 import { UnlockControls } from "./UnlockControls";
 import { UserLink } from "@/domains/profiles/components/UserLink";
+import { PickerMovieSelector } from "@/domains/movies/components/PickerMovieSelector";
 
 interface PickerScheduleEditorProps {
   groupId: number;
@@ -63,6 +65,7 @@ export function PickerScheduleEditor({
   const [extendDaysInput, setExtendDaysInput] = useState<{ [weekOf: string]: string }>({});
   const [startOffsetInput, setStartOffsetInput] = useState<{ [weekOf: string]: number }>({});
   const [pickerWeekEdit, setPickerWeekEdit] = useState<string | null>(null);
+  const [movieEditWeek, setMovieEditWeek] = useState<string | null>(null);
   const [pendingPickerMap, setPendingPickerMap] = useState<Record<string, string>>({});
   const [expandedNominationsWeek, setExpandedNominationsWeek] = useState<string | null>(null);
   const [nominationsCache, setNominationsCache] = useState<{ [weekOf: string]: { id: number; title: string; nominatorUserId?: number | null; nominatorUsername?: string }[] }>({});
@@ -322,21 +325,49 @@ export function PickerScheduleEditor({
                       </div>
 
                       {/* Movie */}
-                      <div className="flex items-center gap-2 text-xs">
-                        <Film className="w-3.5 h-3.5 text-muted-foreground" />
-                        {entry.movie ? (
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <span className="text-foreground truncate">{entry.movie.title}</span>
-                            <button
-                              className="text-destructive/70 hover:text-destructive flex-shrink-0"
-                              title="Clear selected movie"
-                              onClick={() => handleRemoveMovie(entry.weekOf)}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs">
+                          <Film className="w-3.5 h-3.5 text-muted-foreground" />
+                          {entry.movie ? (
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <span className="text-foreground truncate">{entry.movie.title}</span>
+                              <button
+                                className="text-muted-foreground hover:text-primary flex-shrink-0"
+                                title="Change movie"
+                                onClick={() => setMovieEditWeek(movieEditWeek === entry.weekOf ? null : entry.weekOf)}
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                              <button
+                                className="text-destructive/70 hover:text-destructive flex-shrink-0"
+                                title="Clear selected movie"
+                                onClick={() => handleRemoveMovie(entry.weekOf)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <span className="text-muted-foreground/60 italic">No movie set</span>
+                              <button
+                                className="inline-flex items-center gap-1 text-primary hover:text-primary/80 flex-shrink-0"
+                                title="Set movie"
+                                onClick={() => setMovieEditWeek(movieEditWeek === entry.weekOf ? null : entry.weekOf)}
+                              >
+                                <Plus className="w-3 h-3" /> Set movie
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        {movieEditWeek === entry.weekOf && (
+                          <div className="border border-border/40 rounded-lg p-3 bg-background/40">
+                            <PickerMovieSelector
+                              groupId={groupId}
+                              selectedWeek={entry.weekOf}
+                              onCancel={() => setMovieEditWeek(null)}
+                              onSuccess={() => { setMovieEditWeek(null); loadSchedule(scheduleCenterWeekOf); }}
+                            />
                           </div>
-                        ) : (
-                          <span className="text-muted-foreground/60 italic">No movie set</span>
                         )}
                       </div>
 

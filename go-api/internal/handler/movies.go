@@ -141,6 +141,14 @@ func (h *Handler) SetMovie(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Schedule weeks are computed (getTurnStartDate) and may not yet have a
+	// turns row — e.g. an admin backfilling a movie on a past or future week.
+	// Ensure the row exists so movieSvc.Select can attach the movie to it.
+	if _, err := h.turnSvc.EnsureTurnExists(r.Context(), groupID, weekOf); err != nil {
+		writeError(w, http.StatusBadRequest, "Could not resolve a turn for the selected week")
+		return
+	}
+
 	_, err = h.movieSvc.Select(r.Context(), groupID, weekOf, imdbID, nominatorUserID)
 	if err != nil {
 		if errors.Is(err, service.ErrNotFound) {
