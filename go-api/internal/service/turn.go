@@ -154,6 +154,21 @@ func timeToPgDate(s string) pgtype.Date {
 	return pgtype.Date{Time: t, Valid: true}
 }
 
+func getTurnDeadlineTime(turn db.Turn) time.Time {
+	return pgDateToTime(turn.EndDate).Add(24 * time.Hour)
+}
+
+func isReviewWindowOpen(turn db.Turn, now time.Time) bool {
+	if !turn.ReviewsUnlocked {
+		return false
+	}
+	deadlineTime := getTurnDeadlineTime(turn)
+	if now.Before(deadlineTime) {
+		return true
+	}
+	return turn.UpdatedAt.Valid && !turn.UpdatedAt.Time.Before(deadlineTime)
+}
+
 // TurnService wraps turn-related DB access.
 // The turns table is now the single source of truth for turn scheduling.
 type TurnService struct {
@@ -296,7 +311,7 @@ func (s *TurnService) ClearPicker(ctx context.Context, groupID int32, weekOf str
 // ExtendTurn extends the turn's end_date by the given number of days.
 func (s *TurnService) ExtendTurn(ctx context.Context, turnID int64, extraDays int32) error {
 	return s.queries.ExtendTurn(ctx, db.ExtendTurnParams{
-		ID:     turnID,
+		ID:      turnID,
 		Column2: extraDays,
 	})
 }

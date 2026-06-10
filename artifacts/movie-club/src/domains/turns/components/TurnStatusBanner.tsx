@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, CalendarCheck } from "lucide-react";
-import { formatDateET, formatShortDateET } from "@/lib/utils";
+import { formatDateET, formatWeekdayShortDateET } from "@/lib/utils";
 import { normalizeWeekOf } from "../turnUtils";
 import type { GroupDetail } from "@workspace/api-client-react";
 
@@ -47,7 +47,7 @@ export function TurnStatusBanner({ group, selectedWeek, onWeekChange, deadlineMs
         </p>
         {endDateStr && (
           <p className="text-[11px] text-secondary/80 font-bold uppercase tracking-wide mb-1">
-            {isPastWeek ? "Ended" : "Ends"} {formatShortDateET(endDateStr)}
+            {isPastWeek ? "Ended" : "Ends"} {formatWeekdayShortDateET(endDateStr)}
           </p>
         )}
         {isCurrentWeek && (

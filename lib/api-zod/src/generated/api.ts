@@ -605,6 +605,8 @@ export const GetDashboardResponse = zod.object({
       averageRating: zod.number().nullable(),
       totalVotes: zod.number(),
       weekOf: zod.string(),
+      pickerUsername: zod.string().nullish(),
+      pickerAvatarUrl: zod.string().nullish(),
     }),
   ),
 });

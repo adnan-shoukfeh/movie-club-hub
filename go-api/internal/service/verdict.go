@@ -110,21 +110,11 @@ func (s *VerdictService) SubmitVerdict(ctx context.Context, userID, groupID int3
 	currentWeekOf := getCurrentTurnWeekOf(config)
 	isCurrentTurn := weekOf == currentWeekOf
 
-	// Check if reviews are unlocked or voting is open
-	reviewsUnlocked := turn.ReviewsUnlocked
+	deadlineTime := getTurnDeadlineTime(turn)
+	now := time.Now()
 
-	adminExt := 0
-	startOffset := 0
-	if override, err := s.queries.GetTurnOverride(ctx, db.GetTurnOverrideParams{
-		GroupID: groupID,
-		WeekOf:  timeToPgDate(weekOf),
-	}); err == nil {
-		adminExt = int(override.ExtendedDays)
-		startOffset = int(override.StartOffsetDays)
-		reviewsUnlocked = reviewsUnlocked || override.ReviewUnlockedByAdmin
-	}
-
-	if !((isVotingOpen(weekOf, config, adminExt, startOffset) && isCurrentTurn) || reviewsUnlocked) {
+	reviewsOpen := isReviewWindowOpen(turn, now)
+	if !((now.Before(deadlineTime) && isCurrentTurn) || reviewsOpen) {
 		return errors.New("voting is closed for this week")
 	}
 
@@ -203,20 +193,11 @@ func (s *VerdictService) DeleteVerdict(ctx context.Context, userID, groupID int3
 	}
 
 	isCurrentTurn := weekOf == currentWeekOf
-	reviewsUnlocked := turn.ReviewsUnlocked
+	deadlineTime := getTurnDeadlineTime(turn)
+	now := time.Now()
+	reviewsOpen := isReviewWindowOpen(turn, now)
 
-	adminExt := 0
-	startOffset := 0
-	if override, err := s.queries.GetTurnOverride(ctx, db.GetTurnOverrideParams{
-		GroupID: groupID,
-		WeekOf:  timeToPgDate(weekOf),
-	}); err == nil {
-		adminExt = int(override.ExtendedDays)
-		startOffset = int(override.StartOffsetDays)
-		reviewsUnlocked = reviewsUnlocked || override.ReviewUnlockedByAdmin
-	}
-
-	if !((isVotingOpen(weekOf, config, adminExt, startOffset) && isCurrentTurn) || reviewsUnlocked) {
+	if !((now.Before(deadlineTime) && isCurrentTurn) || reviewsOpen) {
 		return errors.New("voting is closed for this week")
 	}
 
@@ -268,18 +249,9 @@ func (s *VerdictService) GetVerdicts(ctx context.Context, userID, groupID int32,
 	}
 
 	// Use turn.EndDate for deadline (consistent with GetGroup/GetGroupStatus)
-	deadlineTime := pgDateToTime(turn.EndDate).Add(24 * time.Hour) // End of end_date
-	reviewsUnlocked := turn.ReviewsUnlocked
-
-	// Also check override for ReviewUnlockedByAdmin
-	if override, err := s.queries.GetTurnOverride(ctx, db.GetTurnOverrideParams{
-		GroupID: groupID,
-		WeekOf:  timeToPgDate(weekOf),
-	}); err == nil {
-		reviewsUnlocked = reviewsUnlocked || override.ReviewUnlockedByAdmin
-	}
-
-	if !time.Now().After(deadlineTime) && !reviewsUnlocked {
+	now := time.Now()
+	deadlineTime := getTurnDeadlineTime(turn)
+	if now.Before(deadlineTime) || isReviewWindowOpen(turn, now) {
 		return nil, errors.New("results are not available yet")
 	}
 

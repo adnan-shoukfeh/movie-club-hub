@@ -382,6 +382,8 @@ export interface RecentResult {
   averageRating: number | null;
   totalVotes: number;
   weekOf: string;
+  pickerUsername?: string | null;
+  pickerAvatarUrl?: string | null;
 }
 
 export interface Dashboard {

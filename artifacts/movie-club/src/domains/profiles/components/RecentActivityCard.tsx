@@ -1,6 +1,10 @@
-import { Star } from "lucide-react";
+import { Star, MessageSquare } from "lucide-react";
 import type { ActivityItem } from "@workspace/api-client-react";
 import { formatRelativeTime } from "../lib/relativeTime";
+
+// The generated ActivityItem type doesn't yet include the comment fields the API
+// now returns, so widen it locally.
+type ActivityEntry = ActivityItem & { type?: "watch" | "comment"; comment?: string | null };
 
 interface RecentActivityCardProps {
   items: ActivityItem[];
@@ -19,8 +23,8 @@ export function RecentActivityCard({ items }: RecentActivityCardProps) {
         </p>
       ) : (
         <div className="divide-y divide-border/40">
-          {items.slice(0, 10).map((item) => (
-            <ActivityRow key={item.filmId} item={item} />
+          {(items as ActivityEntry[]).slice(0, 10).map((item, i) => (
+            <ActivityRow key={`${item.type ?? "watch"}-${item.filmId}-${i}`} item={item} />
           ))}
         </div>
       )}
@@ -28,26 +32,41 @@ export function RecentActivityCard({ items }: RecentActivityCardProps) {
   );
 }
 
-function ActivityRow({ item }: { item: ActivityItem }) {
+function ActivityRow({ item }: { item: ActivityEntry }) {
+  const isComment = item.type === "comment";
   return (
     <div className="grid grid-cols-[44px_1fr_auto] lg:grid-cols-[56px_1fr_auto] gap-3 lg:gap-4 py-3 lg:py-4 items-start">
       <Poster posterUrl={item.posterUrl} title={item.title} />
       <div className="min-w-0">
         <p className="text-sm lg:text-base font-bold text-foreground truncate">
+          {isComment && (
+            <MessageSquare className="inline-block w-3.5 h-3.5 mr-1 -mt-0.5 text-primary" />
+          )}
           {item.title}
           {item.year != null && (
             <span className="text-muted-foreground font-normal"> · {item.year}</span>
           )}
         </p>
-        {item.rating != null && (
-          <div className="flex items-center gap-1 text-primary text-xs mt-0.5">
-            {renderStars(item.rating)}
-          </div>
-        )}
-        {item.review && (
+        {isComment ? (
           <p className="text-xs text-foreground/70 mt-1.5 line-clamp-2 leading-relaxed">
-            "{item.review}"
+            <span className="text-primary/80 font-semibold uppercase tracking-wider text-[10px] mr-1.5">
+              Commented
+            </span>
+            {item.comment}
           </p>
+        ) : (
+          <>
+            {item.rating != null && (
+              <div className="flex items-center gap-1 text-primary text-xs mt-0.5">
+                {renderStars(item.rating)}
+              </div>
+            )}
+            {item.review && (
+              <p className="text-xs text-foreground/70 mt-1.5 line-clamp-2 leading-relaxed">
+                "{item.review}"
+              </p>
+            )}
+          </>
         )}
       </div>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60 whitespace-nowrap">

@@ -75,3 +75,44 @@ WHERE v.user_id = $1
   )
 ORDER BY v.updated_at DESC
 LIMIT 10;
+
+-- name: GetUserRecentComments :many
+-- The user's most recent replies (comments), with the film each one is about.
+SELECT
+    f.id AS film_id,
+    f.title,
+    f.year,
+    f.poster_url,
+    vr.body AS comment,
+    vr.created_at AS commented_at
+FROM verdict_replies vr
+JOIN verdicts v ON v.id = vr.verdict_id
+JOIN turns t ON v.turn_id = t.id
+JOIN movies m ON m.turn_id = t.id
+JOIN films f ON m.film_id = f.id
+WHERE vr.user_id = $1
+ORDER BY vr.created_at DESC
+LIMIT 10;
+
+-- name: GetUserRecentCommentsForViewer :many
+-- Same as above but only from clubs shared between viewer and target user.
+SELECT
+    f.id AS film_id,
+    f.title,
+    f.year,
+    f.poster_url,
+    vr.body AS comment,
+    vr.created_at AS commented_at
+FROM verdict_replies vr
+JOIN verdicts v ON v.id = vr.verdict_id
+JOIN turns t ON v.turn_id = t.id
+JOIN movies m ON m.turn_id = t.id
+JOIN films f ON m.film_id = f.id
+WHERE vr.user_id = $1
+  AND t.group_id IN (
+      SELECT m1.group_id FROM memberships m1
+      JOIN memberships m2 ON m1.group_id = m2.group_id
+      WHERE m1.user_id = $1 AND m2.user_id = $2
+  )
+ORDER BY vr.created_at DESC
+LIMIT 10;

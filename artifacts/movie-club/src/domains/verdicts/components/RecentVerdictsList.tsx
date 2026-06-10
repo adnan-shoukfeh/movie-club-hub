@@ -1,4 +1,4 @@
-import { Star, Film } from "lucide-react";
+import { Star, Film, UserRound } from "lucide-react";
 import type { RecentResult } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 
@@ -47,7 +47,26 @@ export function RecentVerdictsList({ results }: RecentVerdictsListProps) {
               )}
             </div>
             <h4 className="font-bold text-white truncate">{result.movie}</h4>
-            <p className="text-sm text-white/70">{result.groupName}</p>
+            <p className="text-sm text-white/70 truncate">{result.groupName}</p>
+            <div className="mt-1.5 text-[11px] leading-snug text-white/55">
+              {result.pickerUsername && (
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {result.pickerAvatarUrl ? (
+                    <img
+                      src={result.pickerAvatarUrl}
+                      alt=""
+                      className="w-3.5 h-3.5 rounded-full object-cover border border-primary/50 shrink-0"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className="w-3.5 h-3.5 rounded-full bg-secondary border border-primary/40 shrink-0 flex items-center justify-center">
+                      <UserRound className="w-2.5 h-2.5 text-primary/80" />
+                    </span>
+                  )}
+                  <span className="truncate">Picked by {result.pickerUsername}</span>
+                </div>
+              )}
+            </div>
           </button>
         ))}
       </div>

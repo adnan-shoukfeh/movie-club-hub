@@ -51,6 +51,10 @@ function formatWeekLabel(weekOf: string): string {
   return formatDateET(weekOf);
 }
 
+function getScheduleNextPageStart(entry: ScheduleEntry, turnLengthDays: number): string {
+  return addDaysToDateStr(entry.weekOf, turnLengthDays + (entry.extendedDays ?? 0));
+}
+
 export function PickerScheduleEditor({
   groupId,
   turnLengthDays,
@@ -66,6 +70,7 @@ export function PickerScheduleEditor({
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [currentTurnWeekOf, setCurrentTurnWeekOf] = useState<string>("");
   const [scheduleCenterWeekOf, setScheduleCenterWeekOf] = useState<string | undefined>(undefined);
+  const [schedulePageCursor, setSchedulePageCursor] = useState<string | undefined>(undefined);
   const [confirm, setConfirm] = useState<{ message: string; action: () => void; variant?: "destructive" | "warning" } | null>(null);
 
   const [extendDaysInput, setExtendDaysInput] = useState<{ [weekOf: string]: string }>({});
@@ -90,6 +95,7 @@ export function PickerScheduleEditor({
       const data = await apiCall<{ schedule: ScheduleEntry[]; members: AdminMember[]; currentTurnWeekOf?: string; centerWeekOf?: string }>(url);
       setSchedule(data.schedule ?? []);
       setMembers(data.members ?? []);
+      setSchedulePageCursor(centerWeekOf);
       if (data.currentTurnWeekOf) setCurrentTurnWeekOf(data.currentTurnWeekOf);
       if (data.centerWeekOf) setScheduleCenterWeekOf(data.centerWeekOf);
       if (data.currentTurnWeekOf && onScheduleLoaded) {
@@ -128,7 +134,7 @@ export function PickerScheduleEditor({
   const doAction = async (action: () => Promise<void>) => {
     try {
       await action();
-      loadSchedule(scheduleCenterWeekOf);
+      loadSchedule(schedulePageCursor);
       // Schedule edits change the current turn / deadlines; refresh the views that
       // render them (group detail banner, status, dashboard) so they don't show
       // stale "current" data.
@@ -364,7 +370,7 @@ export function PickerScheduleEditor({
                               groupId={groupId}
                               selectedWeek={entry.weekOf}
                               onCancel={() => setMovieEditWeek(null)}
-                              onSuccess={() => { setMovieEditWeek(null); loadSchedule(scheduleCenterWeekOf); }}
+                              onSuccess={() => { setMovieEditWeek(null); loadSchedule(schedulePageCursor); }}
                             />
                           </div>
                         )}
@@ -531,10 +537,20 @@ export function PickerScheduleEditor({
               <div className="flex items-center justify-between px-4 py-3 border-t border-border/20">
                 <button
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => { if (schedule.length > 0) loadSchedule(schedule[0].weekOf); }}
+                  onClick={() => {
+                    if (schedule.length === 0) return;
+                    const first = schedule[0].weekOf;
+                    const last = schedule[schedule.length - 1].weekOf;
+                    // Jump back past the full visible span so the previous whole page
+                    // loads without repeating the current first row.
+                    const spanDays = Math.round(
+                      (Date.parse(last + "T00:00:00Z") - Date.parse(first + "T00:00:00Z")) / 86400000
+                    );
+                    loadSchedule(addDaysToDateStr(first, -(spanDays + turnLengthDays)));
+                  }}
                   disabled={scheduleLoading}
                 >
-                  <ChevronLeft className="w-3.5 h-3.5" /> Earlier
+                  <ChevronLeft className="w-3.5 h-3.5" /> Prev page
                 </button>
                 {scheduleCenterWeekOf && scheduleCenterWeekOf !== currentTurnWeekOf && (
                   <button
@@ -546,10 +562,13 @@ export function PickerScheduleEditor({
                 )}
                 <button
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => { if (schedule.length > 0) loadSchedule(schedule[schedule.length - 1].weekOf); }}
+                  onClick={() => {
+                    if (schedule.length === 0) return;
+                    loadSchedule(getScheduleNextPageStart(schedule[schedule.length - 1], turnLengthDays));
+                  }}
                   disabled={scheduleLoading}
                 >
-                  Later <ChevronRight className="w-3.5 h-3.5" />
+                  Next page <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             )}
