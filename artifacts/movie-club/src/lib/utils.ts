@@ -48,3 +48,17 @@ export function formatShortDateET(dateStr: string): string {
     timeZone: "UTC",
   });
 }
+
+/**
+ * Format a calendar date string with the full weekday and short date.
+ * Returns e.g. "Wednesday, Jun 17".
+ */
+export function formatWeekdayShortDateET(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00.000Z");
+  return d.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}

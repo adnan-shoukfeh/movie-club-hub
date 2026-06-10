@@ -89,7 +89,7 @@ func (q *Queries) GetMovieByGroupWeek(ctx context.Context, arg GetMovieByGroupWe
 
 const getRecentMoviesWithResults = `-- name: GetRecentMoviesWithResults :many
 SELECT m.group_id, g.name AS group_name, f.title AS movie, f.poster_url AS movie_poster, t.week_of,
-       t.reviews_unlocked,
+       t.reviews_unlocked, u.username AS picker_username, u.avatar_url AS picker_avatar_url,
        CASE
          WHEN t.reviews_unlocked THEN NULL
          ELSE COALESCE(AVG(v.rating), 0)::real
@@ -100,9 +100,10 @@ JOIN groups g ON g.id = m.group_id
 JOIN turns t ON t.id = m.turn_id
 JOIN films f ON f.id = m.film_id
 JOIN memberships mem ON mem.group_id = m.group_id AND mem.user_id = $1
+LEFT JOIN users u ON u.id = t.picker_user_id
 LEFT JOIN verdicts v ON v.turn_id = t.id
 WHERE t.end_date < CURRENT_DATE
-GROUP BY m.id, g.name, f.title, f.poster_url, t.week_of, t.reviews_unlocked
+GROUP BY m.id, g.name, f.title, f.poster_url, t.week_of, t.reviews_unlocked, u.username, u.avatar_url
 ORDER BY t.week_of DESC
 LIMIT $2
 `
@@ -119,6 +120,8 @@ type GetRecentMoviesWithResultsRow struct {
 	MoviePoster     *string     `json:"movie_poster"`
 	WeekOf          pgtype.Date `json:"week_of"`
 	ReviewsUnlocked bool        `json:"reviews_unlocked"`
+	PickerUsername  *string     `json:"picker_username"`
+	PickerAvatarUrl *string     `json:"picker_avatar_url"`
 	AverageRating   *float32    `json:"average_rating"`
 	TotalVotes      int32       `json:"total_votes"`
 }
@@ -139,6 +142,8 @@ func (q *Queries) GetRecentMoviesWithResults(ctx context.Context, arg GetRecentM
 			&i.MoviePoster,
 			&i.WeekOf,
 			&i.ReviewsUnlocked,
+			&i.PickerUsername,
+			&i.PickerAvatarUrl,
 			&i.AverageRating,
 			&i.TotalVotes,
 		); err != nil {

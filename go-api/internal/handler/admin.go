@@ -53,41 +53,6 @@ func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 
 	config, _ := h.buildTurnConfig(r.Context(), group)
 
-	// Use turns table directly for current turn
-	var currentWeekOf string
-	realCurrent := false
-	if currentTurn, err := h.q.GetCurrentTurn(r.Context(), groupID); err == nil {
-		currentWeekOf = pgDateToString(currentTurn.WeekOf)
-		realCurrent = true
-	} else {
-		currentWeekOf = getCurrentTurnWeekOf(config)
-	}
-
-	centerWeekOf := queryString(r, "centerWeekOf")
-	if centerWeekOf == "" || !isValidDateStr(centerWeekOf) {
-		centerWeekOf = currentWeekOf
-		// When no real turn covers today (the club is between cycles), center on the
-		// latest real turn so the admin sees actual turns instead of only empty
-		// synthesized future weeks.
-		if !realCurrent {
-			if last, err := h.q.GetLatestTurnForGroup(r.Context(), groupID); err == nil {
-				centerWeekOf = pgDateToString(last.WeekOf)
-			}
-		}
-	}
-
-	memberCount, _ := h.q.GetGroupMemberCount(r.Context(), groupID)
-	members, _ := h.q.GetGroupMembers(r.Context(), groupID)
-
-	type memberResp struct {
-		ID       int32  `json:"id"`
-		Username string `json:"username"`
-	}
-	memberList := make([]memberResp, 0, len(members))
-	for _, m := range members {
-		memberList = append(memberList, memberResp{ID: m.UserID, Username: m.Username})
-	}
-
 	// Build the schedule from the turns table (source of truth) so non-uniform
 	// turn lengths stay aligned with reality. Not-yet-created future turns are
 	// synthesized at the configured turn_length_days. The legacy config walk
@@ -103,28 +68,95 @@ func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 			maxIdx = int(t.TurnIndex)
 		}
 	}
+
+	loc, _ := time.LoadLocation("America/New_York")
+	turnLen := int(group.TurnLengthDays)
+	var lastRealEnd time.Time
+	if maxIdx >= 0 {
+		lastRealEnd = pgDateToTime(turnByIdx[maxIdx].EndDate)
+	}
+
+	// Use real shifted turns for the current turn. If today is beyond the last
+	// stored turn, synthesize the active future turn from the last real deadline.
+	var currentWeekOf string
+	realCurrent := false
+	if currentTurn, err := h.q.GetCurrentTurn(r.Context(), groupID); err == nil {
+		currentWeekOf = pgDateToString(currentTurn.WeekOf)
+		realCurrent = true
+	} else {
+		currentWeekOf = getCurrentTurnWeekOf(config)
+		todayT, _ := time.Parse("2006-01-02", time.Now().In(loc).Format("2006-01-02"))
+		for _, t := range allTurns {
+			startT := pgDateToTime(t.StartDate)
+			endT := pgDateToTime(t.EndDate)
+			if !todayT.Before(startT) && !todayT.After(endT) {
+				currentWeekOf = pgDateToString(t.WeekOf)
+				realCurrent = true
+				break
+			}
+		}
+		if !realCurrent && maxIdx >= 0 && turnLen > 0 && todayT.After(lastRealEnd) {
+			daysAfterLastReal := int(math.Round(todayT.Sub(lastRealEnd).Hours() / 24))
+			if daysAfterLastReal > 0 {
+				currentIdx := maxIdx + 1 + (daysAfterLastReal-1)/turnLen
+				startT := lastRealEnd.AddDate(0, 0, 1+(currentIdx-maxIdx-1)*turnLen)
+				currentWeekOf = startT.Format("2006-01-02")
+			}
+		}
+	}
+
+	centerWeekOf := queryString(r, "centerWeekOf")
+	explicitPageStart := centerWeekOf != "" && isValidDateStr(centerWeekOf)
+	if !explicitPageStart {
+		centerWeekOf = currentWeekOf
+	}
+
+	members, _ := h.q.GetGroupMembers(r.Context(), groupID)
+
+	type memberResp struct {
+		ID       int32  `json:"id"`
+		Username string `json:"username"`
+	}
+	memberList := make([]memberResp, 0, len(members))
+	for _, m := range members {
+		memberList = append(memberList, memberResp{ID: m.UserID, Username: m.Username})
+	}
+
 	usernameByID := make(map[int32]string, len(members))
 	for _, m := range members {
 		usernameByID[m.UserID] = m.Username
 	}
 
-	loc, _ := time.LoadLocation("America/New_York")
-	turnLen := int(group.TurnLengthDays)
-
 	// Center on the real turn whose week_of matches centerWeekOf when possible.
 	centerIdx := getTurnIndexForDate(centerWeekOf, config)
+	foundRealCenter := false
 	for _, t := range allTurns {
 		if pgDateToString(t.WeekOf) == centerWeekOf {
 			centerIdx = int(t.TurnIndex)
+			foundRealCenter = true
 			break
 		}
 	}
-	startIdx := max(centerIdx-4, 0)
-	endIdx := centerIdx + int(memberCount) + 1
+	if !foundRealCenter && maxIdx >= 0 {
+		if centerT, err := time.Parse("2006-01-02", centerWeekOf); err == nil && centerT.After(lastRealEnd) {
+			daysAfterLastReal := int(math.Round(centerT.Sub(lastRealEnd).Hours() / 24))
+			if daysAfterLastReal > 0 {
+				centerIdx = maxIdx + 1 + (daysAfterLastReal-1)/turnLen
+			}
+		}
+	}
 
-	var lastRealEnd time.Time
-	if maxIdx >= 0 {
-		lastRealEnd = pgDateToTime(turnByIdx[maxIdx].EndDate)
+	// The default schedule view keeps a few recent turns visible for context.
+	// Explicit pagination requests are page-start cursors so Prev/Next pages do
+	// not repeat dates from the currently visible page.
+	const adminHistoryTurns = 4
+	const adminForwardTurns = 20
+	const adminPageTurns = adminHistoryTurns + adminForwardTurns
+	startIdx := max(centerIdx-adminHistoryTurns, 0)
+	endIdx := centerIdx + adminForwardTurns
+	if explicitPageStart {
+		startIdx = max(centerIdx, 0)
+		endIdx = startIdx + adminPageTurns
 	}
 
 	type scheduleEntry struct {
@@ -155,7 +187,7 @@ func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 				entry.PickerUsername = &uu
 			}
 			entry.MovieUnlockedByAdmin = t.MovieUnlocked
-			entry.ReviewUnlockedByAdmin = t.ReviewsUnlocked
+			entry.ReviewUnlockedByAdmin = isReviewWindowOpen(t, time.Now())
 		} else if maxIdx >= 0 && i > maxIdx {
 			// Synthesized future turn (only past the last real turn): starts the day
 			// after the previous one ends.
@@ -194,10 +226,10 @@ func (h *Handler) AdminGetSchedule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"schedule":         schedule,
-		"members":          memberList,
+		"schedule":          schedule,
+		"members":           memberList,
 		"currentTurnWeekOf": currentWeekOf,
-		"centerWeekOf":     centerWeekOf,
+		"centerWeekOf":      centerWeekOf,
 	})
 }
 
@@ -492,8 +524,6 @@ func (h *Handler) AdminUnlockReviews(w http.ResponseWriter, r *http.Request) {
 
 	weekOfPgDate := timeToPgDate(req.WeekOf)
 
-	// Admins may open the review window at any time, even before the turn's
-	// deadline has passed.
 	if err := h.q.UpsertTurnOverrideReviewUnlocked(r.Context(), db.UpsertTurnOverrideReviewUnlockedParams{
 		GroupID: groupID, WeekOf: weekOfPgDate, ReviewUnlockedByAdmin: req.Unlocked,
 	}); err != nil {
@@ -506,8 +536,8 @@ func (h *Handler) AdminUnlockReviews(w http.ResponseWriter, r *http.Request) {
 		msg = "Reviews unlocked"
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"message":                msg,
-		"weekOf":                 req.WeekOf,
+		"message":               msg,
+		"weekOf":                req.WeekOf,
 		"reviewUnlockedByAdmin": req.Unlocked,
 	})
 }
@@ -896,9 +926,17 @@ func (h *Handler) AdminGetTurnOverride(w http.ResponseWriter, r *http.Request) {
 	}
 
 	deadlineMs := getDeadlineMs(weekOf, config, int(extDays), int(startOffset))
+	if turn, err := h.q.GetTurn(r.Context(), db.GetTurnParams{
+		GroupID: groupID, WeekOf: timeToPgDate(weekOf),
+	}); err == nil {
+		reviewUnlocked = isReviewWindowOpen(turn, time.Now())
+		movieUnlocked = turn.MovieUnlocked
+		deadlineTime := getTurnDeadlineTime(turn)
+		deadlineMs = deadlineTime.UnixMilli()
+	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"weekOf":                 weekOf,
+		"weekOf":                weekOf,
 		"reviewUnlockedByAdmin": reviewUnlocked,
 		"movieUnlockedByAdmin":  movieUnlocked,
 		"extendedDays":          extDays,

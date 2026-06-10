@@ -104,6 +104,21 @@ func getDeadlineMs(weekOf string, config TurnConfig, adminExtendedDays int, star
 	return turnStart.UnixMilli()
 }
 
+func getTurnDeadlineTime(turn db.Turn) time.Time {
+	return pgDateToTime(turn.EndDate).Add(24 * time.Hour)
+}
+
+func isReviewWindowOpen(turn db.Turn, now time.Time) bool {
+	if !turn.ReviewsUnlocked {
+		return false
+	}
+	deadlineTime := getTurnDeadlineTime(turn)
+	if now.Before(deadlineTime) {
+		return true
+	}
+	return turn.UpdatedAt.Valid && !turn.UpdatedAt.Time.Before(deadlineTime)
+}
+
 // isVotingOpen returns true if current time < deadline.
 func isVotingOpen(weekOf string, config TurnConfig, adminExtendedDays int, startOffsetDays int) bool {
 	return time.Now().UnixMilli() < getDeadlineMs(weekOf, config, adminExtendedDays, startOffsetDays)

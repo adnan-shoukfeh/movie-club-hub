@@ -71,8 +71,8 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		realTurn := false
 		if currentTurn, err := h.q.GetCurrentTurn(r.Context(), g.ID); err == nil {
 			weekOf = pgDateToString(currentTurn.WeekOf)
-			deadlineTime = pgDateToTime(currentTurn.EndDate).Add(24 * time.Hour)
-			reviewUnlocked = currentTurn.ReviewsUnlocked
+			deadlineTime = getTurnDeadlineTime(currentTurn)
+			reviewUnlocked = isReviewWindowOpen(currentTurn, time.Now())
 			realTurn = true
 		} else {
 			weekOf = getCurrentTurnWeekOf(config)
@@ -100,15 +100,14 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 			deadlineTime = time.UnixMilli(getDeadlineMs(weekOf, config, adminExt, startOffset))
 		}
 
+		now := time.Now()
+		reviewsOpen := reviewUnlocked
 		votingOpen := false
 		if movie.Title != "" {
-			votingOpen = time.Now().Before(deadlineTime) || reviewUnlocked
+			votingOpen = now.Before(deadlineTime) || reviewsOpen
 		}
 		item.VotingOpen = votingOpen
-		// While reviews are open the rating window is active, so results stay hidden
-		// (matches GetGroup/GetGroupStatus). Only final once the deadline has passed
-		// and reviews are closed.
-		item.ResultsAvailable = movie.Title != "" && time.Now().After(deadlineTime) && !reviewUnlocked
+		item.ResultsAvailable = movie.Title != "" && !now.Before(deadlineTime) && !reviewsOpen
 
 		if voted, err := h.q.HasUserVoted(r.Context(), db.HasUserVotedParams{
 			UserID: userID, GroupID: g.ID, WeekOf: timeToPgDate(weekOf),
@@ -133,6 +132,8 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		AverageRating   *float32 `json:"averageRating"`
 		TotalVotes      int32    `json:"totalVotes"`
 		WeekOf          string   `json:"weekOf"`
+		PickerUsername  *string  `json:"pickerUsername"`
+		PickerAvatarUrl *string  `json:"pickerAvatarUrl"`
 	}
 
 	recentRows, _ := h.q.GetRecentMoviesWithResults(r.Context(), db.GetRecentMoviesWithResultsParams{
@@ -148,6 +149,8 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 			ReviewsUnlocked: row.ReviewsUnlocked,
 			AverageRating:   row.AverageRating,
 			TotalVotes:      row.TotalVotes, WeekOf: rowWeekOf,
+			PickerUsername:  row.PickerUsername,
+			PickerAvatarUrl: row.PickerAvatarUrl,
 		})
 		if len(recentResults) == 5 {
 			break

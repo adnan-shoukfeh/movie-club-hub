@@ -327,8 +327,8 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 		GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 	}); err == nil {
 		movieUnlocked = selectedTurn.MovieUnlocked
-		reviewUnlocked = selectedTurn.ReviewsUnlocked
-		deadlineTime = pgDateToTime(selectedTurn.EndDate).Add(24 * time.Hour) // End of end_date
+		reviewUnlocked = isReviewWindowOpen(selectedTurn, time.Now())
+		deadlineTime = getTurnDeadlineTime(selectedTurn)
 	} else {
 		// Fallback to computed deadline
 		if override, err := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
@@ -342,14 +342,14 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 		deadlineTime = time.UnixMilli(getDeadlineMs(weekOf, config, adminExt, startOffset))
 	}
 
+	now := time.Now()
+	reviewsOpen := reviewUnlocked
 	votingOpen := false
 	if movieErr == nil {
 		isCurrentTurn := weekOf == currentWeekOf
-		votingOpen = (time.Now().Before(deadlineTime) && isCurrentTurn) || reviewUnlocked
+		votingOpen = (now.Before(deadlineTime) && isCurrentTurn) || reviewsOpen
 	}
-	// While reviews are open the rating window is active, so scores stay hidden;
-	// results are only final once the deadline has passed and reviews are closed.
-	resultsAvail := movieErr == nil && time.Now().After(deadlineTime) && !reviewUnlocked
+	resultsAvail := movieErr == nil && !now.Before(deadlineTime) && !reviewsOpen
 
 	// My vote
 	userID := h.userID(r)
@@ -363,7 +363,11 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 	}
 	myWatched := watchMap[userID]
 
-	// Picker schedule
+	// Picker schedule — read real turn start/end dates straight from the turns
+	// table (the same source the admin schedule uses) so the movie page matches the
+	// admin picker schedule exactly: real dates, real pickers. Shows the window of
+	// memberCount turns ending at the current turn. Falls back to the computed
+	// schedule only when no real turn covers the current week (between cycles).
 	type scheduleEntry struct {
 		WeekOf         string  `json:"weekOf"`
 		EndDate        string  `json:"endDate"`
@@ -372,49 +376,126 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 		IsCurrent      bool    `json:"isCurrent"`
 	}
 
-	pickerAssignments, _ := h.q.GetPickerAssignmentsForGroup(r.Context(), groupID)
-	paMap := make(map[string]db.GetPickerAssignmentsForGroupRow)
-	for _, pa := range pickerAssignments {
-		paMap[pa.WeekOf] = pa
-	}
-
-	// Get turn overrides to calculate actual dates
-	scheduleOverrides, _ := h.q.GetTurnOverridesForGroup(r.Context(), groupID)
-	overrideMap := make(map[string]db.GetTurnOverridesForGroupRow)
-	for _, o := range scheduleOverrides {
-		overrideMap[pgDateToString(o.WeekOf)] = o
-	}
-
-	currentIdx := getTurnIndexForDate(currentWeekOf, config)
 	scheduleCount := int(memberCount)
 	schedule := make([]scheduleEntry, 0, scheduleCount)
-	for i := 0; i < scheduleCount; i++ {
-		idx := currentIdx - scheduleCount + 1 + i
-		if idx < 0 {
-			continue
-		}
-		wof := getTurnStartDate(idx, config)
 
-		// Calculate actual end date including overrides
-		extDays := 0
-		startOff := 0
-		if o, ok := overrideMap[wof]; ok {
-			extDays = int(o.ExtendedDays)
-			startOff = int(o.StartOffsetDays)
+	schedTurns, _ := h.q.GetTurnsForGroup(r.Context(), groupID) // ordered by turn_index
+	usernameByID := make(map[int32]string, len(members))
+	for _, m := range members {
+		usernameByID[m.UserID] = m.Username
+	}
+	curPos := -1
+	for i, t := range schedTurns {
+		if pgDateToString(t.WeekOf) == currentWeekOf {
+			curPos = i
+			break
 		}
-		deadlineMs := getDeadlineMs(wof, config, extDays, startOff)
-		endDate := time.UnixMilli(deadlineMs).UTC().Format("2006-01-02")
+	}
 
-		entry := scheduleEntry{
-			WeekOf:    wof,
-			EndDate:   endDate,
-			IsCurrent: wof == currentWeekOf,
+	if curPos >= 0 {
+		startPos := max(curPos-scheduleCount+1, 0)
+		for i := startPos; i <= curPos; i++ {
+			t := schedTurns[i]
+			wof := pgDateToString(t.WeekOf)
+			entry := scheduleEntry{
+				WeekOf:    wof,
+				EndDate:   pgDateToString(t.EndDate),
+				IsCurrent: wof == currentWeekOf,
+			}
+			if uname, ok := usernameByID[t.PickerUserID]; ok {
+				pid := t.PickerUserID
+				uu := uname
+				entry.PickerUserID = &pid
+				entry.PickerUsername = &uu
+			}
+			schedule = append(schedule, entry)
 		}
-		if pa, ok := paMap[wof]; ok {
-			entry.PickerUserID = &pa.UserID
-			entry.PickerUsername = &pa.PickerUsername
+	} else {
+		// Fallback: no real turn covers the current week. Use the computed schedule;
+		// deadlineMs is the exclusive end, so subtract a day for the last day.
+		pickerAssignments, _ := h.q.GetPickerAssignmentsForGroup(r.Context(), groupID)
+		paMap := make(map[string]db.GetPickerAssignmentsForGroupRow)
+		for _, pa := range pickerAssignments {
+			paMap[pa.WeekOf] = pa
 		}
-		schedule = append(schedule, entry)
+		scheduleOverrides, _ := h.q.GetTurnOverridesForGroup(r.Context(), groupID)
+		overrideMap := make(map[string]db.GetTurnOverridesForGroupRow)
+		for _, o := range scheduleOverrides {
+			overrideMap[pgDateToString(o.WeekOf)] = o
+		}
+		currentIdx := getTurnIndexForDate(currentWeekOf, config)
+		for i := 0; i < scheduleCount; i++ {
+			idx := currentIdx - scheduleCount + 1 + i
+			if idx < 0 {
+				continue
+			}
+			wof := getTurnStartDate(idx, config)
+			extDays := 0
+			startOff := 0
+			if o, ok := overrideMap[wof]; ok {
+				extDays = int(o.ExtendedDays)
+				startOff = int(o.StartOffsetDays)
+			}
+			deadlineMs := getDeadlineMs(wof, config, extDays, startOff)
+			endDate := time.UnixMilli(deadlineMs - 86400000).UTC().Format("2006-01-02")
+			entry := scheduleEntry{WeekOf: wof, EndDate: endDate, IsCurrent: wof == currentWeekOf}
+			if pa, ok := paMap[wof]; ok {
+				entry.PickerUserID = &pa.UserID
+				entry.PickerUsername = &pa.PickerUsername
+			}
+			schedule = append(schedule, entry)
+		}
+	}
+
+	// Also append the upcoming weeks after the current turn so the schedule looks
+	// ahead, not just back. Walk forward contiguously from the current turn's end,
+	// using real turn rows where they exist and synthesizing base-length weeks for
+	// the gaps, up to upcomingCount weeks. Synthesized weeks show the projected
+	// round-robin picker.
+	const upcomingCount = 10
+	{
+		byWeek := make(map[string]db.Turn, len(schedTurns))
+		for _, t := range schedTurns {
+			byWeek[pgDateToString(t.WeekOf)] = t
+		}
+		baseLen := int(group.TurnLengthDays)
+		if baseLen < 1 {
+			baseLen = 7
+		}
+		var cursor time.Time
+		if ct, ok := byWeek[currentWeekOf]; ok {
+			cursor = pgDateToTime(ct.EndDate).AddDate(0, 0, 1)
+		} else {
+			t, _ := time.Parse("2006-01-02", currentWeekOf)
+			cursor = t.AddDate(0, 0, baseLen)
+		}
+		for added := 0; added < upcomingCount; {
+			wof := cursor.Format("2006-01-02")
+			if wof <= currentWeekOf {
+				cursor = cursor.AddDate(0, 0, baseLen)
+				continue
+			}
+			var entry scheduleEntry
+			entry.WeekOf = wof
+			if t, ok := byWeek[wof]; ok {
+				entry.EndDate = pgDateToString(t.EndDate)
+				if uname, ok := usernameByID[t.PickerUserID]; ok {
+					pid := t.PickerUserID
+					uu := uname
+					entry.PickerUserID = &pid
+					entry.PickerUsername = &uu
+				}
+				cursor = pgDateToTime(t.EndDate).AddDate(0, 0, 1)
+			} else {
+				// Synthesized future week with no real turn yet — leave it open (no
+				// picker) so the slot stays unclaimed until someone takes it.
+				endT := cursor.AddDate(0, 0, baseLen-1)
+				entry.EndDate = endT.Format("2006-01-02")
+				cursor = endT.AddDate(0, 0, 1)
+			}
+			schedule = append(schedule, entry)
+			added++
+		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -432,7 +513,7 @@ func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 		"turnLengthDays": group.TurnLengthDays, "startDate": pgDateToString(group.StartDate),
 		"pickerSchedule": schedule, "movieUnlockedByAdmin": movieUnlocked,
 		"prevWeekOf": prevWeekOf, "nextWeekOf": nextWeekOf,
-		"reviewsUnlocked": reviewUnlocked,
+		"reviewsUnlocked": reviewsOpen,
 	})
 }
 
@@ -515,8 +596,8 @@ func (h *Handler) GetGroupStatus(w http.ResponseWriter, r *http.Request) {
 	if turn, err := h.q.GetTurn(r.Context(), db.GetTurnParams{
 		GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 	}); err == nil {
-		reviewUnlocked = turn.ReviewsUnlocked
-		deadlineTime = pgDateToTime(turn.EndDate).Add(24 * time.Hour) // End of end_date
+		reviewUnlocked = isReviewWindowOpen(turn, time.Now())
+		deadlineTime = getTurnDeadlineTime(turn)
 	} else {
 		// Fallback to computed deadline
 		adminExt := 0
@@ -531,14 +612,14 @@ func (h *Handler) GetGroupStatus(w http.ResponseWriter, r *http.Request) {
 		deadlineTime = time.UnixMilli(getDeadlineMs(weekOf, config, adminExt, startOffset))
 	}
 
+	now := time.Now()
+	reviewsOpen := reviewUnlocked
 	votingOpen := false
 	if movieErr == nil {
 		isCurrentTurn := weekOf == currentWeekOf
-		votingOpen = (time.Now().Before(deadlineTime) && isCurrentTurn) || reviewUnlocked
+		votingOpen = (now.Before(deadlineTime) && isCurrentTurn) || reviewsOpen
 	}
-	// While reviews are open the rating window is active, so scores stay hidden;
-	// results are only final once the deadline has passed and reviews are closed.
-	resultsAvail := movieErr == nil && time.Now().After(deadlineTime) && !reviewUnlocked
+	resultsAvail := movieErr == nil && !now.Before(deadlineTime) && !reviewsOpen
 
 	var deadlineMs *int64
 	if movieErr == nil {

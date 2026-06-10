@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -16,9 +17,9 @@ import (
 )
 
 var (
-	ErrProfileNotFound    = errors.New("profile not found")
+	ErrProfileNotFound     = errors.New("profile not found")
 	ErrProfileAccessDenied = errors.New("access denied: no shared club membership")
-	ErrInvalidLetterboxd  = errors.New("invalid Letterboxd username: alphanumeric and underscores only, max 50 characters")
+	ErrInvalidLetterboxd   = errors.New("invalid Letterboxd username: alphanumeric and underscores only, max 50 characters")
 )
 
 // letterboxdUsernameRegex allows letters, digits, underscores, up to 50 chars.
@@ -61,15 +62,19 @@ type UserStats struct {
 	AvgRating    float64 `json:"avgRating"`
 }
 
-// ActivityItem represents a single watched film in a user's recent activity.
+// ActivityItem represents one entry in a user's recent activity: either a
+// watched film ("watch", with rating/review) or a comment the user posted on a
+// verdict ("comment", with the comment body). Type distinguishes the two.
 type ActivityItem struct {
+	Type      string    `json:"type"` // "watch" | "comment"
 	FilmID    int64     `json:"filmId"`
 	Title     string    `json:"title"`
 	Year      *int32    `json:"year"`
 	PosterURL *string   `json:"posterUrl"`
 	Rating    *float64  `json:"rating"`
 	Review    *string   `json:"review"`
-	WatchedAt time.Time `json:"watchedAt"`
+	Comment   *string   `json:"comment"`
+	WatchedAt time.Time `json:"watchedAt"` // watch time, or comment time for comments
 }
 
 // ProfileResponse is the full profile payload returned by GetProfile.
@@ -148,14 +153,21 @@ func (s *ProfileService) GetProfile(ctx context.Context, targetUserID, viewerUse
 		topGenres = append(topGenres, parseGenres(*row.Genre)...)
 	}
 
-	// Recent activity (scope depends on viewer).
+	// Recent activity (scope depends on viewer): watched films + posted comments,
+	// merged and sorted by time.
 	var activityRows []db.GetUserRecentActivityRow
 	var activityRowsForViewer []db.GetUserRecentActivityForViewerRow
+	var commentRows []db.GetUserRecentCommentsRow
+	var commentRowsForViewer []db.GetUserRecentCommentsForViewerRow
 
 	if isSelf {
 		activityRows, err = s.queries.GetUserRecentActivity(ctx, targetUserID)
 		if err != nil {
 			return nil, fmt.Errorf("get recent activity: %w", err)
+		}
+		commentRows, err = s.queries.GetUserRecentComments(ctx, targetUserID)
+		if err != nil {
+			return nil, fmt.Errorf("get recent comments: %w", err)
 		}
 	} else {
 		activityRowsForViewer, err = s.queries.GetUserRecentActivityForViewer(ctx, db.GetUserRecentActivityForViewerParams{
@@ -165,9 +177,24 @@ func (s *ProfileService) GetProfile(ctx context.Context, targetUserID, viewerUse
 		if err != nil {
 			return nil, fmt.Errorf("get recent activity for viewer: %w", err)
 		}
+		commentRowsForViewer, err = s.queries.GetUserRecentCommentsForViewer(ctx, db.GetUserRecentCommentsForViewerParams{
+			UserID:   targetUserID,
+			UserID_2: viewerUserID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("get recent comments for viewer: %w", err)
+		}
 	}
 
 	recentActivity := buildActivityItems(activityRows, activityRowsForViewer)
+	recentActivity = append(recentActivity, buildCommentItems(commentRows, commentRowsForViewer)...)
+	// Merge watches and comments into a single most-recent-first feed.
+	sort.SliceStable(recentActivity, func(i, j int) bool {
+		return recentActivity[i].WatchedAt.After(recentActivity[j].WatchedAt)
+	})
+	if len(recentActivity) > 10 {
+		recentActivity = recentActivity[:10]
+	}
 
 	return &ProfileResponse{
 		ID:                 profile.ID,
@@ -224,6 +251,7 @@ func buildActivityItems(
 		items := make([]ActivityItem, 0, len(rows))
 		for _, r := range rows {
 			items = append(items, ActivityItem{
+				Type:      "watch",
 				FilmID:    r.FilmID,
 				Title:     r.Title,
 				Year:      r.Year,
@@ -239,6 +267,7 @@ func buildActivityItems(
 	items := make([]ActivityItem, 0, len(rowsForViewer))
 	for _, r := range rowsForViewer {
 		items = append(items, ActivityItem{
+			Type:      "watch",
 			FilmID:    r.FilmID,
 			Title:     r.Title,
 			Year:      r.Year,
@@ -246,6 +275,45 @@ func buildActivityItems(
 			Rating:    numericToFloat64Ptr(r.Rating),
 			Review:    r.Review,
 			WatchedAt: r.WatchedAt.Time,
+		})
+	}
+	return items
+}
+
+// buildCommentItems converts comment DB rows into ActivityItem slices.
+// Exactly one of the two input slices will be non-empty.
+func buildCommentItems(
+	rows []db.GetUserRecentCommentsRow,
+	rowsForViewer []db.GetUserRecentCommentsForViewerRow,
+) []ActivityItem {
+	if len(rows) > 0 {
+		items := make([]ActivityItem, 0, len(rows))
+		for _, r := range rows {
+			body := r.Comment
+			items = append(items, ActivityItem{
+				Type:      "comment",
+				FilmID:    r.FilmID,
+				Title:     r.Title,
+				Year:      r.Year,
+				PosterURL: r.PosterUrl,
+				Comment:   &body,
+				WatchedAt: r.CommentedAt.Time,
+			})
+		}
+		return items
+	}
+
+	items := make([]ActivityItem, 0, len(rowsForViewer))
+	for _, r := range rowsForViewer {
+		body := r.Comment
+		items = append(items, ActivityItem{
+			Type:      "comment",
+			FilmID:    r.FilmID,
+			Title:     r.Title,
+			Year:      r.Year,
+			PosterURL: r.PosterUrl,
+			Comment:   &body,
+			WatchedAt: r.CommentedAt.Time,
 		})
 	}
 	return items
