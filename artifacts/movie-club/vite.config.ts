@@ -19,6 +19,13 @@ export default defineConfig({
   server: {
     port: Number(process.env.VITE_PORT) || 5173,
     host: "0.0.0.0",
+    // The project can live on a mapped/network drive (e.g. J:), where the OS
+    // file-change events Vite relies on are not delivered. Polling makes the
+    // watcher detect edits so HMR actually works there.
+    watch: {
+      usePolling: true,
+      interval: 300,
+    },
     proxy: {
       "/api": {
         target: `http://localhost:${process.env.PORT || 8080}`,

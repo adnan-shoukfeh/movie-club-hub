@@ -2,6 +2,8 @@ import { AlertTriangle, Calendar as CalendarIcon2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useState } from "react";
 
 export async function apiCall<T = Record<string, unknown>>(url: string, options?: RequestInit): Promise<T> {
@@ -89,6 +91,7 @@ export function TurnDateRangeInput({
   onDeadlineChange,
 }: TurnDateRangeInputProps) {
   const [open, setOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   // The start date is derived automatically (the day after the previous turn's
   // deadline), so it is shown read-only here and only the deadline is editable.
@@ -110,31 +113,74 @@ export function TurnDateRangeInput({
     setOpen(false);
   };
 
+  const triggerButton = (
+    <button
+      type="button"
+      className="flex-1 h-7 text-xs rounded-md bg-background border border-border px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary flex items-center gap-1.5 text-left min-w-0"
+    >
+      <CalendarIcon2 className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+      <span className="truncate">{formatCalendarDate(startDateStr)} → {formatCalendarDate(deadlineLastDayStr)}</span>
+    </button>
+  );
+
+  const deadlineHeader = (
+    <div className="text-center px-2 py-1 rounded-md bg-primary/20 border border-primary/40 text-primary text-xs font-semibold">
+      <span className="uppercase tracking-wide opacity-70">Deadline</span>
+      {" · "}
+      {formatCalendarDate(deadlineLastDayStr)}
+    </div>
+  );
+
+  const calendar = (
+    <Calendar
+      mode="single"
+      className="p-1"
+      selected={new Date(deadlineLastDayStr + "T12:00:00")}
+      onSelect={handleDeadlineSelect}
+      disabled={(date) => date < deadlineMinDate || date > deadlineMaxDate}
+      classNames={{
+        root: "w-full",
+        month: "flex w-full flex-col gap-1",
+        week: "mt-0.5 flex w-full",
+        // Give day cells a fixed height instead of aspect-square. aspect-square
+        // derives height from width, which the surrounding table/flex layout
+        // resolves too late, causing ancestors to under-measure the calendar's
+        // height (rows then overflow the dialog box). A fixed height is
+        // deterministic so the popup wraps the whole month correctly.
+        day: "group/day relative flex-1 [&_button]:aspect-auto [&_button]:h-9 [&_button]:w-full [&_button]:min-w-0",
+        // Days that belong to the previous/next month (shown to fill out the
+        // grid) are dimmed so only the current month reads as active.
+        outside: "[&_button]:text-muted-foreground/40",
+      }}
+    />
+  );
+
+  // On mobile, anchoring the calendar below the field leaves too little room and
+  // forces scrolling. A centered dialog has the full screen height available, so
+  // the whole month is always visible without scrolling and clear of the toolbar.
+  if (isMobile) {
+    return (
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>{triggerButton}</DialogTrigger>
+        <DialogContent className="block w-[calc(100vw-2rem)] max-w-[20rem] space-y-2 p-3 pt-9">
+          <DialogTitle className="sr-only">Set turn deadline</DialogTitle>
+          {deadlineHeader}
+          {calendar}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="flex-1 h-7 text-xs rounded-md bg-background border border-border px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary flex items-center gap-1.5 text-left min-w-0"
-        >
-          <CalendarIcon2 className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-          <span className="truncate">{formatCalendarDate(startDateStr)} → {formatCalendarDate(deadlineLastDayStr)}</span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="p-0 overflow-hidden" align="start">
-        <div className="px-3 pt-2 pb-1">
-          <div className="text-center px-2 py-1.5 rounded-md bg-primary/20 border border-primary/40 text-primary">
-            <span className="block text-[10px] uppercase tracking-wide opacity-70">Deadline</span>
-            <span className="text-xs font-semibold">{formatCalendarDate(deadlineLastDayStr)}</span>
-          </div>
-        </div>
-        <Calendar
-          mode="single"
-          selected={new Date(deadlineLastDayStr + "T12:00:00")}
-          onSelect={handleDeadlineSelect}
-          disabled={(date) => date < deadlineMinDate || date > deadlineMaxDate}
-          classNames={{ root: "w-full" }}
-        />
+      <PopoverTrigger asChild>{triggerButton}</PopoverTrigger>
+      <PopoverContent
+        className="p-0 flex max-h-(--radix-popover-content-available-height) flex-col overflow-hidden"
+        align="start"
+        collisionPadding={8}
+      >
+        <div className="px-2 pt-2 shrink-0">{deadlineHeader}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto">{calendar}</div>
       </PopoverContent>
     </Popover>
   );
