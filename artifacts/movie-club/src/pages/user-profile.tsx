@@ -2,9 +2,9 @@ import { useEffect } from "react";
 import { useLocation, useRoute } from "wouter";
 import { ArrowLeft } from "lucide-react";
 import { useGetMe } from "@workspace/api-client-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { VHSNoise } from "@/components/ui/vhs-noise";
+import { CinemaLoadingDeck } from "@/components/cinema/cinema-effects";
 import { ProfilePageHeader } from "@/domains/profiles/components/ProfilePageHeader";
 import { ProfileIdentityCard } from "@/domains/profiles/components/ProfileIdentityCard";
 import { RecentActivityCard } from "@/domains/profiles/components/RecentActivityCard";
@@ -21,13 +21,26 @@ export default function UserProfile() {
   const { status, profile } = useUserProfile(Number.isFinite(userId) ? userId : undefined);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [userId]);
+
+  useEffect(() => {
     if (!meLoading && !me) setLocation("/");
   }, [me, meLoading, setLocation]);
 
   const isSelf = !!me && !!profile && me.id === profile.id;
 
+  if (status === "loading" || meLoading) {
+    return (
+      <div className="cinema-loading-page min-h-screen bg-background relative">
+        <VHSNoise />
+        <CinemaLoadingDeck destination="profile" />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background relative">
+    <div className="cinema-route-page min-h-screen bg-background relative">
       <VHSNoise />
       <ProfilePageHeader />
 
@@ -39,7 +52,6 @@ export default function UserProfile() {
           <ArrowLeft className="w-3 h-3" /> Back to dashboard
         </button>
 
-        {(status === "loading" || meLoading) && <ProfileSkeleton />}
         {status === "notFound" && <ProfileNotFound />}
         {status === "forbidden" && <ProfileForbidden />}
         {status === "error" && (
@@ -57,37 +69,6 @@ export default function UserProfile() {
           </div>
         )}
       </main>
-    </div>
-  );
-}
-
-function ProfileSkeleton() {
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-5">
-      <div className="bg-card/50 border border-border/30 p-6 space-y-4">
-        <Skeleton className="w-full aspect-square" />
-        <Skeleton className="h-6 w-32" />
-        <Skeleton className="h-4 w-40" />
-        <div className="grid grid-cols-3 gap-1.5">
-          <Skeleton className="h-14" />
-          <Skeleton className="h-14" />
-          <Skeleton className="h-14" />
-        </div>
-      </div>
-      <div className="bg-card/50 border border-border/30 p-6 space-y-4">
-        <Skeleton className="h-4 w-24" />
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="grid grid-cols-[56px_1fr_auto] gap-4">
-            <Skeleton className="w-14 aspect-[2/3]" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3 w-1/3" />
-              <Skeleton className="h-3 w-full" />
-            </div>
-            <Skeleton className="h-3 w-10" />
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

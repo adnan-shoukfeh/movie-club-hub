@@ -46,7 +46,7 @@ export default function Dashboard() {
 
   if (meLoading || dashLoading) {
     return (
-      <div className="min-h-screen bg-background p-6">
+      <div className="cinema-route-page min-h-screen bg-background p-6">
         <VHSNoise />
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">
@@ -60,7 +60,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background relative">
+    <div className="cinema-route-page min-h-screen bg-background relative">
       <VHSNoise />
       <DashboardHeader
         userId={me?.id}

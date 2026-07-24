@@ -92,11 +92,7 @@ func (h *Handler) SetMovie(w http.ResponseWriter, r *http.Request) {
 
 	config, _ := h.buildTurnConfig(r.Context(), group)
 	currentWeekOf := getCurrentTurnWeekOf(config)
-	var currentTurn db.Turn
-	var currentTurnOK bool
 	if ct, err := h.q.GetCurrentTurn(r.Context(), groupID); err == nil {
-		currentTurn = ct
-		currentTurnOK = true
 		currentWeekOf = pgDateToString(ct.WeekOf)
 	}
 
@@ -107,27 +103,17 @@ func (h *Handler) SetMovie(w http.ResponseWriter, r *http.Request) {
 
 	userID := h.userID(r)
 
-	// Authorization
+	// Authorization: a non-admin may set the movie only for a turn they are the
+	// assigned picker of, and only for the current turn or a later one (they can't
+	// rewrite a past turn's movie). Admins and owners are unrestricted.
 	if mem.Role != "owner" && mem.Role != "admin" {
-		currentIdx := getTurnIndexForDate(currentWeekOf, config)
-		nextWeekOf := getTurnStartDate(currentIdx+1, config)
-		if currentTurnOK {
-			if nextTurn, err := h.q.GetTurnByIndex(r.Context(), db.GetTurnByIndexParams{
-				GroupID: groupID, TurnIndex: currentTurn.TurnIndex + 1,
-			}); err == nil {
-				nextWeekOf = pgDateToString(nextTurn.WeekOf)
-			} else {
-				nextWeekOf = pgDateToTime(currentTurn.EndDate).AddDate(0, 0, 1).Format("2006-01-02")
-			}
-		}
-
 		pa, paErr := h.q.GetPickerAssignment(r.Context(), db.GetPickerAssignmentParams{
 			GroupID: groupID, WeekOf: timeToPgDate(weekOf),
 		})
 		isAssignedPicker := paErr == nil && pa.UserID == userID
 
-		if weekOf == nextWeekOf && isAssignedPicker {
-			// Picker may set their movie for the immediately-next turn
+		if isAssignedPicker && weekOf >= currentWeekOf {
+			// The turn's assigned picker may set or change their own movie.
 		} else {
 			override, err := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
 				GroupID: groupID, WeekOf: timeToPgDate(weekOf),

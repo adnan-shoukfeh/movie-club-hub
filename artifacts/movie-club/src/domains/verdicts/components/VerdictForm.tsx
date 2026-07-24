@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
-import { Check, Pencil, Trash2, Send } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Check, CircleDot, Pencil, Trash2, Send } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 import { StarRating } from "@/components/ui/star-rating";
 import {
   useSubmitVerdict,
@@ -31,6 +32,11 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
   const [editingVote, setEditingVote] = useState(false);
   const [showVoteSuccess, setShowVoteSuccess] = useState(false);
   const [pendingVote, setPendingVote] = useState<{ rating: number; review?: string } | null>(null);
+  const [optimisticWatched, setOptimisticWatched] = useState<boolean | null>(null);
+  const successTimerRef = useRef<number | null>(null);
+  const prefersReducedMotion = useReducedMotion();
+  const submitVote = useSubmitVerdict();
+  const setWatchStatus = useSetWatchStatus();
 
   const intValue = intIdx + 1;
   const effectiveRating = intValue === 10 ? 10 : intValue + decIdx / 10;
@@ -53,14 +59,23 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
     }
   }, [pendingVote, status.hasVoted]);
 
+  useEffect(() => {
+    if (optimisticWatched !== null && group.myWatched === optimisticWatched && !setWatchStatus.isPending) {
+      setOptimisticWatched(null);
+    }
+  }, [group.myWatched, optimisticWatched, setWatchStatus.isPending]);
+
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current !== null) window.clearTimeout(successTimerRef.current);
+    };
+  }, []);
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
     queryClient.invalidateQueries({ queryKey: getGetGroupStatusQueryKey(groupId) });
     queryClient.invalidateQueries({ queryKey: getGetDashboardQueryKey() });
   };
-
-  const submitVote = useSubmitVerdict();
-  const setWatchStatus = useSetWatchStatus();
 
   const clearVoteMutation = useMutation({
     mutationFn: async () => {
@@ -110,7 +125,8 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
         onSuccess: () => {
           setEditingVote(false);
           setShowVoteSuccess(true);
-          setTimeout(() => setShowVoteSuccess(false), 3000);
+          if (successTimerRef.current !== null) window.clearTimeout(successTimerRef.current);
+          successTimerRef.current = window.setTimeout(() => setShowVoteSuccess(false), 3000);
           invalidate();
         },
         onError: (e: any) => {
@@ -123,11 +139,13 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
 
   const handleNotYet = () => {
     setEditingVote(false);
+    setOptimisticWatched(false);
     setWatchStatus.mutate(
       { groupId, data: { watched: false, weekOf: selectedWeek } },
       {
         onSuccess: () => invalidate(),
         onError: (e: any) => {
+          setOptimisticWatched(null);
           toast({ title: "Error", description: e.data?.error, variant: "destructive" });
         },
       }
@@ -135,11 +153,13 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
   };
 
   const handleWatchedToggle = (watched: boolean) => {
+    setOptimisticWatched(watched);
     setWatchStatus.mutate(
       { groupId, data: { watched, weekOf: selectedWeek } },
       {
         onSuccess: () => invalidate(),
         onError: (e: any) => {
+          setOptimisticWatched(null);
           toast({ title: "Error", description: e.data?.error, variant: "destructive" });
         },
       }
@@ -147,20 +167,30 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
   };
 
   const hasVotedOrPending = status.hasVoted || !!pendingVote;
-  const isWatchedOrPending = group.myWatched || !!pendingVote;
+  const isWatchedOrPending = (optimisticWatched ?? group.myWatched) || !!pendingVote;
   const displayRating = status.myVote ?? pendingVote?.rating;
   const displayReview = status.myReview ?? pendingVote?.review;
 
   return (
-    <div className="border-4 border-secondary bg-card p-4 sm:p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="font-black text-primary text-2xl uppercase tracking-tight">
+    <section
+      className="verdict-console border-4 border-secondary bg-card p-3 sm:p-6"
+      aria-labelledby="verdict-console-heading"
+      aria-busy={submitVote.isPending || setWatchStatus.isPending || clearVoteMutation.isPending}
+    >
+      <div className="verdict-console__header flex items-center justify-between mb-3 sm:mb-6">
+        <div>
+          <span className="verdict-console__kicker">VCR feedback terminal · Input 02</span>
+          <h2
+            id="verdict-console-heading"
+            className="font-black text-primary text-lg sm:text-2xl uppercase tracking-tight"
+          >
           {hasVotedOrPending && !editingVote ? "Your Rating" : "Rate & Review"}
-        </h3>
+          </h2>
+        </div>
         {hasVotedOrPending && !editingVote && !pendingVote && (
           <button
             onClick={handleStartEdit}
-            className="px-4 py-2 bg-secondary border-2 border-white/30 hover:border-primary text-white hover:text-primary transition-all font-bold uppercase text-sm flex items-center gap-2"
+            className="vcr-button px-4 py-2 bg-secondary border-2 border-white/30 hover:border-primary text-white hover:text-primary transition-all font-bold uppercase text-sm flex items-center gap-2"
           >
             <Pencil className="w-4 h-4" />
             Edit
@@ -168,15 +198,24 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
         )}
       </div>
 
-      {/* Watched status toggle */}
-      <div className="flex items-center gap-3 mb-6 pb-6 border-b-4 border-secondary">
-        <span className="text-sm text-white/70 font-bold uppercase">Watched?</span>
+      {/* Watched status toggle. The divider only appears when the rating form
+          follows it — otherwise the box would reserve empty space for nothing. */}
+      <div
+        className={`watched-control-deck flex items-center gap-2 sm:gap-3 ${
+          isWatchedOrPending ? "mb-4 sm:mb-6 pb-4 sm:pb-6 border-b-4 border-secondary" : ""
+        }`}
+      >
+        <span className="watched-control-deck__label text-sm text-white/70 font-bold uppercase">
+          <CircleDot aria-hidden="true" />
+          Watched?
+        </span>
         <button
           onClick={() => handleWatchedToggle(true)}
           disabled={setWatchStatus.isPending || !!pendingVote}
-          className={`px-4 py-2 border-2 font-bold uppercase text-sm flex items-center gap-2 transition-all ${
+          aria-pressed={isWatchedOrPending}
+          className={`vcr-choice-button px-4 py-2 border-2 font-bold uppercase text-sm flex items-center gap-2 transition-all ${
             isWatchedOrPending
-              ? "bg-primary text-secondary border-primary"
+              ? "is-selected bg-primary text-secondary border-primary"
               : "bg-secondary text-white border-white/30 hover:border-primary"
           }`}
         >
@@ -187,9 +226,10 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
           onClick={handleNotYet}
           disabled={setWatchStatus.isPending || hasVotedOrPending}
           title={hasVotedOrPending ? "Clear your rating first" : undefined}
-          className={`px-4 py-2 border-2 font-bold uppercase text-sm transition-all ${
+          aria-pressed={!isWatchedOrPending}
+          className={`vcr-choice-button px-4 py-2 border-2 font-bold uppercase text-sm transition-all ${
             !isWatchedOrPending
-              ? "bg-secondary text-white border-primary"
+              ? "is-selected bg-secondary text-white border-primary"
               : "bg-secondary text-white/50 border-white/20 hover:border-white/40"
           }`}
         >
@@ -199,7 +239,10 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
 
       {/* Success banner */}
       {showVoteSuccess && (
-        <div className="mb-6 p-4 bg-primary border-4 border-secondary text-secondary font-black uppercase flex items-center gap-2">
+        <div
+          className="verdict-success mb-6 p-4 bg-primary border-4 border-secondary text-secondary font-black uppercase flex items-center gap-2"
+          role="status"
+        >
           <Check className="w-5 h-5" />
           Rating saved!{resultsUnlockStr ? ` Results unlock ${resultsUnlockStr}.` : ""}
         </div>
@@ -207,7 +250,11 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
 
       {isWatchedOrPending && (
         hasVotedOrPending && !editingVote ? (
-          <div className="space-y-4">
+          <motion.div
+            className="verdict-playback space-y-4"
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
             <div className="flex flex-wrap items-center gap-3 sm:gap-4">
               <StarRating rating={displayRating ?? 0} size="lg" />
               <div className="px-3 py-1.5 sm:px-4 sm:py-2 bg-primary border-4 border-secondary">
@@ -221,9 +268,14 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
                 <p className="text-white italic">"{displayReview}"</p>
               </div>
             )}
-          </div>
+          </motion.div>
         ) : (
-          <div className="space-y-6">
+          <motion.div
+            className="verdict-recording-form space-y-6"
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.22 }}
+          >
             {/* Wheel picker rating */}
             <div>
               <label className="block text-sm font-black text-white mb-4 uppercase tracking-widest">
@@ -238,6 +290,7 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
                       items={INT_ITEMS}
                       selectedIndex={intIdx}
                       onIndexChange={setIntIdx}
+                      ariaLabel="Whole number rating"
                     />
                   </div>
                   <span className="text-3xl font-black text-primary pb-1 w-6 text-center">.</span>
@@ -247,6 +300,7 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
                       selectedIndex={decIdx}
                       onIndexChange={setDecIdx}
                       disabled={intIdx === 9}
+                      ariaLabel="Decimal rating"
                     />
                   </div>
                 </div>
@@ -272,8 +326,9 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
                 value={reviewText}
                 onChange={(e) => setReviewText(e.target.value)}
                 placeholder="Share your thoughts about the movie..."
-                className="w-full px-4 py-3 border-4 border-secondary bg-card text-white placeholder:text-white/40 focus:outline-none focus:border-primary resize-none font-medium"
+                className="vcr-review-input w-full px-4 py-3 border-4 border-secondary bg-card text-white placeholder:text-white/40 focus:outline-none focus:border-primary resize-none font-medium text-base"
                 rows={4}
+                maxLength={2000}
               />
             </div>
 
@@ -281,7 +336,7 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
               <button
                 onClick={handleVote}
                 disabled={submitVote.isPending}
-                className="flex-1 min-w-[200px] px-4 sm:px-6 py-3 bg-primary text-secondary border-4 border-secondary hover:bg-secondary hover:text-primary hover:border-primary disabled:bg-secondary disabled:text-white/30 disabled:cursor-not-allowed disabled:border-secondary transition-all font-black uppercase flex items-center justify-center gap-2 text-sm sm:text-base"
+                className="vcr-button vcr-button--primary flex-1 min-w-[200px] px-4 sm:px-6 py-3 bg-primary text-secondary border-4 border-secondary hover:bg-secondary hover:text-primary hover:border-primary disabled:bg-secondary disabled:text-white/30 disabled:cursor-not-allowed disabled:border-secondary transition-all font-black uppercase flex items-center justify-center gap-2 text-sm sm:text-base"
               >
                 <Send className="w-4 h-4 sm:w-5 sm:h-5" />
                 {submitVote.isPending ? "Saving..." : editingVote ? "Update Rating" : "Submit Rating"}
@@ -290,14 +345,14 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
                 <>
                   <button
                     onClick={() => setEditingVote(false)}
-                    className="px-4 sm:px-6 py-3 bg-secondary text-white border-4 border-white/30 hover:border-primary hover:text-primary transition-all font-black uppercase text-sm sm:text-base"
+                    className="vcr-button px-4 sm:px-6 py-3 bg-secondary text-white border-4 border-white/30 hover:border-primary hover:text-primary transition-all font-black uppercase text-sm sm:text-base"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => clearVoteMutation.mutate()}
                     disabled={clearVoteMutation.isPending}
-                    className="px-4 sm:px-6 py-3 bg-destructive text-white border-4 border-destructive hover:bg-secondary hover:border-destructive transition-all font-black uppercase flex items-center gap-2 text-sm sm:text-base"
+                    className="vcr-button px-4 sm:px-6 py-3 bg-destructive text-white border-4 border-destructive hover:bg-secondary hover:border-destructive transition-all font-black uppercase flex items-center gap-2 text-sm sm:text-base"
                   >
                     <Trash2 className="w-4 h-4" />
                     Clear
@@ -305,9 +360,16 @@ export function VerdictForm({ group, status, groupId, selectedWeek }: VerdictFor
                 </>
               )}
             </div>
-          </div>
+          </motion.div>
         )
       )}
-    </div>
+      <span className="sr-only" aria-live="polite">
+        {setWatchStatus.isPending
+          ? "Recording watch status"
+          : submitVote.isPending
+            ? "Saving rating"
+            : ""}
+      </span>
+    </section>
   );
 }

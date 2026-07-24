@@ -10,15 +10,12 @@ import {
   getGetDashboardQueryKey,
 } from "@workspace/api-client-react";
 import { useLocation, useParams, useSearch } from "wouter";
-import { useState, useEffect, useCallback } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {
   ArrowLeft,
-  Check,
-  ChevronDown,
   User,
   Clapperboard,
-  Clock,
   Calendar,
   Lightbulb,
   LayoutList,
@@ -26,7 +23,6 @@ import {
   Shield,
   X,
 } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -36,8 +32,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { formatShortDateET } from "@/lib/utils";
-import { TurnStatusBanner } from "@/domains/turns/components/TurnStatusBanner";
-import { getTurnIndexForDate, getTurnStartDate, normalizeWeekOf } from "@/domains/turns/turnUtils";
+import { WeeklyShowingsCarousel } from "@/domains/turns/components/WeeklyShowingsCarousel";
+import { normalizeWeekOf } from "@/domains/turns/turnUtils";
 import { CurrentTurnMovie } from "@/domains/movies/components/CurrentTurnMovie";
 import { PickerMovieSelector } from "@/domains/movies/components/PickerMovieSelector";
 import { NominationSheet } from "@/domains/nominations/components/NominationSheet";
@@ -45,6 +41,11 @@ import { VerdictForm } from "@/domains/verdicts/components/VerdictForm";
 import { TurnResultsInline } from "@/domains/verdicts/components/TurnResultsInline";
 import { VHSNoise } from "@/components/ui/vhs-noise";
 import { UserLink } from "@/domains/profiles/components/UserLink";
+import {
+  CinemaLoadingDeck,
+  CinemaRouteCurtain,
+} from "@/components/cinema/cinema-effects";
+import { WatchStatusShelf } from "@/domains/members/components/WatchStatusShelf";
 
 export default function GroupDetail() {
   const params = useParams<{ groupId: string }>();
@@ -53,31 +54,122 @@ export default function GroupDetail() {
   const search = useSearch();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const prefersReducedMotionRef = useRef(
+    typeof window !== "undefined"
+      && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+  const [entryMinimumElapsed, setEntryMinimumElapsed] = useState(
+    prefersReducedMotionRef.current,
+  );
+  const [entryPhase, setEntryPhase] = useState<
+    "holding" | "leaving" | "hidden"
+  >(prefersReducedMotionRef.current ? "hidden" : "holding");
+  const [isExiting, setIsExiting] = useState(false);
+  const entryHideTimerRef = useRef<number | null>(null);
+  const exitTimerRef = useRef<number | null>(null);
 
   // Read weekOf from URL query param if present
   const initialWeekOf = new URLSearchParams(search).get("weekOf") ?? "";
   const [selectedWeek, setSelectedWeek] = useState(initialWeekOf);
+  const navigationLockRef = useRef(false);
+  // +1 = moving to a later turn, -1 = earlier. Drives the slide direction.
+  const [navDirection, setNavDirection] = useState(0);
+  const handleWeekChange = useCallback(
+    (week: string, directionOverride?: -1 | 0 | 1) => {
+      if (!week || navigationLockRef.current) return;
+      navigationLockRef.current = true;
+      setNavDirection(
+        directionOverride ??
+          (normalizeWeekOf(week) >= normalizeWeekOf(selectedWeek) ? 1 : -1),
+      );
+      setSelectedWeek(week);
+    },
+    [selectedWeek],
+  );
 
   const [showMovieInput, setShowMovieInput] = useState(false);
-  const [showMemberActions, setShowMemberActions] = useState<number | null>(null);
-
   // Sheet open state
   const [pickerScheduleOpen, setPickerScheduleOpen] = useState(false);
   const [nominationsOpen, setNominationsOpen] = useState(false);
 
-  const { data: group, isLoading } = useGetGroup(
+  const { data: group, isLoading, isPlaceholderData, isError: isGroupError } = useGetGroup(
     groupId,
     { weekOf: selectedWeek },
-    { query: { queryKey: [...getGetGroupQueryKey(groupId), selectedWeek], enabled: !!groupId } }
+    {
+      query: {
+        queryKey: [...getGetGroupQueryKey(groupId), selectedWeek],
+        enabled: !!groupId,
+        // Keep the previous week's data on screen while the next one loads, so
+        // stepping between turns never drops to the loading skeleton (no flash).
+        placeholderData: keepPreviousData,
+        staleTime: 5 * 60 * 1000,
+      },
+    }
   );
 
-  const { data: status } = useGetGroupStatus(
+  const { data: status, isError: isStatusError } = useGetGroupStatus(
     groupId,
     { weekOf: selectedWeek },
-    { query: { queryKey: [...getGetGroupStatusQueryKey(groupId), selectedWeek], enabled: !!groupId } }
+    {
+      query: {
+        queryKey: [...getGetGroupStatusQueryKey(groupId), selectedWeek],
+        enabled: !!groupId,
+        placeholderData: keepPreviousData,
+        staleTime: 5 * 60 * 1000,
+      },
+    }
   );
 
   const { data: me } = useGetMe();
+
+  useEffect(() => {
+    if (prefersReducedMotionRef.current) return;
+    const timer = window.setTimeout(() => setEntryMinimumElapsed(true), 680);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (
+      prefersReducedMotionRef.current
+      || isLoading
+      || !entryMinimumElapsed
+      || entryPhase !== "holding"
+    ) {
+      return;
+    }
+
+    setEntryPhase("leaving");
+    entryHideTimerRef.current = window.setTimeout(
+      () => setEntryPhase("hidden"),
+      420,
+    );
+  }, [entryMinimumElapsed, entryPhase, isLoading]);
+
+  useEffect(
+    () => () => {
+      if (entryHideTimerRef.current !== null) {
+        window.clearTimeout(entryHideTimerRef.current);
+      }
+      if (exitTimerRef.current !== null) {
+        window.clearTimeout(exitTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const exitToDashboard = useCallback(() => {
+    if (isExiting) return;
+    if (prefersReducedMotionRef.current) {
+      setLocation("/dashboard");
+      return;
+    }
+
+    setEntryPhase("hidden");
+    setIsExiting(true);
+    exitTimerRef.current = window.setTimeout(() => {
+      setLocation("/dashboard");
+    }, 440);
+  }, [isExiting, setLocation]);
 
   useEffect(() => {
     if (group?.currentTurnWeekOf && selectedWeek === "" && !initialWeekOf) {
@@ -85,11 +177,18 @@ export default function GroupDetail() {
     }
   }, [group?.currentTurnWeekOf, selectedWeek, initialWeekOf]);
 
+  // Re-sync the selected week to whatever the server actually served (it clamps
+  // future weeks back to the current turn). Skip while data is a placeholder from
+  // keepPreviousData — that's the previous week's data still on screen during an
+  // in-flight fetch, and snapping to it would cancel the navigation.
   useEffect(() => {
+    if (isPlaceholderData) return;
     if (group?.weekOf && selectedWeek && normalizeWeekOf(selectedWeek) !== normalizeWeekOf(group.weekOf)) {
       setSelectedWeek(group.weekOf);
+      return;
     }
-  }, [group?.weekOf, selectedWeek]);
+    navigationLockRef.current = false;
+  }, [group?.weekOf, selectedWeek, isPlaceholderData]);
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
@@ -107,7 +206,6 @@ export default function GroupDetail() {
       {
         onSuccess: () => {
           toast({ title: "Picker assigned!" });
-          setShowMemberActions(null);
           invalidate();
         },
         onError: (e: any) => {
@@ -124,7 +222,6 @@ export default function GroupDetail() {
       {
         onSuccess: () => {
           toast({ title: "Member removed" });
-          setShowMemberActions(null);
           invalidate();
         },
         onError: (e: any) => {
@@ -140,7 +237,6 @@ export default function GroupDetail() {
       {
         onSuccess: () => {
           toast({ title: `Role updated to ${role}` });
-          setShowMemberActions(null);
           invalidate();
         },
         onError: (e: any) => {
@@ -152,26 +248,28 @@ export default function GroupDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background p-6 relative">
+      <div className="group-detail-page cinema-loading-page">
         <VHSNoise />
-        <div className="max-w-5xl mx-auto space-y-4">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-96 w-full" />
-        </div>
+        <CinemaLoadingDeck />
       </div>
     );
   }
 
-  if (!group) {
+  if (isGroupError || !group) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center relative">
+      <div className="group-detail-page cinema-signal-lost">
         <VHSNoise />
-        <div className="text-center border-4 border-secondary bg-card p-12">
-          <p className="text-white font-bold uppercase mb-4">Group not found</p>
+        {entryPhase !== "hidden" && (
+          <CinemaRouteCurtain phase={entryPhase} clubName={group?.name} />
+        )}
+        {isExiting && <CinemaRouteCurtain phase="exiting" clubName={group?.name} />}
+        <div className="cinema-signal-lost__panel" role="alert">
+          <span className="cinema-signal-lost__code">NO SIGNAL · E-404</span>
+          <h1>Movie night unavailable</h1>
+          <p>The tape could not be loaded. Check your connection or return to your clubs.</p>
           <button
-            onClick={() => setLocation("/dashboard")}
-            className="px-6 py-3 bg-primary text-secondary border-4 border-secondary hover:bg-secondary hover:text-primary hover:border-primary transition-all font-black uppercase"
+            onClick={exitToDashboard}
+            className="vcr-button vcr-button--primary"
           >
             Back to Dashboard
           </button>
@@ -189,24 +287,30 @@ export default function GroupDetail() {
   // hidden and we show a lock instead, so members rate without seeing others'.
   const reviewsUnlocked = (group as unknown as { reviewsUnlocked?: boolean }).reviewsUnlocked ?? false;
 
-  const _config = group.turnConfig;
-  const _currentIdx = getTurnIndexForDate(currentTurnWeekOf, _config);
-  const nextTurnWeekOf = getTurnStartDate(_currentIdx + 1, _config);
+  // The assigned picker of a turn sets that turn's movie. The movie view is clamped
+  // to the current turn for members, so in practice this gates the current turn's
+  // picker — matching the backend authorization (assigned picker, current-or-later).
   const isPickerForSelectedTurn = group.pickerUserId === me?.id;
   const canEditMovie = isAdminOrOwner
     || !!group.movieUnlockedByAdmin
-    || (normalizeWeekOf(effectiveSelectedWeek) === normalizeWeekOf(nextTurnWeekOf) && isPickerForSelectedTurn);
+    || (normalizeWeekOf(effectiveSelectedWeek) === normalizeWeekOf(currentTurnWeekOf) && isPickerForSelectedTurn);
 
   return (
-    <div className="min-h-screen bg-background flex relative">
+    <div className="group-detail-page min-h-screen bg-background flex relative">
       <VHSNoise />
+      {entryPhase !== "hidden" && (
+        <CinemaRouteCurtain phase={entryPhase} clubName={group.name} />
+      )}
+      {isExiting && <CinemaRouteCurtain phase="exiting" clubName={group.name} />}
       <div className="flex-1 flex flex-col">
-        <header className="border-b-4 border-primary sticky top-0 z-20 bg-secondary">
-          <div className="px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+        <header className="group-detail-header border-b-4 border-primary sticky top-0 z-20 bg-secondary">
+          <div className="group-detail-header-inner px-4 sm:px-6 lg:px-8 py-2 sm:py-4 flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1 mr-2">
               <button
-                onClick={() => setLocation("/dashboard")}
-                className="text-white hover:text-primary transition-colors flex-shrink-0"
+                onClick={exitToDashboard}
+                disabled={isExiting}
+                className="vcr-header-control text-white hover:text-primary transition-colors flex-shrink-0"
+                aria-label="Back to clubs"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
@@ -219,6 +323,7 @@ export default function GroupDetail() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
+                    aria-label="Open movie club controls"
                     className={`p-2 sm:p-2.5 border-2 transition-all ${
                       pickerScheduleOpen || nominationsOpen
                         ? "bg-primary text-secondary border-primary"
@@ -243,25 +348,42 @@ export default function GroupDetail() {
                     <Lightbulb className="w-4 h-4 mr-2" />
                     Nominations Pool
                   </DropdownMenuItem>
+                  {isAdminOrOwner && (
+                    <DropdownMenuItem
+                      onClick={() => setLocation(`/groups/${groupId}/admin`)}
+                      className="sm:hidden font-bold uppercase text-sm cursor-pointer text-white hover:bg-primary hover:text-secondary focus:bg-primary focus:text-secondary"
+                    >
+                      <Shield className="w-4 h-4 mr-2" />
+                      Club Admin
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={() => setLocation("/settings")}
+                    className="sm:hidden font-bold uppercase text-sm cursor-pointer text-white hover:bg-primary hover:text-secondary focus:bg-primary focus:text-secondary"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Settings
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               {isAdminOrOwner && (
                 <button
                   onClick={() => setLocation(`/groups/${groupId}/admin`)}
-                  className="p-2 sm:p-2.5 border-2 border-white/30 hover:border-primary bg-secondary text-white hover:text-primary transition-all"
+                  className="hidden sm:flex p-2 sm:p-2.5 border-2 border-white/30 hover:border-primary bg-secondary text-white hover:text-primary transition-all"
+                  title="Club admin"
                 >
                   <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               )}
               <button
                 onClick={() => setLocation("/settings")}
-                className="p-2 sm:p-2.5 border-2 border-white/30 hover:border-primary bg-secondary text-white hover:text-primary transition-all"
+                className="hidden sm:flex p-2 sm:p-2.5 border-2 border-white/30 hover:border-primary bg-secondary text-white hover:text-primary transition-all"
                 title="Settings"
               >
                 <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               {me && (
-                <UserLink userId={me.id}>
+                <UserLink userId={me.id} ariaLabel="Open your profile">
                   <Avatar className="w-8 h-8 sm:w-9 sm:h-9 border-2 border-white/30 hover:border-primary transition-all">
                     <AvatarImage src={me.avatarUrl ?? undefined} alt={me.username} />
                     <AvatarFallback className="bg-primary text-secondary text-xs font-black">
@@ -274,157 +396,91 @@ export default function GroupDetail() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="group-detail-main flex-1 px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
           <div className="max-w-5xl mx-auto relative">
 
-        <TurnStatusBanner
+        <WeeklyShowingsCarousel
+          groupId={groupId}
           group={group}
+          status={status}
           selectedWeek={effectiveSelectedWeek}
-          onWeekChange={setSelectedWeek}
-          deadlineMs={status?.deadlineMs ?? null}
+          onWeekChange={handleWeekChange}
+          isNavigating={isPlaceholderData || navigationLockRef.current}
         />
 
-        {showMovieInput ? (
-          <div className="border-4 border-secondary bg-card p-6 mb-8">
-            <PickerMovieSelector
-              groupId={groupId}
-              selectedWeek={effectiveSelectedWeek}
-              onCancel={() => setShowMovieInput(false)}
-              onSuccess={() => setShowMovieInput(false)}
-            />
-          </div>
-        ) : (
-          <CurrentTurnMovie
-            group={group}
-            status={status}
-            selectedWeek={effectiveSelectedWeek}
-            canEditMovie={canEditMovie}
-            onEditMovie={() => setShowMovieInput(true)}
-          />
-        )}
-
-        {status?.votingOpen && movie && (
-          <VerdictForm
-            group={group}
-            status={status}
-            groupId={groupId}
-            selectedWeek={effectiveSelectedWeek}
-          />
-        )}
-
-        {reviewsUnlocked && movie && (
-          <div className="border-4 border-secondary bg-card p-6 mb-6 flex items-center gap-4">
-            <span className="text-3xl" aria-hidden>🔒</span>
-            <div>
-              <p className="font-black text-primary uppercase">Ratings Locked</p>
-              <p className="text-sm text-white/70">
-                Hidden while reviews are open — they'll show once an admin locks reviews.
-              </p>
-            </div>
+        {isStatusError && (
+          <div className="cinema-inline-error" role="status">
+            Tracking lost: live rating status is temporarily unavailable.
           </div>
         )}
 
-        {group.resultsAvailable && (
-          <TurnResultsInline
-            groupId={groupId}
-            selectedWeek={effectiveSelectedWeek}
-            members={group.members}
-          />
-        )}
+        {/* The carousel owns the cinematic transition. The page content swaps as a
+            stable frame once the matching response is ready, preventing two
+            competing animations from slicing the mobile layout. */}
+          <div
+            key={effectiveSelectedWeek}
+            className="turn-transition-frame"
+            data-direction={navDirection < 0 ? "rewind" : "forward"}
+          >
+            {showMovieInput ? (
+              <div className="border-4 border-secondary bg-card p-6 mb-8">
+                <PickerMovieSelector
+                  groupId={groupId}
+                  selectedWeek={effectiveSelectedWeek}
+                  onCancel={() => setShowMovieInput(false)}
+                  onSuccess={() => setShowMovieInput(false)}
+                />
+              </div>
+            ) : (
+              <CurrentTurnMovie
+                group={group}
+                status={status}
+                selectedWeek={effectiveSelectedWeek}
+                canEditMovie={canEditMovie}
+                onEditMovie={() => setShowMovieInput(true)}
+              />
+            )}
+
+            {status?.votingOpen && movie && (
+              <VerdictForm
+                group={group}
+                status={status}
+                groupId={groupId}
+                selectedWeek={effectiveSelectedWeek}
+              />
+            )}
+
+            {reviewsUnlocked && movie && (
+              <div className="border-4 border-secondary bg-card p-6 mb-6 flex items-center gap-4">
+                <span className="text-3xl" aria-hidden>🔒</span>
+                <div>
+                  <p className="font-black text-primary uppercase">Ratings Locked</p>
+                  <p className="text-sm text-white/70">
+                    Hidden while reviews are open — they'll show once an admin locks reviews.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {group.resultsAvailable && (
+              <TurnResultsInline
+                groupId={groupId}
+                selectedWeek={effectiveSelectedWeek}
+                members={group.members}
+              />
+            )}
+          </div>
 
         {/* Watch Status / Members - only shown when results not available */}
         {!group.resultsAvailable && (
-        <div className="p-6 mb-6">
-          <h3 className="font-black text-primary mb-4 text-xl flex items-center gap-2 uppercase">
-            <User className="w-6 h-6" />
-            Watch Status
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {group.members.map((member) => {
-              const watched = member.watched;
-              const isPicker = status?.pickerUserId === member.id;
-
-              return (
-                <div key={member.id} className="p-3 bg-secondary border-2 border-white/20 relative">
-                  <div className="flex items-center gap-2 mb-2">
-                    <UserLink userId={member.id}>
-                      <Avatar className="w-10 h-10 border-2 border-primary">
-                        <AvatarImage src={member.avatarUrl ?? undefined} alt={member.username} />
-                        <AvatarFallback className="bg-primary text-secondary text-sm font-bold">
-                          {member.username.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    </UserLink>
-                    <div className="flex-1 min-w-0">
-                      <UserLink userId={member.id} className="block">
-                        <p className="text-sm font-bold text-white truncate hover:text-primary transition-colors">{member.username}</p>
-                      </UserLink>
-                      {isPicker && (
-                        <span className="text-xs text-primary font-bold uppercase">Picker</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs">
-                    {watched ? (
-                      <div className="flex items-center gap-1 text-primary font-bold">
-                        <Check className="w-3 h-3" />
-                        Watched
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 text-white/50 font-bold">
-                        <Clock className="w-3 h-3" />
-                        Pending
-                      </div>
-                    )}
-                  </div>
-                  {/* Admin actions */}
-                  {isAdminOrOwner && member.role !== "owner" && (
-                    <div className="absolute top-2 right-2">
-                      <button
-                        onClick={() => setShowMemberActions(showMemberActions === member.id ? null : member.id)}
-                        className="p-1 text-white/50 hover:text-primary transition-colors"
-                      >
-                        <ChevronDown className="w-4 h-4" />
-                      </button>
-                      {showMemberActions === member.id && (
-                        <div className="absolute right-0 top-full mt-1 bg-card border-4 border-secondary shadow-xl z-20 min-w-36">
-                          <button
-                            className="w-full text-left text-xs px-3 py-2 text-white hover:bg-secondary font-bold uppercase transition-colors"
-                            onClick={() => handleAssignPicker(member.id)}
-                          >
-                            Make Picker
-                          </button>
-                          {member.role !== "admin" && (
-                            <button
-                              className="w-full text-left text-xs px-3 py-2 text-white hover:bg-secondary font-bold uppercase transition-colors"
-                              onClick={() => handleUpdateRole(member.id, "admin")}
-                            >
-                              Promote
-                            </button>
-                          )}
-                          {member.role === "admin" && (
-                            <button
-                              className="w-full text-left text-xs px-3 py-2 text-white hover:bg-secondary font-bold uppercase transition-colors"
-                              onClick={() => handleUpdateRole(member.id, "member")}
-                            >
-                              Demote
-                            </button>
-                          )}
-                          <button
-                            className="w-full text-left text-xs px-3 py-2 text-destructive hover:bg-secondary font-bold uppercase transition-colors"
-                            onClick={() => handleKick(member.id)}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+          <WatchStatusShelf
+            members={group.members}
+            pickerUserId={status?.pickerUserId}
+            isAdminOrOwner={isAdminOrOwner}
+            onAssignPicker={handleAssignPicker}
+            onUpdateRole={handleUpdateRole}
+            onKick={handleKick}
+          />
         )}
           </div>
         </main>
