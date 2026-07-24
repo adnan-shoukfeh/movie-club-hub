@@ -37,6 +37,26 @@ func (q *Queries) CreateVerdictReply(ctx context.Context, arg CreateVerdictReply
 	return i, err
 }
 
+const getVerdictReplyByID = `-- name: GetVerdictReplyByID :one
+SELECT id, verdict_id, user_id, body, created_at, updated_at
+FROM verdict_replies
+WHERE id = $1
+`
+
+func (q *Queries) GetVerdictReplyByID(ctx context.Context, id int64) (VerdictReply, error) {
+	row := q.db.QueryRow(ctx, getVerdictReplyByID, id)
+	var i VerdictReply
+	err := row.Scan(
+		&i.ID,
+		&i.VerdictID,
+		&i.UserID,
+		&i.Body,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getRepliesForVerdicts = `-- name: GetRepliesForVerdicts :many
 SELECT vr.id, vr.verdict_id, vr.user_id, vr.body, vr.created_at, vr.updated_at,
        u.username, u.avatar_url

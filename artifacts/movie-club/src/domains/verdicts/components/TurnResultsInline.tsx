@@ -57,6 +57,7 @@ function ReviewReplies({
   replies: ReviewReply[];
 }) {
   const [replying, setReplying] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<ReviewReply | null>(null);
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const queryClient = useQueryClient();
@@ -79,6 +80,7 @@ function ReviewReplies({
       }
       setBody("");
       setReplying(false);
+      setReplyingTo(null);
       queryClient.invalidateQueries({ queryKey: [...getGetResultsQueryKey(groupId), selectedWeek] });
     } catch (err) {
       toast({
@@ -91,12 +93,24 @@ function ReviewReplies({
     }
   };
 
+  const startReply = (target: ReviewReply | null = null) => {
+    setReplyingTo(target);
+    setBody(target ? `@${target.username} ` : "");
+    setReplying(true);
+  };
+
+  const cancelReply = () => {
+    setReplying(false);
+    setReplyingTo(null);
+    setBody("");
+  };
+
   return (
-    <div className="pl-16 mt-3 space-y-3">
+    <div className="review-replies pl-16 mt-3 space-y-3">
       {replies.length > 0 && (
-        <div className="space-y-2 border-l-2 border-white/20 pl-3">
+        <div className="review-replies__list space-y-2 border-l-2 border-white/20 pl-3">
           {replies.map((reply) => (
-            <div key={reply.id} className="flex items-start gap-2">
+            <div key={reply.id} className="review-reply flex items-start gap-2">
               <UserLink userId={reply.userId}>
                 <Avatar className="w-7 h-7 border border-primary">
                   <AvatarImage src={reply.avatarUrl ?? undefined} alt={reply.username} />
@@ -111,9 +125,27 @@ function ReviewReplies({
                     {reply.username}
                   </span>
                 </UserLink>
-                <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap break-words">
+                <p className="review-reply__copy text-sm text-white/80 leading-relaxed whitespace-pre-wrap break-words">
                   {reply.body}
                 </p>
+                <div className="review-reply__actions">
+                  <button
+                    type="button"
+                    onClick={() => startReply(reply)}
+                    className="review-reply-target text-[11px] text-white/55 hover:text-primary font-bold uppercase inline-flex items-center gap-1.5"
+                    aria-label={`Reply to ${reply.username}`}
+                  >
+                    <MessageCircle className="w-3 h-3" aria-hidden="true" />
+                    Reply
+                  </button>
+                  <div className="review-reply__reactions">
+                    <ReactionBar
+                      entityType="verdict_reply"
+                      entityId={reply.id}
+                      groupId={groupId}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           ))}
@@ -121,13 +153,18 @@ function ReviewReplies({
       )}
 
       {replying ? (
-        <div className="space-y-2">
+        <div className="review-reply-composer space-y-2">
+          {replyingTo && (
+            <div className="review-reply-context" role="status">
+              Replying to <strong>@{replyingTo.username}</strong>
+            </div>
+          )}
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             maxLength={1000}
             rows={2}
-            className="w-full bg-card border-2 border-white/20 text-white text-sm p-2 focus:outline-none focus:border-primary resize-none"
+            className="review-reply-input w-full bg-card border-2 border-white/20 text-white text-sm p-2 focus:outline-none focus:border-primary resize-none"
             placeholder="Reply..."
             autoFocus
           />
@@ -135,16 +172,13 @@ function ReviewReplies({
             <button
               onClick={submitReply}
               disabled={submitting || body.trim().length === 0}
-              className="px-3 py-1.5 bg-primary text-secondary font-black uppercase text-xs border-2 border-primary disabled:opacity-50 flex items-center gap-1.5"
+              className="review-reply-submit px-3 py-1.5 bg-primary text-secondary font-black uppercase text-xs border-2 border-primary disabled:opacity-50 flex items-center gap-1.5"
             >
               <Send className="w-3 h-3" />
               Send
             </button>
             <button
-              onClick={() => {
-                setReplying(false);
-                setBody("");
-              }}
+              onClick={cancelReply}
               className="px-3 py-1.5 text-white/70 hover:text-white text-xs font-bold uppercase"
             >
               Cancel
@@ -153,8 +187,8 @@ function ReviewReplies({
         </div>
       ) : (
         <button
-          onClick={() => setReplying(true)}
-          className="text-xs text-white/60 hover:text-primary font-bold uppercase flex items-center gap-1.5"
+          onClick={() => startReply()}
+          className="review-reply-trigger text-xs text-white/60 hover:text-primary font-bold uppercase flex items-center gap-1.5"
         >
           <MessageCircle className="w-3.5 h-3.5" />
           Reply
@@ -210,18 +244,19 @@ export function TurnResultsInline({ groupId, selectedWeek, members }: TurnResult
   const sortedVotes = [...ratedVotes].sort((a, b) => b.rating - a.rating);
 
   return (
-    <div className="space-y-6">
+    <div className="turn-results-terminal space-y-6">
       {/* Collapsible Results Summary */}
-      <div className="border-8 border-primary bg-secondary">
+      <section className="results-summary-deck border-8 border-primary bg-secondary">
         <button
           onClick={() => setSummaryExpanded(!summaryExpanded)}
-          className="w-full p-6 flex items-center justify-between hover:bg-secondary/80 transition-colors"
+          className="results-summary-header w-full p-6 flex items-center justify-between hover:bg-secondary/80 transition-colors"
+          aria-expanded={summaryExpanded}
         >
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-primary flex items-center justify-center">
+            <div className="results-summary-icon w-12 h-12 bg-primary flex items-center justify-center">
               <Award className="w-7 h-7 text-secondary" />
             </div>
-            <h3 className="text-2xl font-black text-primary uppercase">Final Results</h3>
+            <h3 className="results-display-title text-2xl font-black text-primary uppercase">Final Results</h3>
           </div>
           {summaryExpanded ? (
             <ChevronUp className="w-6 h-6 text-primary" />
@@ -231,29 +266,29 @@ export function TurnResultsInline({ groupId, selectedWeek, members }: TurnResult
         </button>
 
         {summaryExpanded && (
-          <div className="px-6 pb-6 space-y-6">
+          <div className="results-summary-body px-6 pb-6 space-y-6">
             {/* Score cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="p-6 bg-card border-4 border-primary">
-                <p className="text-sm font-black text-primary mb-3 uppercase tracking-widest">
+              <div className="results-score-card results-score-card--rating p-6 bg-card border-4 border-primary">
+                <p className="results-label text-sm font-black text-primary mb-3 uppercase tracking-widest">
                   Average Rating
                 </p>
                 <div className="flex items-center gap-3">
                   <Star className="w-8 h-8 fill-primary text-primary" />
-                  <span className="text-5xl font-black text-white">
+                  <span className="results-value text-5xl font-black text-white">
                     {results.averageRating}
                   </span>
                   <span className="text-xl text-white/60 mt-2 font-bold">/10</span>
                 </div>
               </div>
 
-              <div className="p-6 bg-card border-4 border-white/30">
-                <p className="text-sm font-black text-white mb-3 uppercase tracking-widest">
+              <div className="results-score-card results-score-card--participation p-6 bg-card border-4 border-white/30">
+                <p className="results-label text-sm font-black text-white mb-3 uppercase tracking-widest">
                   Participation
                 </p>
                 <div className="flex items-center gap-3">
                   <Users className="w-8 h-8 text-primary" />
-                  <span className="text-5xl font-black text-white">
+                  <span className="results-value text-5xl font-black text-white">
                     {results.totalVotes}
                   </span>
                   <span className="text-xl text-white/60 mt-2 font-bold">votes</span>
@@ -262,8 +297,8 @@ export function TurnResultsInline({ groupId, selectedWeek, members }: TurnResult
             </div>
 
             {/* Distribution chart */}
-            <div className="border-4 border-card bg-card p-4">
-              <h4 className="font-black text-primary mb-4 text-lg flex items-center gap-2 uppercase">
+            <div className="results-distribution border-4 border-card bg-card p-4">
+              <h4 className="results-section-title font-black text-primary mb-4 text-lg flex items-center gap-2 uppercase">
                 <TrendingUp className="w-5 h-5" />
                 Rating Distribution
               </h4>
@@ -312,12 +347,12 @@ export function TurnResultsInline({ groupId, selectedWeek, members }: TurnResult
             </div>
           </div>
         )}
-      </div>
+      </section>
 
       {/* Member Reviews */}
       {sortedVotes.length > 0 && (
-        <div className="border-4 border-secondary bg-card p-6">
-          <h4 className="font-black text-primary mb-6 text-xl flex items-center gap-3 uppercase pb-4 border-b-4 border-secondary">
+        <section className="member-reviews-deck border-4 border-secondary bg-card p-6">
+          <h4 className="results-section-title font-black text-primary mb-6 text-xl flex items-center gap-3 uppercase pb-4 border-b-4 border-secondary">
             <Star className="w-6 h-6 fill-primary" />
             Member Reviews
           </h4>
@@ -326,7 +361,7 @@ export function TurnResultsInline({ groupId, selectedWeek, members }: TurnResult
             {sortedVotes.map((vote) => (
               <div
                 key={vote.id}
-                className="p-5 bg-secondary border-l-8 border-primary"
+                className="member-review-tape p-5 bg-secondary border-l-8 border-primary"
               >
                 <div className="flex items-start gap-4 mb-3">
                   <UserLink userId={vote.userId}>
@@ -339,7 +374,7 @@ export function TurnResultsInline({ groupId, selectedWeek, members }: TurnResult
                   </UserLink>
                   <div className="flex-1">
                     <UserLink userId={vote.userId} className="inline-block">
-                      <p className="font-black text-white mb-2 text-lg hover:text-primary transition-colors">{vote.username}</p>
+                      <p className="member-review-name font-black text-white mb-2 text-lg hover:text-primary transition-colors">{vote.username}</p>
                     </UserLink>
                     <div className="flex items-center gap-2 mb-2">
                       <StarRating rating={vote.rating} size="sm" />
@@ -350,11 +385,11 @@ export function TurnResultsInline({ groupId, selectedWeek, members }: TurnResult
                   </div>
                 </div>
                 {vote.review && (
-                  <p className="text-sm text-white leading-relaxed pl-16 mt-2 border-t-2 border-white/20 pt-3 italic">
+                  <p className="member-review-copy text-sm text-white leading-relaxed pl-16 mt-2 border-t-2 border-white/20 pt-3 italic">
                     "{vote.review}"
                   </p>
                 )}
-                <div className="pl-16 mt-3">
+                <div className="member-review-reactions pl-16 mt-3">
                   <ReactionBar
                     entityType="verdict"
                     entityId={vote.id}
@@ -370,19 +405,19 @@ export function TurnResultsInline({ groupId, selectedWeek, members }: TurnResult
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Shame Dungeon */}
       {shameDungeonMembers.length > 0 && (
-        <div className="border-4 border-secondary bg-card p-6">
-          <h4 className="font-black text-primary mb-4 text-xl flex items-center gap-2 uppercase">
+        <section className="shame-dungeon-deck border-4 border-secondary bg-card p-6">
+          <h4 className="shame-dungeon-title font-black text-primary mb-4 text-xl flex items-center gap-2 uppercase">
             <Skull className="w-6 h-6" />
             Shame Dungeon
           </h4>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="shame-dungeon-grid grid grid-cols-2 sm:grid-cols-4 gap-4">
             {shameDungeonMembers.map((member) => (
-              <div key={member.id} className="p-3 bg-secondary border-2 border-white/20 opacity-50">
+              <div key={member.id} className="shame-dungeon-card p-3 bg-secondary border-2 border-white/20 opacity-50">
                 <div className="flex items-center gap-2">
                   <UserLink userId={member.id}>
                     <Avatar className="w-10 h-10 border-2 border-primary">
@@ -394,14 +429,14 @@ export function TurnResultsInline({ groupId, selectedWeek, members }: TurnResult
                   </UserLink>
                   <div className="flex-1 min-w-0">
                     <UserLink userId={member.id} className="block">
-                      <p className="text-sm font-bold text-white truncate hover:text-primary transition-colors">{member.username}</p>
+                      <p className="shame-dungeon-name text-sm font-bold text-white truncate hover:text-primary transition-colors">{member.username}</p>
                     </UserLink>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
     </div>
   );

@@ -56,7 +56,7 @@ export function ConfirmDialog({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-card border border-border rounded-xl p-5 max-w-sm w-full shadow-2xl">
         <div className="flex items-start gap-3 mb-4">
-          <AlertTriangle className={`w-5 h-5 mt-0.5 flex-shrink-0 ${variant === "destructive" ? "text-destructive" : "text-yellow-400"}`} />
+          <AlertTriangle className={`w-5 h-5 mt-0.5 shrink-0 ${variant === "destructive" ? "text-destructive" : "text-yellow-400"}`} />
           <p className="text-sm text-foreground leading-relaxed">{message}</p>
         </div>
         <div className="flex gap-2 justify-end">
@@ -118,7 +118,7 @@ export function TurnDateRangeInput({
       type="button"
       className="flex-1 h-7 text-xs rounded-md bg-background border border-border px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary flex items-center gap-1.5 text-left min-w-0"
     >
-      <CalendarIcon2 className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+      <CalendarIcon2 className="w-3 h-3 text-muted-foreground shrink-0" />
       <span className="truncate">{formatCalendarDate(startDateStr)} → {formatCalendarDate(deadlineLastDayStr)}</span>
     </button>
   );

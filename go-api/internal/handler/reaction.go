@@ -17,6 +17,66 @@ type createReactionRequest struct {
 	StickerID  int64  `json:"stickerId"`
 }
 
+func (h *Handler) requireReactionEntityAccess(
+	w http.ResponseWriter,
+	r *http.Request,
+	entityType string,
+	entityID int64,
+	userID int32,
+) bool {
+	var verdictID int64
+
+	switch entityType {
+	case "verdict":
+		verdictID = entityID
+	case "verdict_reply":
+		reply, err := h.q.GetVerdictReplyByID(r.Context(), entityID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				writeError(w, http.StatusNotFound, "Reply not found")
+				return false
+			}
+			writeError(w, http.StatusInternalServerError, "Failed to verify reply")
+			return false
+		}
+		verdictID = reply.VerdictID
+	default:
+		writeError(w, http.StatusBadRequest, "Unsupported reaction entity type")
+		return false
+	}
+
+	verdict, err := h.q.GetVerdictByID(r.Context(), verdictID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "Verdict not found")
+			return false
+		}
+		writeError(w, http.StatusInternalServerError, "Failed to verify verdict")
+		return false
+	}
+
+	turn, err := h.q.GetTurnByID(r.Context(), verdict.TurnID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to verify group access")
+		return false
+	}
+
+	_, err = h.q.GetMembership(r.Context(), db.GetMembershipParams{
+		UserID:  userID,
+		GroupID: turn.GroupID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusForbidden, "Not a member of this group")
+			return false
+		}
+		writeError(w, http.StatusInternalServerError, "Failed to verify membership")
+		return false
+	}
+
+	return true
+}
+
 func (h *Handler) CreateReaction(w http.ResponseWriter, r *http.Request) {
 	var req createReactionRequest
 	if err := decodeBody(r, &req); err != nil {
@@ -29,45 +89,10 @@ func (h *Handler) CreateReaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.EntityType != "verdict" {
-		writeError(w, http.StatusBadRequest, "Only 'verdict' entityType is currently supported")
-		return
-	}
-
 	userID := h.userID(r)
 
-	// Verify the entity exists and user has access
-	if req.EntityType == "verdict" {
-		verdict, err := h.q.GetVerdictByID(r.Context(), req.EntityID)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				writeError(w, http.StatusNotFound, "Verdict not found")
-				return
-			}
-			writeError(w, http.StatusInternalServerError, "Failed to verify verdict")
-			return
-		}
-
-		// Get turn to verify group membership
-		turn, err := h.q.GetTurnByID(r.Context(), verdict.TurnID)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Failed to verify group access")
-			return
-		}
-
-		// Verify user is a member of the group
-		_, err = h.q.GetMembership(r.Context(), db.GetMembershipParams{
-			UserID:  userID,
-			GroupID: turn.GroupID,
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				writeError(w, http.StatusForbidden, "Not a member of this group")
-				return
-			}
-			writeError(w, http.StatusInternalServerError, "Failed to verify membership")
-			return
-		}
+	if !h.requireReactionEntityAccess(w, r, req.EntityType, req.EntityID, userID) {
+		return
 	}
 
 	// Verify sticker exists
@@ -154,6 +179,10 @@ func (h *Handler) ToggleReaction(w http.ResponseWriter, r *http.Request) {
 
 	userID := h.userID(r)
 
+	if !h.requireReactionEntityAccess(w, r, req.EntityType, req.EntityID, userID) {
+		return
+	}
+
 	// Try to delete first (toggle off)
 	rowsAffected, err := h.q.DeleteReactionByUserAndSticker(r.Context(), db.DeleteReactionByUserAndStickerParams{
 		EntityType: req.EntityType,
@@ -171,38 +200,6 @@ func (h *Handler) ToggleReaction(w http.ResponseWriter, r *http.Request) {
 			"action": "removed",
 		})
 		return
-	}
-
-	// Reaction didn't exist, create it
-	if req.EntityType == "verdict" {
-		verdict, err := h.q.GetVerdictByID(r.Context(), req.EntityID)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				writeError(w, http.StatusNotFound, "Verdict not found")
-				return
-			}
-			writeError(w, http.StatusInternalServerError, "Failed to verify verdict")
-			return
-		}
-
-		turn, err := h.q.GetTurnByID(r.Context(), verdict.TurnID)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Failed to verify group access")
-			return
-		}
-
-		_, err = h.q.GetMembership(r.Context(), db.GetMembershipParams{
-			UserID:  userID,
-			GroupID: turn.GroupID,
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				writeError(w, http.StatusForbidden, "Not a member of this group")
-				return
-			}
-			writeError(w, http.StatusInternalServerError, "Failed to verify membership")
-			return
-		}
 	}
 
 	_, err = h.q.GetStickerByID(r.Context(), req.StickerID)
@@ -250,6 +247,10 @@ func (h *Handler) GetReactions(w http.ResponseWriter, r *http.Request) {
 
 	userID := h.userID(r)
 
+	if !h.requireReactionEntityAccess(w, r, entityType, entityID, userID) {
+		return
+	}
+
 	// Get reaction summary (stickers with counts)
 	summary, err := h.q.GetReactionSummaryForEntity(r.Context(), db.GetReactionSummaryForEntityParams{
 		EntityType: entityType,
@@ -273,11 +274,11 @@ func (h *Handler) GetReactions(w http.ResponseWriter, r *http.Request) {
 
 	// Format response
 	type reactionSummary struct {
-		StickerID  int64  `json:"stickerId"`
-		Name       string `json:"name"`
-		ImageURL   string `json:"imageUrl"`
-		Count      int64  `json:"count"`
-		UserReacted bool  `json:"userReacted"`
+		StickerID   int64  `json:"stickerId"`
+		Name        string `json:"name"`
+		ImageURL    string `json:"imageUrl"`
+		Count       int64  `json:"count"`
+		UserReacted bool   `json:"userReacted"`
 	}
 
 	userStickerIDs := make(map[int64]bool)
@@ -313,6 +314,11 @@ func (h *Handler) GetReactionDetails(w http.ResponseWriter, r *http.Request) {
 	entityID, err := strconv.ParseInt(entityIDStr, 10, 64)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid entityId")
+		return
+	}
+
+	userID := h.userID(r)
+	if !h.requireReactionEntityAccess(w, r, entityType, entityID, userID) {
 		return
 	}
 

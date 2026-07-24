@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useId } from "react";
 
 const ITEM_H = 48;
 
@@ -7,6 +7,7 @@ interface WheelPickerProps {
   selectedIndex: number;
   onIndexChange: (idx: number) => void;
   disabled?: boolean;
+  ariaLabel?: string;
 }
 
 export function WheelPicker({
@@ -14,10 +15,13 @@ export function WheelPicker({
   selectedIndex,
   onIndexChange,
   disabled = false,
+  ariaLabel = "Rating picker",
 }: WheelPickerProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const suppressRef = useRef(false);
   const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listboxId = useId();
 
   useEffect(() => {
     const el = listRef.current;
@@ -29,6 +33,13 @@ export function WheelPicker({
     }, 80);
     return () => clearTimeout(t);
   }, [selectedIndex]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimer.current) clearTimeout(scrollTimer.current);
+      if (suppressTimer.current) clearTimeout(suppressTimer.current);
+    };
+  }, []);
 
   const handleScroll = () => {
     if (suppressRef.current) return;
@@ -48,6 +59,20 @@ export function WheelPicker({
     <div
       className={`relative select-none ${disabled ? "opacity-30 pointer-events-none" : ""}`}
       style={{ width: 64, height: ITEM_H * 3 }}
+      role="listbox"
+      aria-label={ariaLabel}
+      aria-disabled={disabled}
+      aria-activedescendant={`${listboxId}-${selectedIndex}`}
+      tabIndex={disabled ? -1 : 0}
+      onKeyDown={(event) => {
+        if (disabled) return;
+        if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+        event.preventDefault();
+        const delta = event.key === "ArrowUp" ? -1 : 1;
+        const nextIndex = Math.min(items.length - 1, Math.max(0, selectedIndex + delta));
+        onIndexChange(nextIndex);
+        listRef.current?.scrollTo({ top: nextIndex * ITEM_H, behavior: "smooth" });
+      }}
     >
       {/* Selection highlight */}
       <div
@@ -73,13 +98,17 @@ export function WheelPicker({
         {items.map((item, i) => (
           <div
             key={i}
+            id={`${listboxId}-${i}`}
+            role="option"
+            aria-selected={i === selectedIndex}
             style={{ height: ITEM_H, scrollSnapAlign: "center" }}
             className="flex items-center justify-center cursor-pointer"
             onClick={() => {
               onIndexChange(i);
               suppressRef.current = true;
               listRef.current?.scrollTo({ top: i * ITEM_H, behavior: "smooth" });
-              setTimeout(() => {
+              if (suppressTimer.current) clearTimeout(suppressTimer.current);
+              suppressTimer.current = setTimeout(() => {
                 suppressRef.current = false;
               }, 400);
             }}

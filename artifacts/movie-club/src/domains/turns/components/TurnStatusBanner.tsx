@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, CalendarCheck } from "lucide-react";
+import { FastForward, Rewind } from "lucide-react";
 import { formatDateET, formatWeekdayShortDateET } from "@/lib/utils";
 import { normalizeWeekOf } from "../turnUtils";
 import type { GroupDetail } from "@workspace/api-client-react";
@@ -9,9 +9,16 @@ interface TurnStatusBannerProps {
   onWeekChange: (week: string) => void;
   /** Deadline (ms) of the selected turn; the turn ends the day before it. */
   deadlineMs?: number | null;
+  isNavigating?: boolean;
 }
 
-export function TurnStatusBanner({ group, selectedWeek, onWeekChange, deadlineMs }: TurnStatusBannerProps) {
+export function TurnStatusBanner({
+  group,
+  selectedWeek,
+  onWeekChange,
+  deadlineMs,
+  isNavigating = false,
+}: TurnStatusBannerProps) {
   // deadlineMs is midnight at the end of the turn's last day, so the turn's
   // end date is the day before it.
   const endDateStr = deadlineMs
@@ -32,53 +39,58 @@ export function TurnStatusBanner({ group, selectedWeek, onWeekChange, deadlineMs
   const nextWeekOf = nav.nextWeekOf || "";
 
   return (
-    <div className="flex items-center justify-between mb-8">
+    <nav
+      className="turn-status-banner relative flex items-center justify-center gap-2 sm:gap-3 mb-5 sm:mb-8"
+      aria-label="Browse movie club turns"
+      aria-busy={isNavigating}
+      data-tracking={isNavigating ? "true" : "false"}
+    >
       <button
         onClick={() => prevWeekOf && onWeekChange(prevWeekOf)}
-        disabled={!prevWeekOf}
-        className="p-3 bg-card border-4 border-secondary disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-all"
+        disabled={!prevWeekOf || isNavigating}
+        className="turn-status-control shrink-0 p-2 sm:p-3 bg-card border-4 border-secondary disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-all"
+        aria-label="Previous turn"
+        title="Rewind to previous movie night"
       >
-        <ChevronLeft className="w-6 h-6 text-primary" />
+        <Rewind className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
       </button>
 
-      <div className="text-center bg-primary px-6 py-3 border-4 border-secondary">
-        <p className="text-sm text-secondary font-bold mb-1">
-          {formatDateET(selectedWeek)}
-        </p>
+      <div className="turn-status-summary text-center bg-primary px-3 py-1.5 sm:px-6 sm:py-3 border-4 border-secondary">
+        <div className="flex items-center justify-center gap-2">
+          <span className="turn-status-date text-sm sm:text-base text-secondary font-black leading-none">
+            {formatDateET(selectedWeek)}
+          </span>
+          {isCurrentWeek ? (
+            <span className="turn-status-tag px-1.5 py-0.5 bg-secondary text-primary text-[10px] sm:text-xs font-black uppercase tracking-wider">
+              Active
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onWeekChange(currentTurnWeekOf)}
+              aria-label="Go back to the current movie night"
+              className="turn-status-tag turn-status-go-back px-2 py-0.5 bg-secondary text-primary text-[10px] sm:text-xs font-black uppercase tracking-wider inline-flex items-center hover:bg-primary hover:text-secondary transition-all"
+            >
+              Go Back
+            </button>
+          )}
+        </div>
         {endDateStr && (
-          <p className="text-[11px] text-secondary/80 font-bold uppercase tracking-wide mb-1">
+          <p className="turn-status-deadline text-[10px] sm:text-[11px] text-secondary/80 font-bold uppercase tracking-wide leading-none mt-1">
             {isPastWeek ? "Ended" : "Ends"} {formatWeekdayShortDateET(endDateStr)}
           </p>
-        )}
-        {isCurrentWeek && (
-          <span className="inline-block px-4 py-1 bg-secondary text-primary text-xs font-black uppercase tracking-wider">
-            Active Turn
-          </span>
-        )}
-        {isPastWeek && (
-          <span className="inline-block px-4 py-1 bg-secondary text-white text-xs font-black uppercase tracking-wider">
-            Past Turn
-          </span>
         )}
       </div>
 
       <button
         onClick={() => nextWeekOf && onWeekChange(nextWeekOf)}
-        disabled={!nextWeekOf}
-        className="p-3 bg-card border-4 border-secondary disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-all"
+        disabled={!nextWeekOf || isNavigating}
+        className="turn-status-control shrink-0 p-2 sm:p-3 bg-card border-4 border-secondary disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-all"
+        aria-label="Next turn"
+        title="Fast-forward to next movie night"
       >
-        <ChevronRight className="w-6 h-6 text-primary" />
+        <FastForward className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
       </button>
-
-      {!isCurrentWeek && (
-        <button
-          onClick={() => onWeekChange(currentTurnWeekOf)}
-          className="absolute left-1/2 -translate-x-1/2 -bottom-6 px-4 py-1.5 bg-secondary border-2 border-primary text-primary text-xs font-bold uppercase flex items-center gap-1.5 hover:bg-primary hover:text-secondary transition-all"
-        >
-          <CalendarCheck className="w-3.5 h-3.5" />
-          Back to current
-        </button>
-      )}
-    </div>
+    </nav>
   );
 }

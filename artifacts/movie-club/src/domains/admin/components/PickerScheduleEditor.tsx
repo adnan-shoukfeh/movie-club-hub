@@ -28,7 +28,6 @@ import {
   type AdminMember,
 } from "./shared";
 import { UnlockControls } from "./UnlockControls";
-import { UserLink } from "@/domains/profiles/components/UserLink";
 import { PickerMovieSelector } from "@/domains/movies/components/PickerMovieSelector";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -408,13 +407,14 @@ export function PickerScheduleEditor({
                                     {nom.nominatorUsername && (
                                       <span className="text-muted-foreground/60 shrink-0">
                                         by{" "}
-                                        {nom.nominatorUserId ? (
-                                          <UserLink userId={nom.nominatorUserId} className="inline">
-                                            <span className="hover:text-primary transition-colors">{nom.nominatorUsername}</span>
-                                          </UserLink>
-                                        ) : (
-                                          nom.nominatorUsername
-                                        )}
+                                        <button
+                                          type="button"
+                                          className="hover:text-primary transition-colors"
+                                          title="Open picker selector"
+                                          onClick={() => setPickerWeekEdit(entry.weekOf)}
+                                        >
+                                          {nom.nominatorUsername}
+                                        </button>
                                       </span>
                                     )}
                                     <button
@@ -481,9 +481,14 @@ export function PickerScheduleEditor({
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-foreground">
                               {entry.pickerUsername && entry.pickerUserId ? (
-                                <UserLink userId={entry.pickerUserId} className="inline">
-                                  <span className="hover:text-primary transition-colors">{entry.pickerUsername}</span>
-                                </UserLink>
+                                <button
+                                  type="button"
+                                  className="hover:text-primary transition-colors"
+                                  title="Open picker selector"
+                                  onClick={() => setPickerWeekEdit(entry.weekOf)}
+                                >
+                                  {entry.pickerUsername}
+                                </button>
                               ) : (
                                 <span className="text-muted-foreground/60 italic">No picker</span>
                               )}
