@@ -322,6 +322,16 @@ func (h *Handler) AdminExtendTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Materialize the turn first. On a brand-new (or otherwise inactive) group
+	// the turns are created lazily, so the row for this week may not exist yet.
+	// UpsertTurnOverrideExtendedDays is a plain UPDATE that would match 0 rows,
+	// and the GetTurn read below would then fail, silently skipping the whole
+	// deadline + cascade block — the deadline picker appears to do nothing.
+	if _, err := h.turnSvc.EnsureTurnExists(r.Context(), groupID, req.WeekOf); err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to prepare turn")
+		return
+	}
+
 	// Ensure deadline stays after the start offset for this turn.
 	existing, _ := h.q.GetTurnOverride(r.Context(), db.GetTurnOverrideParams{
 		GroupID: groupID, WeekOf: timeToPgDate(req.WeekOf),
@@ -419,6 +429,14 @@ func (h *Handler) AdminSetTurnStart(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := h.q.GetGroupByID(r.Context(), groupID); err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to fetch group")
+		return
+	}
+
+	// Materialize the turn first — on a new/inactive group its row is created
+	// lazily, and UpsertTurnOverrideStartOffset (a plain UPDATE) would otherwise
+	// match 0 rows and silently no-op.
+	if _, err := h.turnSvc.EnsureTurnExists(r.Context(), groupID, req.WeekOf); err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to prepare turn")
 		return
 	}
 
