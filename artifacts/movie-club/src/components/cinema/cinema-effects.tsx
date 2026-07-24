@@ -75,6 +75,7 @@ interface VHSTapeProps {
   isActive: boolean;
   resultsAvailable?: boolean;
   direction?: number;
+  clubName?: string;
 }
 
 export function VHSTape({
@@ -83,6 +84,7 @@ export function VHSTape({
   isActive,
   resultsAvailable = false,
   direction = 0,
+  clubName = "Movie Club",
 }: VHSTapeProps) {
   const tapeRef = useRef<HTMLDivElement>(null);
   const [pageVisible, setPageVisible] = useState(() =>
@@ -121,7 +123,7 @@ export function VHSTape({
       <div className="vhs-cassette__screw vhs-cassette__screw--tl" />
       <div className="vhs-cassette__screw vhs-cassette__screw--tr" />
       <div className="vhs-cassette__label">
-        <span>Thursday Night Cinema</span>
+        <span>{clubName}</span>
         <strong title={title}>{title}</strong>
         <span>{date} · SP</span>
       </div>
@@ -144,11 +146,13 @@ export function VHSTape({
 interface CinemaLoadingDeckProps {
   mode?: "loading" | "exiting";
   destination?: "clubs" | "profile";
+  clubName?: string;
 }
 
 export function CinemaLoadingDeck({
   mode = "loading",
   destination = "clubs",
+  clubName,
 }: CinemaLoadingDeckProps) {
   const isExiting = mode === "exiting";
   const isProfile = destination === "profile";
@@ -173,6 +177,7 @@ export function CinemaLoadingDeck({
         date="--:--:--"
         isActive
         direction={isExiting ? -1 : 1}
+        clubName={clubName}
       />
       <span className="cinema-loading__signal">
         {isProfile
@@ -188,11 +193,13 @@ export function CinemaLoadingDeck({
 interface CinemaRouteCurtainProps {
   phase: "holding" | "leaving" | "exiting";
   destination?: "clubs" | "profile";
+  clubName?: string;
 }
 
 export function CinemaRouteCurtain({
   phase,
   destination = "clubs",
+  clubName,
 }: CinemaRouteCurtainProps) {
   return (
     <div
@@ -203,6 +210,7 @@ export function CinemaRouteCurtain({
       <CinemaLoadingDeck
         mode={phase === "exiting" ? "exiting" : "loading"}
         destination={destination}
+        clubName={clubName}
       />
     </div>
   );

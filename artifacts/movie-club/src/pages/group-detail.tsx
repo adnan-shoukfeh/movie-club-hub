@@ -261,9 +261,9 @@ export default function GroupDetail() {
       <div className="group-detail-page cinema-signal-lost">
         <VHSNoise />
         {entryPhase !== "hidden" && (
-          <CinemaRouteCurtain phase={entryPhase} />
+          <CinemaRouteCurtain phase={entryPhase} clubName={group?.name} />
         )}
-        {isExiting && <CinemaRouteCurtain phase="exiting" />}
+        {isExiting && <CinemaRouteCurtain phase="exiting" clubName={group?.name} />}
         <div className="cinema-signal-lost__panel" role="alert">
           <span className="cinema-signal-lost__code">NO SIGNAL · E-404</span>
           <h1>Movie night unavailable</h1>
@@ -300,9 +300,9 @@ export default function GroupDetail() {
     <div className="group-detail-page min-h-screen bg-background flex relative">
       <VHSNoise />
       {entryPhase !== "hidden" && (
-        <CinemaRouteCurtain phase={entryPhase} />
+        <CinemaRouteCurtain phase={entryPhase} clubName={group.name} />
       )}
-      {isExiting && <CinemaRouteCurtain phase="exiting" />}
+      {isExiting && <CinemaRouteCurtain phase="exiting" clubName={group.name} />}
       <CinemaIntro groupId={groupId} groupName={group.name} movieTitle={movie?.title} />
       <div className="flex-1 flex flex-col">
         <header className="group-detail-header border-b-4 border-primary sticky top-0 z-20 bg-secondary">
