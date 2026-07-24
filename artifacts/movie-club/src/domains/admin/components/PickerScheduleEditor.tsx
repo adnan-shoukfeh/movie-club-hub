@@ -13,7 +13,6 @@ import {
   Check,
   X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -157,9 +156,11 @@ export function PickerScheduleEditor({
     });
   };
 
-  const handleSetTurnDates = async (weekOf: string) => {
+  const handleSetTurnDates = async (weekOf: string, explicitExtendedDays?: number) => {
     const entry = schedule.find((e) => e.weekOf === weekOf);
-    const extDays = parseInt(String(extendDaysInput[weekOf] ?? entry?.extendedDays ?? 0), 10);
+    const extDays =
+      explicitExtendedDays ??
+      parseInt(String(extendDaysInput[weekOf] ?? entry?.extendedDays ?? 0), 10);
     withConfirm(
       `Update the deadline for the turn starting ${formatWeekLabel(weekOf)}? Every turn after it shifts to stay back-to-back, each starting the day after the previous deadline.`,
       async () => {
@@ -512,16 +513,13 @@ export function PickerScheduleEditor({
                             turnLengthDays={turnLengthDays}
                             extendedDays={parseInt(String(extendDaysInput[entry.weekOf] ?? entry.extendedDays), 10)}
                             startOffsetDays={entry.startOffsetDays ?? 0}
-                            onDeadlineChange={(days) => setExtendDaysInput((prev) => ({ ...prev, [entry.weekOf]: String(days) }))}
+                            onDeadlineChange={(days) => {
+                              // Picking a deadline applies immediately: every later turn
+                              // cascades to start the day after this one's deadline.
+                              setExtendDaysInput((prev) => ({ ...prev, [entry.weekOf]: String(days) }));
+                              handleSetTurnDates(entry.weekOf, days);
+                            }}
                           />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs shrink-0"
-                            onClick={() => handleSetTurnDates(entry.weekOf)}
-                          >
-                            Set
-                          </Button>
                         </div>
 
                         <UnlockControls
