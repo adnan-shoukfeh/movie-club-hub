@@ -42,7 +42,6 @@ import { TurnResultsInline } from "@/domains/verdicts/components/TurnResultsInli
 import { VHSNoise } from "@/components/ui/vhs-noise";
 import { UserLink } from "@/domains/profiles/components/UserLink";
 import {
-  CinemaIntro,
   CinemaLoadingDeck,
   CinemaRouteCurtain,
 } from "@/components/cinema/cinema-effects";
@@ -303,7 +302,6 @@ export default function GroupDetail() {
         <CinemaRouteCurtain phase={entryPhase} clubName={group.name} />
       )}
       {isExiting && <CinemaRouteCurtain phase="exiting" clubName={group.name} />}
-      <CinemaIntro groupId={groupId} groupName={group.name} movieTitle={movie?.title} />
       <div className="flex-1 flex flex-col">
         <header className="group-detail-header border-b-4 border-primary sticky top-0 z-20 bg-secondary">
           <div className="group-detail-header-inner px-4 sm:px-6 lg:px-8 py-2 sm:py-4 flex items-center justify-between">
